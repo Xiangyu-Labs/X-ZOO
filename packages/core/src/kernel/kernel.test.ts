@@ -111,10 +111,15 @@ describe('order numbers', () => {
     expect(early < late).toBe(true);
   });
 
-  it('does not collide across ten thousand draws in the same second', () => {
-    const seen = new Set<string>();
-    for (let i = 0; i < 10_000; i += 1) seen.add(generateOrderNo(clock));
-    expect(seen.size).toBe(10_000);
+  // What is guaranteed, with no dice involved: the counter slot (digits 15-17)
+  // steps by one and wraps at 1000, so a thousand draws in one second never
+  // share a slot. Past that, only the seven random digits tell numbers apart
+  // (1 in 10^7 per pair; the `order_no` UNIQUE index is the authority), which
+  // no test can promise for ten thousand draws.
+  it('gives a thousand draws in the same second a thousand different counter slots', () => {
+    const slots = new Set<string>();
+    for (let i = 0; i < 1_000; i += 1) slots.add(generateOrderNo(clock).slice(14, 17));
+    expect(slots.size).toBe(1_000);
   });
 
   it('keeps payment numbers in a separate namespace', () => {
