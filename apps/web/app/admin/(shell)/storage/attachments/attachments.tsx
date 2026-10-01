@@ -121,7 +121,7 @@ export function AttachmentsPage() {
     <PageContainer subTitle="后台与商城用到的图片、视频和文件；相同内容只存一份">
       <Row gutter={16}>
         {canCategories && (
-          <Col xs={24} md={6} lg={5}>
+          <Col xs={24} md={6} lg={5} style={{ minWidth: 0 }}>
             <CategoryTree selectedId={categoryId} onSelect={setCategoryId} />
           </Col>
         )}

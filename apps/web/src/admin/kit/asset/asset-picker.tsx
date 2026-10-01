@@ -12,13 +12,13 @@ import {
   Pagination,
   Row,
   Spin,
-  Tree,
   Typography,
   Upload,
 } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { ApiError } from '../../api/errors';
+import { SideTree } from '../tree/side-tree';
 import { useAssetAccess, useAssetSource } from './asset-source-context';
 import type { AssetCategory, AssetItem } from './types';
 
@@ -221,9 +221,13 @@ export function AssetPicker({
       styles={{ body: { paddingTop: 12 } }}
     >
       <Row gutter={16} style={{ minHeight: 420 }}>
-        <Col xs={24} md={6} style={{ borderRight: '1px solid var(--ant-color-border-secondary)' }}>
+        <Col
+          xs={24}
+          md={6}
+          style={{ minWidth: 0, borderRight: '1px solid var(--ant-color-border-secondary)' }}
+        >
           <Spin spinning={access.categories && categories.isPending}>
-            <Tree
+            <SideTree
               treeData={treeData as never}
               defaultExpandAll
               selectedKeys={[categoryId ?? ALL_KEY]}
