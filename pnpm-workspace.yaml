@@ -1,0 +1,40 @@
+packages:
+  - apps/*
+  - packages/*
+  - e2e/*
+  - guards
+# pnpm 12 refuses to install while any dependency's build script is undecided.
+# Everything below `false` is an OPTIONAL native accelerator with a working pure-JS
+# fallback, so we skip the compile rather than add a toolchain to CI and to the
+# 2-core production box. See docs/rewrite/cr/CR-1-p0a.md.
+allowBuilds:
+  '@parcel/watcher': false # sass's optional file watcher (apps/mini); prebuilt binaries are optional deps
+  '@swc/core': false # Taro's config loader (apps/mini); postinstall only re-checks the prebuilt binding
+  '@tarojs/binding': false # Taro's native helper; compiles only when BUILD_TARO_FROM_SOURCE is set
+  '@tarojs/cli': false # postinstall phones taro.jd.com and installs a plugin from a JD registry over HTTP
+  core-js: false # postinstall prints a banner, nothing else (babel-preset-taro)
+  core-js-pure: false # same banner
+  cpu-features: false # optional CPU detection for ssh2 (testcontainers -> docker-modem)
+  esbuild: true
+  msgpackr-extract: false # optional msgpack accelerator for bullmq
+  protobufjs: false # postinstall only wires up its own CLI, unused here
+  ssh2: false # pure-JS crypto fallback is fine; only used to talk to a remote docker host
+  unrs-resolver: true # native binding of eslint-import-resolver-typescript
+# apps/mini runs React 18 (Taro 4.2 ships react-reconciler 0.29), apps/web React 19. Nothing
+# may pick React up from pnpm's hidden hoist (node_modules/.pnpm/node_modules), where only one
+# of the two can live: a package that uses React without declaring it fails to resolve
+# instead of silently getting the other app's copy. See docs/mini/spikes/S1-taro.md.
+hoistPattern:
+  - '*'
+  - '!react'
+  - '!react-dom'
+minimumReleaseAgeExclude:
+  - '@tanstack/query-core@5.103.2'
+  - '@tanstack/react-query@5.103.2'
+  - '@modelcontextprotocol/core@2.1.0'
+  - '@modelcontextprotocol/server@2.1.0'
+overrides:
+  # One sass for the workspace (storefront-blocks and apps/mini compile their styles with
+  # it); auto-install-peers would otherwise hand next's and vite's optional `sass` peer
+  # the newest release, which is inside minimumReleaseAge. See docs/mini/spikes/S3-decor.md.
+  sass: 1.104.1

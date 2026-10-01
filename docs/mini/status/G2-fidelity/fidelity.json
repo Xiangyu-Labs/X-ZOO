@@ -1,0 +1,178 @@
+[
+  {
+    "block": "searchBar",
+    "admin": "750×168",
+    "h5": "750×168",
+    "mismatched": 1896,
+    "total": 126000,
+    "percent": 1.5
+  },
+  {
+    "block": "carousel",
+    "admin": "750×340",
+    "h5": "750×340",
+    "mismatched": 1974,
+    "total": 255000,
+    "percent": 0.77
+  },
+  {
+    "block": "navGrid",
+    "admin": "750×332",
+    "h5": "750×332",
+    "mismatched": 3420,
+    "total": 249000,
+    "percent": 1.37
+  },
+  {
+    "block": "notice",
+    "admin": "750×160",
+    "h5": "750×160",
+    "mismatched": 3528,
+    "total": 120000,
+    "percent": 2.94
+  },
+  {
+    "block": "titleBar",
+    "admin": "750×112",
+    "h5": "750×112",
+    "mismatched": 1977,
+    "total": 84000,
+    "percent": 2.35
+  },
+  {
+    "block": "productGrid",
+    "admin": "750×1570",
+    "h5": "750×1570",
+    "mismatched": 19256,
+    "total": 1177500,
+    "percent": 1.64
+  },
+  {
+    "block": "imageCube",
+    "admin": "750×380",
+    "h5": "750×380",
+    "mismatched": 7273,
+    "total": 285000,
+    "percent": 2.55
+  },
+  {
+    "block": "hotspotImage",
+    "admin": "750×360",
+    "h5": "750×360",
+    "mismatched": 2109,
+    "total": 270000,
+    "percent": 0.78
+  },
+  {
+    "block": "productTabs",
+    "admin": "750×1142",
+    "h5": "750×1142",
+    "mismatched": 14280,
+    "total": 856500,
+    "percent": 1.67
+  },
+  {
+    "block": "spacer",
+    "admin": "750×40",
+    "h5": "750×40",
+    "mismatched": 0,
+    "total": 30000,
+    "percent": 0
+  },
+  {
+    "block": "richText",
+    "admin": "750×290",
+    "h5": "750×290",
+    "mismatched": 7999,
+    "total": 217500,
+    "percent": 3.68
+  },
+  {
+    "block": "userCard",
+    "admin": "750×292",
+    "h5": "750×292",
+    "mismatched": 4276,
+    "total": 219000,
+    "percent": 1.95
+  },
+  {
+    "block": "orderEntry",
+    "admin": "750×254",
+    "h5": "750×254",
+    "mismatched": 5314,
+    "total": 190500,
+    "percent": 2.79
+  },
+  {
+    "block": "serviceGrid",
+    "admin": "750×280",
+    "h5": "750×280",
+    "mismatched": 3376,
+    "total": 210000,
+    "percent": 1.61
+  },
+  {
+    "block": "couponList",
+    "admin": "750×260",
+    "h5": "750×260",
+    "mismatched": 4390,
+    "total": 195000,
+    "percent": 2.25
+  },
+  {
+    "block": "newcomerCoupon",
+    "admin": "750×306",
+    "h5": "750×306",
+    "mismatched": 3377,
+    "total": 229500,
+    "percent": 1.47
+  },
+  {
+    "block": "groupbuyList",
+    "admin": "750×564",
+    "h5": "750×564",
+    "mismatched": 6242,
+    "total": 423000,
+    "percent": 1.48
+  },
+  {
+    "block": "presaleList",
+    "admin": "750×564",
+    "h5": "750×564",
+    "mismatched": 9987,
+    "total": 423000,
+    "percent": 2.36
+  },
+  {
+    "block": "articleList",
+    "admin": "750×450",
+    "h5": "750×450",
+    "mismatched": 9062,
+    "total": 337500,
+    "percent": 2.69
+  },
+  {
+    "block": "video",
+    "admin": "750×422",
+    "h5": "750×422",
+    "mismatched": 4672,
+    "total": 316500,
+    "percent": 1.48
+  },
+  {
+    "block": "floatingContact",
+    "admin": "750×128",
+    "h5": "750×128",
+    "mismatched": 2735,
+    "total": 96000,
+    "percent": 2.85
+  },
+  {
+    "block": "followOfficialAccount",
+    "admin": "750×200",
+    "h5": "750×200",
+    "mismatched": 5797,
+    "total": 150000,
+    "percent": 3.86
+  }
+]

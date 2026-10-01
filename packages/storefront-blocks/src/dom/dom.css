@@ -1,0 +1,217 @@
+/*
+ * Structural styles of the DOM shim: what a WeChat native component does on
+ * its own, before any class of the block's. Everything is inside `:where()`
+ * (zero specificity) so a block's class always wins, as it does on a native
+ * component. These are CSS px of the real components, not design px: the
+ * admin build must NOT scale this file (it only converts `*.module.scss`).
+ */
+
+:where(.sbd-view) {
+  display: block;
+}
+
+:where(.sbd-text) {
+  display: inline;
+  user-select: none;
+}
+
+:where(.sbd-text--selectable) {
+  user-select: text;
+}
+
+:where(.sbd-text--space-ensp, .sbd-text--space-emsp, .sbd-text--space-nbsp) {
+  white-space: pre-wrap;
+}
+
+:where([hidden]) {
+  display: none !important;
+}
+
+/* <image>: a 320×240 box by default; `mode` fits the picture inside it. */
+:where(.sbd-image) {
+  display: inline-block;
+  position: relative;
+  overflow: hidden;
+  width: 320px;
+  height: 240px;
+  font-size: 0;
+}
+
+:where(.sbd-image__img) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+:where(.sbd-image--aspectFit) > .sbd-image__img {
+  object-fit: contain;
+}
+
+:where(.sbd-image--aspectFill) > .sbd-image__img {
+  object-fit: cover;
+}
+
+/* widthFix / heightFix: the box follows the picture's ratio; the set height
+   (or width) is ignored, as on WeChat. Two classes, so it beats a block's one. */
+.sbd-image.sbd-image--widthFix {
+  height: auto;
+}
+
+.sbd-image--widthFix > .sbd-image__img {
+  height: auto;
+}
+
+.sbd-image.sbd-image--heightFix {
+  width: auto;
+}
+
+.sbd-image--heightFix > .sbd-image__img {
+  width: auto;
+}
+
+:where(
+    .sbd-image--top,
+    .sbd-image--bottom,
+    .sbd-image--center,
+    .sbd-image--left,
+    .sbd-image--right,
+    .sbd-image--top-left,
+    .sbd-image--top-right,
+    .sbd-image--bottom-left,
+    .sbd-image--bottom-right
+  )
+  > .sbd-image__img {
+  object-fit: none;
+}
+
+:where(.sbd-image--top) > .sbd-image__img {
+  object-position: center top;
+}
+:where(.sbd-image--bottom) > .sbd-image__img {
+  object-position: center bottom;
+}
+:where(.sbd-image--left) > .sbd-image__img {
+  object-position: left center;
+}
+:where(.sbd-image--right) > .sbd-image__img {
+  object-position: right center;
+}
+:where(.sbd-image--top-left) > .sbd-image__img {
+  object-position: left top;
+}
+:where(.sbd-image--top-right) > .sbd-image__img {
+  object-position: right top;
+}
+:where(.sbd-image--bottom-left) > .sbd-image__img {
+  object-position: left bottom;
+}
+:where(.sbd-image--bottom-right) > .sbd-image__img {
+  object-position: right bottom;
+}
+
+/* <swiper>: 150px high by default, like the native one. */
+:where(.sbd-swiper) {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  height: 150px;
+  touch-action: pan-y;
+}
+
+:where(.sbd-swiper__track) {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  transition-property: transform;
+  transition-timing-function: ease;
+}
+
+:where(.sbd-swiper__track--vertical) {
+  flex-direction: column;
+}
+
+:where(.sbd-swiper__slot) {
+  flex: 0 0 auto;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+:where(.sbd-swiper-item) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+/* WeChat draws 8px dots, 8px apart, 10px above the bottom edge. */
+:where(.sbd-swiper__dots) {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  font-size: 0;
+  pointer-events: none;
+}
+
+:where(.sbd-swiper__dots--vertical) {
+  left: auto;
+  right: 10px;
+  bottom: auto;
+  top: 50%;
+  transform: translateY(-50%);
+  flex-direction: column;
+}
+
+:where(.sbd-swiper__dot) {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transition: background-color 0.3s;
+}
+
+/* <scroll-view> */
+:where(.sbd-scroll) {
+  display: block;
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+:where(.sbd-scroll--x) {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+:where(.sbd-scroll--y) {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+:where(.sbd-scroll--hidebar) {
+  scrollbar-width: none;
+}
+
+.sbd-scroll--hidebar::-webkit-scrollbar {
+  display: none;
+}
+
+/* <rich-text>: a block of flowing content. */
+:where(.sbd-rich-text) {
+  display: block;
+  user-select: none;
+}
+
+/* <video>: 300×225 by default, black behind the picture. */
+:where(.sbd-video) {
+  display: inline-block;
+  width: 300px;
+  height: 225px;
+  background: #000000;
+}

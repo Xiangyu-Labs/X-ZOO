@@ -1,0 +1,35 @@
+{
+  "name": "@shop/config",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    "./eslint": "./eslint/index.js",
+    "./eslint/boundaries": "./eslint/boundaries.js",
+    "./eslint/weapp": "./eslint/weapp.js",
+    "./eslint/ui": "./eslint/ui.js",
+    "./vitest": "./vitest/index.js",
+    "./tsconfig/node.json": "./tsconfig/node.json",
+    "./tsconfig/lib.json": "./tsconfig/lib.json"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "test:unit": "vitest run --project unit",
+    "test:int": "vitest run --project int --passWithNoTests"
+  },
+  "dependencies": {
+    "@eslint/js": "^10.0.1",
+    "globals": "^17.0.0",
+    "typescript-eslint": "^8.70.0"
+  },
+  "devDependencies": {
+    "eslint": "^10.11.0",
+    "vitest": "^5.0.1",
+    "typescript": "6.0.3"
+  },
+  "peerDependencies": {
+    "eslint": "^10.0.0",
+    "vitest": "^5.0.0"
+  }
+}

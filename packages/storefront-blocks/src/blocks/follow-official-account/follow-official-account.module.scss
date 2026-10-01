@@ -1,0 +1,31 @@
+@use '../shared/tokens' as *;
+
+.canvas {
+  padding: $space-16 $gutter;
+}
+
+// WeChat's bar is 84 px high (CSS px, not design px): a similar box here.
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-height: 168px;
+  padding: $space-20 $space-24;
+  border: $hairline dashed $border;
+  border-radius: $radius-md;
+  background: $surface;
+}
+
+.title {
+  color: $text;
+  font-size: $font-body;
+  font-weight: 600;
+  line-height: 40px;
+}
+
+.text {
+  margin-top: $space-8;
+  color: $text-tertiary;
+  font-size: $font-small;
+  line-height: 32px;
+}

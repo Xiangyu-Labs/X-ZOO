@@ -1,0 +1,67 @@
+@use '../../../ui/tokens' as *;
+
+.review {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+  padding: $space-4 $space-5 $space-5;
+
+  &__card {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+  }
+
+  &__stars {
+    display: flex;
+    align-items: center;
+    gap: $space-1;
+  }
+
+  &__stars-label {
+    flex: none;
+    width: 140px;
+    @include text($font-body);
+  }
+
+  &__star {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+  }
+
+  &__star-icon {
+    font-size: 40px;
+    color: var(--color-border-strong);
+
+    &--on {
+      color: var(--color-accent);
+    }
+  }
+
+  &__stars-word {
+    margin-left: $space-2;
+    @include text($font-caption);
+    color: var(--color-text-secondary);
+  }
+
+  &__done,
+  &__hint {
+    @include text($font-caption);
+    color: var(--color-text-secondary);
+  }
+
+  &__bar {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: $z-bar;
+    padding: $space-3 $space-5;
+    background: var(--color-surface);
+    box-shadow: $shadow-bar;
+    @include safe-bottom($space-3);
+  }
+}

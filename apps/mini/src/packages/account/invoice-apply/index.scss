@@ -1,0 +1,37 @@
+@use '../../../ui/tokens' as *;
+
+.invoice-apply {
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    padding: $space-4 $space-5;
+    @include hairline(bottom, $space-5);
+  }
+
+  &__title-text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: $space-1;
+    min-width: 0;
+  }
+
+  &__title-name {
+    @include text($font-body-lg);
+    @include ellipsis;
+  }
+
+  &__title-summary {
+    @include text($font-caption);
+    color: var(--color-text-secondary);
+  }
+
+  &__add {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    padding: $space-4 $space-5;
+    color: var(--color-primary-text);
+  }
+}

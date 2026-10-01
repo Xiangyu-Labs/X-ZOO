@@ -1,0 +1,49 @@
+name: Set up the workspace
+description: >-
+  Node 24 and pnpm through corepack, the locked install, and the generated
+  aggregates. Every job that runs repository code starts here, so the install
+  is spelled once.
+
+inputs:
+  gen:
+    description: >-
+      Run `pnpm gen`. `*.gen.ts` and `openapi.json` are gitignored, so anything
+      that typechecks, lints, tests, builds or serves the tree needs it.
+    default: 'true'
+  turbo-key:
+    description: >-
+      Restore and save turbo's local cache under this name. A turbo task whose
+      inputs did not change is replayed instead of run, which is what lets a
+      second push to a pull request skip the packages it did not touch. Empty:
+      no cache. Caches are per branch, so a merge-queue run starts cold.
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Enable corepack
+      shell: bash
+      run: corepack enable
+
+    - uses: actions/setup-node@v5
+      with:
+        node-version: 24
+        cache: pnpm
+        cache-dependency-path: pnpm-lock.yaml
+
+    - name: Install
+      shell: bash
+      run: corepack pnpm install --frozen-lockfile
+
+    - name: Cache turbo
+      if: inputs.turbo-key != ''
+      uses: actions/cache@v4
+      with:
+        path: .turbo
+        key: turbo-${{ runner.os }}-${{ inputs.turbo-key }}-${{ github.sha }}
+        restore-keys: turbo-${{ runner.os }}-${{ inputs.turbo-key }}-
+
+    - name: Generate aggregates
+      if: inputs.gen == 'true'
+      shell: bash
+      run: corepack pnpm gen

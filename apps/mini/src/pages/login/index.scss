@@ -1,0 +1,101 @@
+@use '../../ui/tokens' as *;
+
+.login {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: $space-9 0 0;
+  @include safe-bottom($space-6);
+
+  &__brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 $space-7;
+  }
+
+  &__logo {
+    width: 144px;
+    height: 144px;
+    overflow: hidden;
+    @include themed-radius($radius-lg);
+
+    &--blank {
+      background: var(--color-primary-soft);
+    }
+  }
+
+  &__name {
+    margin-top: $space-5;
+    @include text($font-title-lg);
+    color: var(--color-text);
+  }
+
+  &__hint {
+    margin-top: $space-2;
+    @include text($font-body);
+    color: var(--color-text-tertiary);
+
+    &--notice {
+      color: var(--color-text-secondary);
+    }
+  }
+
+  &__form {
+    margin-top: $space-8;
+  }
+
+  &__actions {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: $space-4;
+    margin-top: $space-9;
+    padding: 0 $space-7;
+  }
+
+  &__form &__actions {
+    margin-top: $space-7;
+  }
+
+  &__error {
+    @include text($font-body);
+    color: var(--color-danger);
+    text-align: center;
+  }
+
+  &__other {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: $space-5;
+  }
+
+  &__other-title {
+    display: flex;
+    align-items: center;
+    align-self: stretch;
+    gap: $space-4;
+    @include text($font-caption);
+    color: var(--color-text-tertiary);
+
+    &::before,
+    &::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--color-border);
+    }
+  }
+
+  &__links {
+    display: flex;
+    justify-content: space-between;
+  }
+
+  &__agreement {
+    margin-top: auto;
+    padding: $space-7 $space-5 0;
+  }
+}

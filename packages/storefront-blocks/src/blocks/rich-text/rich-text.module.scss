@@ -1,0 +1,15 @@
+@use '../shared/tokens' as *;
+
+.body {
+  padding: $space-24 $gutter;
+  background: $surface;
+}
+
+.content {
+  display: block;
+  overflow: hidden;
+  color: $text;
+  font-size: $font-body;
+  line-height: 1.7;
+  word-break: break-word;
+}

@@ -1,0 +1,86 @@
+@use '../../../ui/tokens' as *;
+
+.goods-list {
+  &__head {
+    position: sticky;
+    top: 0;
+    z-index: $z-sticky;
+    background: var(--color-surface);
+    @include hairline(bottom);
+  }
+
+  &__sorts {
+    display: flex;
+    align-items: center;
+    height: 80px;
+    padding: 0 $space-3;
+  }
+
+  &__sort {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    gap: $space-1;
+    height: 100%;
+    @include text($font-body);
+    color: var(--color-text-secondary);
+
+    &--on {
+      color: var(--color-primary-text);
+      font-weight: 600;
+    }
+  }
+
+  &__sort-icon {
+    font-size: 24px;
+  }
+
+  &__layout {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 80px;
+    height: 100%;
+    color: var(--color-text);
+  }
+
+  &__body {
+    padding: $space-4;
+  }
+
+  &__skeleton-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: $space-3;
+  }
+
+  &__filter-title {
+    display: block;
+    margin-bottom: $space-4;
+    @include text($font-body);
+    font-weight: 600;
+  }
+
+  &__price {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+  }
+
+  &__price-field {
+    flex: 1;
+    border-radius: $radius-sm;
+    background: var(--color-surface-sunken);
+  }
+
+  &__price-dash {
+    color: var(--color-text-secondary);
+  }
+
+  &__filter-actions {
+    display: flex;
+    gap: $space-4;
+  }
+}

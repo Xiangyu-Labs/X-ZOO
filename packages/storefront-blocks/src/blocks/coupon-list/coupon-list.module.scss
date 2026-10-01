@@ -1,0 +1,150 @@
+@use '../shared/tokens' as *;
+
+// A coupon is a quiet ticket: the amount on a soft primary panel at the left,
+// the name and validity in the middle, one small button at the right. No
+// gradients, no stamps (the store's visuals stay restrained).
+
+.body {
+  background: $surface;
+}
+
+// Every ticket carries its bottom margin (no `:first-child`, which WXSS does
+// not promise); the container's bottom padding is shortened by as much.
+.stack {
+  box-sizing: border-box;
+  padding: 0 $gutter 4px;
+
+  .ticket {
+    margin-bottom: $space-16;
+  }
+}
+
+.scroll {
+  box-sizing: border-box;
+  width: 100%;
+  padding-bottom: $space-20;
+  white-space: nowrap;
+}
+
+.track {
+  display: flex;
+  padding: 0 $gutter;
+
+  .ticket {
+    flex: 0 0 auto;
+    width: 520px;
+    margin-right: $space-16;
+    white-space: normal;
+  }
+}
+
+.ticket {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: 152px;
+  overflow: hidden;
+  border: $hairline solid $border;
+  border-radius: $radius-md;
+  background: $surface;
+}
+
+.amount {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 176px;
+  height: 100%;
+  border-right: $hairline dashed $border;
+  background: $primary-soft;
+  color: $primary-text;
+}
+
+.value {
+  font-size: 52px;
+  font-weight: 600;
+  line-height: 60px;
+  font-variant-numeric: tabular-nums;
+}
+
+.currency {
+  font-size: $font-caption;
+}
+
+.condition {
+  margin-top: 4px;
+  font-size: $font-small;
+  line-height: 30px;
+}
+
+.detail {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0 $space-20;
+}
+
+.name {
+  overflow: hidden;
+  color: $text;
+  font-size: $font-body;
+  font-weight: 600;
+  line-height: 40px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.validity {
+  margin-top: $space-8;
+  overflow: hidden;
+  color: $text-tertiary;
+  font-size: $font-small;
+  line-height: 30px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.button {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  min-width: 120px;
+  height: 56px;
+  margin-right: $space-20;
+  padding: 0 $space-16;
+  border: $hairline solid $primary;
+  border-radius: $radius-pill;
+  background: $primary;
+  color: $on-primary;
+  font-size: $font-caption;
+  line-height: 54px;
+  text-align: center;
+}
+
+.outline {
+  background: $surface;
+  color: $primary-text;
+}
+
+.spent {
+  .amount {
+    background: $surface-sunken;
+    color: $text-tertiary;
+  }
+
+  .button {
+    border-color: $border;
+    background: $surface-sunken;
+    color: $text-tertiary;
+  }
+}
+
+.empty {
+  padding: 40px $gutter;
+  color: $text-tertiary;
+  font-size: $font-caption;
+  text-align: center;
+}

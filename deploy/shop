@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# The shop's host command. Everything done to the running stack goes through
+# it, and `ship.sh` on a machine with the repository drives it over SSH.
+#
+#   shop upgrade  --web <ref> --worker <ref> --edge <ref> [--app-version <commit>]
+#                 [--dry-run] [--skip-migration] [--first-deploy]
+#   shop rollback --last-upgrade | --web <ref> --worker <ref> --edge <ref>
+#                 [--restore <dump.sql.gz> [--yes]]
+#   shop backup   [--out <file.sql.gz>] [--no-verify] | --verify-only <file.sql.gz>
+#   shop status
+#   shop resolve  <commit>
+#   shop compose  <docker compose arguments…>
+#   shop hostname
+#   shop help
+#
+# `shop <command> --help` prints that command's own contract, exit codes
+# included. Every command reads `deployment.env` next to this file and calls
+# Compose with the same project, files and overlays (lib/common.sh), so no
+# command can recreate a container without the overlays the deployment runs
+# with.
+#
+# `upgrade` and `rollback` run one at a time: each holds `data/shop.lock` (an
+# flock, beside `deployment.env`) for as long as it runs, and one that finds it
+# held exits 4 having changed nothing (`--dry-run` takes no lock). The lock goes with the process, so a
+# crashed or killed run never leaves it behind. `ship.sh` takes the same lock
+# before it syncs a release's files and hands it to the upgrade it starts
+# (SHOP_LOCK_HELD=1), so the files and the images of one release are never
+# interleaved with another's.
+set -Eeuo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+usage() {
+  cat <<'EOF'
+usage: shop <command> [arguments]
+
+  upgrade    deploy a release; a failed one ends on the previous images
+  rollback   return to the images the last upgrade replaced, or to named ones
+  backup     dump the database and prove the dump restorable
+  status     the release, the running digests, the last upgrade, and the readiness gate
+  resolve    the digests CI published for a commit (pulls them)
+  compose    docker compose with this deployment's project, files and settings
+  hostname   the public host name, when the Traefik overlay is configured
+  help       this list
+
+`shop <command> --help` describes one command.
+EOF
+}
+
+command="${1:-help}"
+[ "$#" -eq 0 ] || shift
+
+# Holds the deployment's lock on fd 9 for the rest of this process — which the
+# command `exec`ed below inherits — or exits 4.
+hold_lock() {
+  local settings="${NEXT_DEPLOYMENT_ENV:-$here/deployment.env}" lock
+  lock="$(dirname "$settings")/data/shop.lock"
+  mkdir -p "${lock%/*}"
+  exec 9>>"$lock"
+  flock -n 9 || {
+    printf 'refused: another upgrade or rollback is running on this host (%s is held).\n' "$lock" >&2
+    printf 'Nothing was changed. Wait for it to finish; "shop status" shows the release.\n' >&2
+    exit 4
+  }
+}
+
+case "$command" in
+  upgrade | rollback)
+    # A dry run and --help change nothing, so they neither take the lock nor
+    # create its file.
+    case " $* " in
+      *' --help '* | *' -h '* | *' --dry-run '*) ;;
+      *) [ -n "${SHOP_LOCK_HELD-}" ] || hold_lock ;;
+    esac
+    exec bash "$here/lib/commands/$command.sh" "$@"
+    ;;
+  backup | status | resolve)
+    exec bash "$here/lib/commands/$command.sh" "$@"
+    ;;
+  compose)
+    # shellcheck source=lib/common.sh
+    . "$here/lib/common.sh"
+    require_settings
+    compose "$@"
+    ;;
+  hostname)
+    # The one setting `ship.sh` reads from the host, to check the site from
+    # outside. Printed only while the Traefik overlay is applied: that overlay
+    # is what routes the name here, and without it the name in the file routes
+    # somewhere else, or nowhere.
+    # shellcheck source=lib/common.sh
+    . "$here/lib/common.sh"
+    require_settings
+    while IFS= read -r overlay; do
+      case "${overlay##*/}" in
+        compose.traefik.yml)
+          name="$(setting NEXT_HOST)"
+          name="${name#[\"\']}"
+          name="${name%[\"\']}"
+          [[ "$name" =~ ^[A-Za-z0-9.-]+$ ]] || die "NEXT_HOST is not a host name"
+          printf '%s\n' "$name"
+          ;;
+      esac
+    done < <(compose_overlays)
+    ;;
+  help | -h | --help) usage ;;
+  *)
+    printf 'unknown command: %s\n\n' "$command" >&2
+    usage >&2
+    exit 2
+    ;;
+esac

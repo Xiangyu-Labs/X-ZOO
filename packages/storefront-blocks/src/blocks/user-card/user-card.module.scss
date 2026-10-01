@@ -1,0 +1,108 @@
+@use '../shared/tokens' as *;
+
+.body {
+  position: relative;
+  padding: $space-32 $gutter $space-24;
+  background: $surface;
+}
+
+.background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+// Over a picture the text turns white, on a dark veil that keeps it legible.
+.pictured::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.32);
+}
+
+.identity,
+.stats {
+  position: relative;
+  z-index: 1;
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  min-height: $hit;
+}
+
+.avatar {
+  flex: 0 0 auto;
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  background: $surface-sunken;
+}
+
+.names {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  margin-left: $space-24;
+}
+
+.name {
+  overflow: hidden;
+  color: $text;
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 48px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hint {
+  margin-top: 4px;
+  color: $text-tertiary;
+  font-size: $font-caption;
+  line-height: 34px;
+}
+
+.stats {
+  display: flex;
+  margin-top: $space-24;
+}
+
+.stat {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: $hit + 12px;
+}
+
+.value {
+  color: $text;
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 44px;
+}
+
+.statLabel {
+  color: $text-secondary;
+  font-size: $font-caption;
+  line-height: 34px;
+}
+
+.pictured .name,
+.pictured .value {
+  color: #ffffff;
+}
+
+.pictured .hint,
+.pictured .statLabel {
+  color: rgba(255, 255, 255, 0.85);
+}

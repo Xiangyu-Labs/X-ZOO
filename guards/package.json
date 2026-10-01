@@ -1,0 +1,29 @@
+{
+  "name": "@shop/guards",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "guards": "tsx src/cli.ts",
+    "mutations": "tsx scripts/mutations/run.ts",
+    "api-compat:refresh": "pnpm --filter @shop/contracts gen && tsx scripts/api-compat-refresh.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "test:unit": "vitest run --project unit",
+    "test:int": "vitest run --project int --passWithNoTests"
+  },
+  "dependencies": {
+    "@shop/contracts": "workspace:*",
+    "@shop/core": "workspace:*",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@shop/config": "workspace:*",
+    "@types/node": "^24.0.0",
+    "eslint": "^10.11.0",
+    "tsx": "^4.20.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  }
+}

@@ -1,0 +1,121 @@
+@use '../../ui/tokens' as *;
+
+// Tab pages: WeChat's tab bar sits outside the page, so the bar rests on the page's bottom edge.
+// In the H5 build Taro's tab bar covers the bottom 50px of the viewport. Taro's H5 PostCSS step
+// (postcss-plugin-constparse) rewrites the bare word `taro-tabbar-height` to that height and
+// leaves it alone for weapp, where the invalid second `bottom` is dropped and `0` stands. (It
+// also rewrites the word inside `var(--taro-tabbar-height)`, so the custom property cannot be
+// used.)
+
+.cart {
+  padding-bottom: $space-5;
+
+  &--with-bar {
+    padding-bottom: calc(#{$bar-height} + #{$space-5});
+  }
+
+  &__loading {
+    padding: $space-4 $space-5;
+  }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $space-4 $space-5 0;
+  }
+
+  &__count {
+    color: var(--color-text-secondary);
+    @include text($font-caption);
+  }
+
+  &__manage {
+    padding: $space-2 0 $space-2 $space-5;
+    color: var(--color-text);
+    @include text($font-body);
+  }
+
+  &__coupon {
+    display: flex;
+    align-items: center;
+    margin: $space-4 $space-5 0;
+    padding: $space-3 $space-4;
+    border-radius: $radius-sm;
+    background: var(--color-warning-soft);
+    color: var(--color-warning-text);
+
+    &--ready {
+      background: var(--color-primary-soft);
+      color: var(--color-primary-text);
+    }
+  }
+
+  &__coupon-icon {
+    flex: none;
+    margin-right: $space-2;
+  }
+
+  &__coupon-text {
+    min-width: 0;
+    @include text($font-caption);
+    @include ellipsis;
+  }
+
+  &__clear {
+    color: var(--color-text-secondary);
+    @include text($font-caption);
+  }
+
+  &__recommend {
+    padding: $space-7 $space-5 0;
+  }
+
+  &__recommend-title {
+    display: block;
+    margin-bottom: $space-4;
+    color: var(--color-text);
+    text-align: center;
+    @include text($font-title);
+  }
+
+  &__recommend-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $space-4;
+  }
+
+  &__bar {
+    display: flex;
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    bottom: taro-tabbar-height;
+    left: 0;
+    z-index: $z-bar;
+    align-items: center;
+    justify-content: space-between;
+    height: $bar-height;
+    padding: 0 $space-5;
+    background: var(--color-surface);
+    box-shadow: $shadow-bar;
+  }
+
+  &__bar-actions {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+  }
+
+  &__total {
+    display: flex;
+    align-items: baseline;
+    margin-right: $space-2;
+  }
+
+  &__total-label {
+    margin-right: $space-1;
+    color: var(--color-text);
+    @include text($font-body);
+  }
+}

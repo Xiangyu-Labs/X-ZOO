@@ -1,0 +1,257 @@
+@use '../../ui/tokens' as *;
+
+.product {
+  &__gallery {
+    position: relative;
+    background: var(--color-surface);
+  }
+
+  &__swiper {
+    width: 750px;
+    height: 750px;
+  }
+
+  &__counter {
+    position: absolute;
+    right: $space-5;
+    bottom: $space-5;
+    padding: 2px $space-3;
+    border-radius: $radius-pill;
+    background: var(--color-mask);
+    @include text($font-small);
+    color: var(--color-on-primary);
+  }
+
+  &__sold-out {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    padding: $space-3 $space-6;
+    border-radius: $radius-pill;
+    background: var(--color-mask);
+    @include text($font-title);
+    color: var(--color-on-primary);
+    transform: translate(-50%, -50%);
+  }
+
+  &__summary {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    padding: $space-5;
+    background: var(--color-surface);
+  }
+
+  &__price-row {
+    display: flex;
+    align-items: baseline;
+    gap: $space-3;
+  }
+
+  &__sales {
+    margin-left: auto;
+    @include text($font-caption);
+    color: var(--color-text-secondary);
+  }
+
+  &__title-row {
+    display: flex;
+    align-items: flex-start;
+    gap: $space-4;
+  }
+
+  &__name {
+    flex: 1;
+    min-width: 0;
+    @include text($font-title);
+    @include line-clamp(2);
+  }
+
+  &__share {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    color: var(--color-text-secondary);
+  }
+
+  &__share-text {
+    @include text($font-micro);
+  }
+
+  &__subtitle {
+    @include text($font-caption);
+    color: var(--color-text-secondary);
+    @include line-clamp(2);
+  }
+
+  &__activities {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    margin-top: $space-3;
+    padding: $space-3 $space-5;
+    background: var(--color-surface);
+  }
+
+  &__activity {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    padding: $space-3 $space-4;
+    border-radius: $radius-sm;
+    background: var(--color-primary-soft);
+    color: var(--color-primary-text);
+  }
+
+  &__activity-kind {
+    @include text($font-caption);
+    font-weight: 600;
+  }
+
+  &__activity-note {
+    flex: 1;
+    min-width: 0;
+    @include text($font-caption);
+    @include ellipsis;
+  }
+
+  &__activity-go {
+    @include text($font-caption);
+  }
+
+  &__cells {
+    margin-top: $space-3;
+    background: var(--color-surface);
+  }
+
+  &__reviews,
+  &__description {
+    margin-top: $space-3;
+  }
+
+  &__good-rate {
+    @include text($font-caption);
+    color: var(--color-text-secondary);
+  }
+
+  &__review-list {
+    display: flex;
+    flex-direction: column;
+    gap: $space-6;
+  }
+
+  &__muted {
+    @include text($font-caption);
+    color: var(--color-text-secondary);
+  }
+
+  &__recommended {
+    padding: $space-6 $space-4 $space-4;
+  }
+
+  &__section-title {
+    display: block;
+    margin-bottom: $space-4;
+    @include text($font-title);
+    text-align: center;
+  }
+
+  &__recommended-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: $space-3;
+  }
+
+  &__sheet-list {
+    display: flex;
+    flex-direction: column;
+    gap: $space-5;
+  }
+
+  &__sheet-item {
+    display: flex;
+    flex-direction: column;
+    gap: $space-1;
+  }
+
+  &__sheet-title {
+    @include text($font-body);
+    font-weight: 600;
+  }
+
+  &__params {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__param {
+    display: flex;
+    gap: $space-5;
+    padding: $space-4 0;
+    @include hairline(bottom);
+  }
+
+  &__param-name {
+    flex: none;
+    width: 160px;
+    @include text($font-body);
+    color: var(--color-text-secondary);
+  }
+
+  &__param-value {
+    flex: 1;
+    @include text($font-body);
+    word-break: break-all;
+  }
+
+  &__share-options {
+    display: flex;
+    justify-content: center;
+    gap: $space-9;
+    padding: $space-4 0 $space-6;
+  }
+
+  &__share-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $space-2;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    @include text($font-caption);
+    color: var(--color-text);
+    line-height: 1.4;
+    @include native-button-width(160px);
+
+    &::after {
+      display: none;
+    }
+  }
+
+  &__gone {
+    padding-top: $space-9;
+  }
+
+  &__skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+  }
+
+  &__skeleton-gallery {
+    width: 750px;
+    height: 750px;
+  }
+
+  &__skeleton-line {
+    height: 40px;
+
+    &--short {
+      width: 60%;
+    }
+  }
+}

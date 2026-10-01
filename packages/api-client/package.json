@@ -1,0 +1,55 @@
+{
+  "name": "@shop/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./react": "./src/react.ts",
+    "./validate": "./src/validate.ts",
+    "./routes": "./src/storefront-routes.gen.ts"
+  },
+  "scripts": {
+    "gen": "tsx scripts/gen.ts && tsx scripts/gen-storefront-routes.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "test:unit": "vitest run --project unit --project unit-react18",
+    "test:int": "vitest run --project int --passWithNoTests"
+  },
+  "dependencies": {
+    "@shop/contracts": "workspace:*",
+    "zod": "^4.6.5"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5.0.0",
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@tanstack/react-query": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@shop/config": "workspace:*",
+    "@shop/testing": "workspace:*",
+    "@tanstack/react-query": "^5.103.2",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.11.0",
+    "happy-dom": "^20.14.5",
+    "react": "^19.3.0",
+    "react-18": "npm:react@18.3.1",
+    "react-dom": "^19.3.0",
+    "react-dom-18": "npm:react-dom@18.3.1",
+    "tsx": "^4.20.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  }
+}

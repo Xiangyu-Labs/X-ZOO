@@ -1,0 +1,75 @@
+@use '../shared/tokens' as *;
+
+.body {
+  background: $surface;
+}
+
+.bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: $hit;
+  padding: $space-12 $gutter;
+  box-sizing: border-box;
+}
+
+.heading {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.center .heading {
+  flex-direction: column;
+  align-items: center;
+  padding: 0 120px;
+}
+
+.title {
+  color: $text;
+  font-size: $font-title;
+  font-weight: 600;
+  line-height: 44px;
+}
+
+.subtitle {
+  margin-left: $space-12;
+  overflow: hidden;
+  color: $text-tertiary;
+  font-size: $font-caption;
+  line-height: 34px;
+  text-overflow: ellipsis;
+}
+
+.center .subtitle {
+  margin: 4px 0 0;
+}
+
+.more {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  height: $hit;
+  margin-left: $space-16;
+  color: $text-secondary;
+  font-size: $font-caption;
+}
+
+.center .more {
+  position: absolute;
+  top: 50%;
+  right: $gutter;
+  margin-top: -44px;
+}
+
+.chevron {
+  width: 12px;
+  height: 12px;
+  margin-left: 6px;
+  border-top: 3px solid $text-secondary;
+  border-right: 3px solid $text-secondary;
+  transform: rotate(45deg);
+}

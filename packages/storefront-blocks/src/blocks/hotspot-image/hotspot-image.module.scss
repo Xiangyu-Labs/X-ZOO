@@ -1,0 +1,17 @@
+.stage {
+  position: relative;
+  font-size: 0;
+}
+
+.image {
+  display: block;
+  width: 100%;
+  // Every Image is 320 × 240 until told otherwise; widthFix then sets the
+  // height on WeChat, but Taro H5 keeps the box at 240. `auto` lets the
+  // picture's own ratio decide everywhere.
+  height: auto;
+}
+
+.spot {
+  position: absolute;
+}

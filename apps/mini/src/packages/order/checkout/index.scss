@@ -1,0 +1,131 @@
+@use '../../../ui/tokens' as *;
+
+.checkout {
+  padding-bottom: $space-5;
+
+  &__address {
+    margin: $space-4 $space-5 0;
+  }
+
+  &__address-skeleton {
+    height: 160px;
+    margin: $space-4 $space-5;
+  }
+
+  &__virtual {
+    display: block;
+    margin: $space-4 $space-5 0;
+    padding: $space-4;
+    border-radius: $radius-md;
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    @include text($font-caption);
+  }
+
+  &__kind-note {
+    display: block;
+    margin-bottom: $space-4;
+    padding: $space-2 $space-3;
+    border-radius: $radius-xs;
+    background: var(--color-warning-soft);
+    color: var(--color-warning-text);
+    @include text($font-caption);
+  }
+
+  &__line {
+    display: flex;
+
+    & + & {
+      margin-top: $space-5;
+    }
+  }
+
+  &__line-image {
+    flex: none;
+    width: 160px;
+    height: 160px;
+    margin-right: $space-4;
+  }
+
+  &__line-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  &__line-name {
+    color: var(--color-text);
+    @include text($font-body);
+    @include line-clamp(2);
+  }
+
+  &__line-spec {
+    margin-top: $space-1;
+    color: var(--color-text-tertiary);
+    @include text($font-caption);
+    @include ellipsis;
+  }
+
+  &__line-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: auto;
+  }
+
+  &__line-qty {
+    color: var(--color-text-secondary);
+    @include text($font-caption);
+  }
+
+  &__coupon {
+    color: var(--color-text-secondary);
+
+    &--on {
+      color: var(--color-price);
+    }
+  }
+
+  &__privacy {
+    display: block;
+    padding: $space-5 $space-5 0;
+    color: var(--color-text-tertiary);
+    text-align: center;
+    @include text($font-small);
+  }
+
+  &__bar {
+    display: flex;
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: $z-bar;
+    align-items: center;
+    justify-content: space-between;
+    min-height: $bar-height;
+    padding: 0 $space-5;
+    background: var(--color-surface);
+    box-shadow: $shadow-bar;
+    @include safe-bottom;
+  }
+
+  &__total {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 $space-2;
+  }
+
+  &__total-label {
+    color: var(--color-text);
+    @include text($font-body);
+  }
+
+  &__saved {
+    width: 100%;
+    color: var(--color-price);
+    @include text($font-small);
+  }
+}

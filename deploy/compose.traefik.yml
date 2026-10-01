@@ -1,0 +1,66 @@
+# The overlay that puts the edge behind Traefik. It is applied by naming it in
+# `deployment.env`:
+#
+#   NEXT_COMPOSE_OVERLAYS=compose.traefik.yml
+#
+# from then on every `shop` command calls Compose with `-f compose.yml -f
+# compose.traefik.yml`, so a release recreates the edge with its route rather
+# than without it. Taking the site off the router is the reverse: remove the
+# name and run `shop compose up -d --wait` (README.md, "The Traefik overlay").
+#
+# Why a second file rather than `traefik.enable=${NEXT_TRAEFIK:-false}` on the
+# service:
+#
+#   - a label that says `false` still puts the container in front of the
+#     provider, and one mistyped value in an env file flips it;
+#   - `server-internal-net` is where Traefik reaches a backend. A service that
+#     is not on that network cannot be routed to *whatever* its labels claim,
+#     and an external network cannot be made conditional inside one file.
+#
+# So without this file the stack is not merely unlabelled — it is not
+# reachable from the router at all. Bringing it up for a smoke test on
+# loopback can therefore never take the domain.
+
+services:
+  edge:
+    environment:
+      # Traefik's network, so the edge takes the client address from the
+      # X-Forwarded-For Traefik appends — and from nobody else.
+      # Required: without it every shopper is Traefik's one address, and the
+      # per-IP SMS budget (50 codes a day by default) locks the whole shop
+      # out of SMS sign-in by lunchtime. README.md, "The client's address".
+      NEXT_EDGE_TRUSTED_PROXIES: ${NEXT_EDGE_TRUSTED_PROXIES:?set NEXT_EDGE_TRUSTED_PROXIES to server-internal-net's subnet before switching traffic}
+    networks:
+      - default
+      - server-internal-net
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=server-internal-net
+      # Plain HTTP only ever redirects. The session cookies are `Secure` in
+      # production, so a browser on http:// accepts the sign-in response and
+      # then drops its cookie: the admin login "succeeds" and lands back on
+      # an empty form. Serving nothing over http:// means that cannot happen.
+      # Certificate issuance is unaffected: Traefik answers its own ACME
+      # HTTP-01 challenge on `web` ahead of any router.
+      - traefik.http.routers.x-zoo-http.rule=Host(`${NEXT_HOST:?set NEXT_HOST before switching traffic}`)
+      - traefik.http.routers.x-zoo-http.entrypoints=web
+      - traefik.http.routers.x-zoo-http.middlewares=x-zoo-https-redirect
+      - traefik.http.middlewares.x-zoo-https-redirect.redirectscheme.scheme=https
+      - traefik.http.middlewares.x-zoo-https-redirect.redirectscheme.permanent=true
+      - traefik.http.routers.x-zoo-https.rule=Host(`${NEXT_HOST:?}`)
+      - traefik.http.routers.x-zoo-https.entrypoints=websecure
+      - traefik.http.routers.x-zoo-https.tls=true
+      - traefik.http.routers.x-zoo-https.tls.certresolver=myresolver
+      # TLS 1.2 as well as 1.3. WeChat's mini-program network stack on iOS does
+      # not speak TLS 1.3: against a 1.3-only router every wx.request fails at
+      # the handshake ("网络不太好"), nothing reaches the edge, and only
+      # Android and browsers work. The router uses Traefik's `default` options,
+      # which must allow 1.2; a router with options of its own answers 421
+      # Misdirected Request whenever a connection's SNI is not its host.
+      # README.md, "The Traefik overlay".
+      - traefik.http.routers.x-zoo-https.tls.options=${NEXT_TRAEFIK_TLS_OPTIONS:-default}
+      - traefik.http.services.x-zoo.loadbalancer.server.port=80
+
+networks:
+  server-internal-net:
+    external: true

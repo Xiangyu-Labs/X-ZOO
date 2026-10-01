@@ -1,0 +1,11 @@
+@use '../../ui/tokens' as *;
+
+.micro-page {
+  &__preview {
+    display: block;
+    padding: $space-3 $space-5;
+    background: var(--color-warning-soft);
+    @include text($font-caption);
+    color: var(--color-warning-text);
+  }
+}

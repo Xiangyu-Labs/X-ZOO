@@ -1,0 +1,18 @@
+@use '../../../ui/tokens' as *;
+
+.my-coupons {
+  padding: $space-4 $space-5;
+  @include safe-bottom($space-5);
+
+  &__skeleton,
+  &__list .shop-list__items {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+  }
+
+  &__skeleton-card {
+    height: 176px;
+    @include themed-radius($radius-md);
+  }
+}

@@ -1,0 +1,99 @@
+@use '../../../ui/tokens' as *;
+
+.my-review {
+  margin: $space-4 $space-5 0;
+  padding: $space-5;
+  @include themed-radius($radius-md);
+  background: var(--color-surface);
+
+  &__product {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    padding: $space-2;
+    @include themed-radius($radius-sm);
+    background: var(--color-surface-sunken);
+  }
+
+  &__thumb {
+    flex: none;
+    width: 96px;
+  }
+
+  &__product-text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  &__name {
+    @include text($font-body);
+    @include ellipsis;
+    color: var(--color-text);
+  }
+
+  &__spec {
+    @include text($font-caption);
+    color: var(--color-text-tertiary);
+  }
+
+  &__arrow {
+    color: var(--color-text-tertiary);
+  }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    margin-top: $space-4;
+  }
+
+  &__stars {
+    display: flex;
+    gap: 4px;
+  }
+
+  &__star {
+    font-size: 28px;
+    color: var(--color-text-disabled);
+
+    &--on {
+      color: var(--color-accent);
+    }
+  }
+
+  &__date {
+    flex: 1;
+    @include text($font-caption);
+    color: var(--color-text-tertiary);
+  }
+
+  &__content {
+    display: block;
+    margin-top: $space-3;
+    @include text($font-body);
+    color: var(--color-text);
+    white-space: pre-wrap;
+  }
+
+  &__images {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: $space-2;
+    margin-top: $space-3;
+  }
+
+  &__reply {
+    margin-top: $space-3;
+    padding: $space-3;
+    @include themed-radius($radius-sm);
+    background: var(--color-surface-sunken);
+    @include text($font-caption);
+    color: var(--color-text-secondary);
+  }
+
+  &__reply-label {
+    color: var(--color-text);
+  }
+}

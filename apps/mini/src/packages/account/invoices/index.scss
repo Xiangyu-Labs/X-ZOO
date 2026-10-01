@@ -1,0 +1,95 @@
+@use '../../../ui/tokens' as *;
+
+.invoice-title {
+  margin: $space-4 $space-5 0;
+  @include themed-radius($radius-md);
+  background: var(--color-surface);
+
+  &__main {
+    display: block;
+    padding: $space-5 $space-5 $space-3;
+  }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+  }
+
+  &__name {
+    @include text($font-title);
+    @include ellipsis;
+    min-width: 0;
+  }
+
+  &__summary {
+    display: block;
+    margin-top: $space-2;
+    @include text($font-caption);
+    color: var(--color-text-secondary);
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $space-1 $space-3 $space-1 $space-5;
+    @include hairline(top);
+  }
+}
+
+.invoice-record {
+  display: block;
+  margin: $space-4 $space-5 0;
+  padding: $space-5;
+  @include themed-radius($radius-md);
+  background: var(--color-surface);
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-3;
+  }
+
+  &__name {
+    @include text($font-body-lg);
+    font-weight: 600;
+    @include ellipsis;
+    min-width: 0;
+  }
+
+  &__order {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    margin-top: $space-3;
+  }
+
+  &__thumb {
+    flex: none;
+    width: 96px;
+  }
+
+  &__text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: $space-1;
+    min-width: 0;
+  }
+
+  &__summary {
+    @include text($font-body);
+    @include ellipsis;
+  }
+
+  &__date {
+    @include text($font-caption);
+    color: var(--color-text-tertiary);
+  }
+
+  &__arrow {
+    color: var(--color-text-tertiary);
+  }
+}

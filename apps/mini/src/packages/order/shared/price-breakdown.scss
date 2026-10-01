@@ -1,0 +1,31 @@
+@use '../../../ui/tokens' as *;
+
+.order-price {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+
+  &__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 44px;
+
+    &--total {
+      margin-top: $space-1;
+      padding-top: $space-3;
+      @include hairline(top);
+    }
+  }
+
+  &__label,
+  &__value {
+    @include text($font-body);
+    color: var(--color-text-secondary);
+  }
+
+  &__row--total &__label {
+    color: var(--color-text);
+    font-weight: 500;
+  }
+}

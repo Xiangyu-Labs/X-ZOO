@@ -1,0 +1,26 @@
+{
+  // What runs on the phone, typed against what the phone has: iOS 12's JavaScriptCore is the
+  // floor (babel.config.js), and Babel adds no polyfills. `tsc -p tsconfig.json` checks
+  // everything with the newer library (tests, scripts and the build config run in Node); this
+  // second pass refuses `matchAll`, `replaceAll`, `.at()`, `findLast`, `Promise.allSettled`,
+  // `Object.hasOwn`… in the app's own code (AGENTS.md 14). `pnpm typecheck` runs both.
+  //
+  // ES2019.Array / .String (flat, flatMap, trimStart…) are in iOS 12. ES2019.Object
+  // (`Object.fromEntries`, iOS 12.2+) is here only because the contracts' zod modules, loaded
+  // for their types, use it; the weapp lint preset bans it in code that ships
+  // (packages/config/eslint/weapp.js).
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2018", "ES2019.Array", "ES2019.String", "ES2019.Object", "DOM", "DOM.Iterable"],
+    // Not `node`: @types/node references lib es2020.
+    "types": []
+  },
+  "include": ["src", "types"],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/test",
+    // Build time, in Node: evaluated by Taro's config compiler into app.json.
+    "src/app.config.ts"
+  ]
+}

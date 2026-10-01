@@ -1,0 +1,304 @@
+# The shop's production stack: PostgreSQL, Redis, the Next.js server, the
+# BullMQ worker and the nginx edge. `shop`, next to this file, drives it; see
+# README.md.
+#
+#   ./shop compose up -d --wait
+#
+# Every image is pinned by digest through the env file. A moving tag would make
+# "the stack that passed" unidentifiable, and `shop upgrade` refuses one outright.
+#
+# ## Memory
+#
+# The host has 2 cores and 3.6 GB. The five long-running services are capped at
+# **1568 MiB** total:
+#
+#   postgres 512 · redis 160 · web 512 · worker 320 · edge 64
+#
+# `migrate` is a one-shot under a profile. A release with migrations runs it
+# while `web` and `worker` are stopped, reusing their 832 MiB; a release with
+# none runs only its seed, beside them, for a peak of 1952 MiB. Each
+# JavaScript service also gets an explicit old-space ceiling
+# well under its cgroup limit: V8 sizes its heap from the *host's* memory
+# unless told otherwise, and would happily grow past the limit and be OOM
+# killed with no diagnostic.
+#
+# ## Traffic
+#
+# This file publishes only to `NEXT_EDGE_BIND`, which defaults to loopback, and
+# carries no Traefik labels and no external network. Putting the edge behind
+# Traefik is a deliberate second file: `compose.traefik.yml`.
+
+name: x-zoo
+
+# Fixed container names, because `docker logs x-zoo-worker` on a bad night
+# should not start with looking up a generated suffix. The prefix is a variable
+# only so `rehearsal/drill.sh` can bring a second copy of this stack up beside
+# the real one — including on the production host, where rehearsing is the
+# point and colliding with the live stack is not.
+x-restart: &restart unless-stopped
+
+x-logging: &logging
+  options: { max-size: '10m', max-file: '3' }
+
+services:
+  postgres:
+    image: ${NEXT_POSTGRES_IMAGE:?set NEXT_POSTGRES_IMAGE to a digest-pinned postgres:17}
+    container_name: ${NEXT_CONTAINER_PREFIX:-x-zoo}-postgres
+    restart: *restart
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:?}
+      # Server-side timezone. The application converts explicitly (epoch →
+      # timestamptz in Asia/Shanghai); this only affects `now()` in a psql
+      # session and the log timestamps a human reads.
+      TZ: Asia/Shanghai
+      PGTZ: Asia/Shanghai
+    # Tuned for the 512 MiB cap, not for the host's RAM: the defaults assume a
+    # machine to itself.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - effective_cache_size=256MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - max_connections=40
+      - -c
+      - log_min_duration_statement=1000
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # `pg_isready` against the real database and user, not just the port:
+      # PostgreSQL accepts connections during recovery long before it can
+      # answer a query.
+      test: ['CMD-SHELL', 'pg_isready -q -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    deploy:
+      resources:
+        limits: { memory: 512M }
+    logging: *logging
+
+  redis:
+    image: ${NEXT_REDIS_IMAGE:?set NEXT_REDIS_IMAGE to a digest-pinned redis:7}
+    container_name: ${NEXT_CONTAINER_PREFIX:-x-zoo}-redis
+    restart: *restart
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?}
+    # `noeviction` is a correctness requirement, not a preference: this Redis
+    # holds admin sessions, the config cache and the BullMQ queue. An eviction
+    # policy would silently drop queued jobs. AOF so a restart does not lose
+    # the queue.
+    #
+    # The password never reaches argv: `$$REDIS_PASSWORD` is expanded by the
+    # shell *inside* the container, from the container's own environment.
+    command:
+      - sh
+      - -ec
+      - >
+        exec redis-server
+        --appendonly yes
+        --appendfsync everysec
+        --maxmemory 96mb
+        --maxmemory-policy noeviction
+        --requirepass "$$REDIS_PASSWORD"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli --no-auth-warning -a "$$REDIS_PASSWORD" ping | grep -q PONG']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    deploy:
+      resources:
+        limits: { memory: 160M }
+    logging: *logging
+
+  # One-shot. `--profile migrate` keeps it out of a plain `up`: a migration
+  # that runs on every `up -d` is a migration that runs against live writers.
+  # `shop upgrade` runs it with the application services stopped when there is
+  # something to migrate, and otherwise runs only the seed, beside them. The
+  # same image answers "is anything left to migrate?" (`db/src/pending.mjs`)
+  # before either.
+  migrate:
+    image: ${NEXT_WORKER_IMAGE:?}
+    container_name: ${NEXT_CONTAINER_PREFIX:-x-zoo}-migrate
+    profiles: ['migrate']
+    restart: 'no'
+    environment:
+      NODE_ENV: production
+      # The seed loads several thousand cities and express companies in one
+      # pass, and this container runs node like the other two: without a heap
+      # ceiling V8 sizes itself from the *host's* memory and the one-shot is
+      # OOM killed with no diagnostic — which reads as "the migration failed"
+      # on the one step where knowing why matters most.
+      NODE_OPTIONS: --max-old-space-size=288
+      DATABASE_URL: ${DATABASE_URL:?}
+      TZ: Asia/Shanghai
+    # Migrate, then seed the reference data. The seed is idempotent by
+    # construction (upserts on natural keys), so a re-run after a half-finished
+    # release completes it instead of duplicating.
+    command:
+      - sh
+      - -ec
+      - 'node /app/db/src/migrate.mjs && node /app/db/src/seed/index.mjs'
+    depends_on:
+      postgres: { condition: service_healthy }
+    deploy:
+      resources:
+        limits: { memory: 384M }
+    logging: *logging
+
+  web:
+    image: ${NEXT_WEB_IMAGE:?}
+    container_name: ${NEXT_CONTAINER_PREFIX:-x-zoo}-web
+    restart: *restart
+    environment:
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=384
+      PORT: '3000'
+      HOSTNAME: 0.0.0.0
+      TZ: Asia/Shanghai
+      DATABASE_URL: ${DATABASE_URL:?}
+      REDIS_URL: ${REDIS_URL:?}
+      APP_ORIGIN: ${APP_ORIGIN:?}
+      EXTRA_ALLOWED_ORIGINS: ${EXTRA_ALLOWED_ORIGINS:-}
+      APP_VERSION: ${APP_VERSION:-dev}
+      UPLOADS_DIR: /data/uploads
+      UPLOADS_PUBLIC_PREFIX: /uploads
+      DB_POOL_MAX: ${WEB_DB_POOL_MAX:-10}
+      # Pool acquire wait and PostgreSQL's idle_in_transaction_session_timeout
+      # (packages/db/src/client.ts); shared by web and worker.
+      DB_POOL_ACQUIRE_TIMEOUT_MS: ${DB_POOL_ACQUIRE_TIMEOUT_MS:-5000}
+      DB_IDLE_IN_TX_TIMEOUT_MS: ${DB_IDLE_IN_TX_TIMEOUT_MS:-30000}
+      # `/api/v1/readyz` decides whether the worker heartbeat is fresh, so it
+      # needs the same interval the worker beats at — the two are read from one
+      # variable here so they cannot drift into disagreeing about a live worker.
+      HEARTBEAT_INTERVAL_MS: ${HEARTBEAT_INTERVAL_MS:-15000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Off in production on purpose: the merge gate validates every response
+      # against its contract, and paying for it again per request is latency
+      # for a check that already happened (apps/web/src/server/env.ts).
+      VALIDATE_RESPONSES: '0'
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'node', '/app/healthcheck.mjs']
+      interval: 15s
+      timeout: 10s
+      retries: 6
+      start_period: 40s
+    deploy:
+      resources:
+        limits: { memory: 512M }
+    logging: *logging
+
+  worker:
+    image: ${NEXT_WORKER_IMAGE:?}
+    container_name: ${NEXT_CONTAINER_PREFIX:-x-zoo}-worker
+    restart: *restart
+    environment:
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=224
+      TZ: Asia/Shanghai
+      DATABASE_URL: ${DATABASE_URL:?}
+      REDIS_URL: ${REDIS_URL:?}
+      UPLOADS_DIR: /data/uploads
+      UPLOADS_PUBLIC_PREFIX: /uploads
+      QUEUE_NAME: ${QUEUE_NAME:-shop}
+      DB_POOL_MAX: ${WORKER_DB_POOL_MAX:-5}
+      DB_POOL_ACQUIRE_TIMEOUT_MS: ${DB_POOL_ACQUIRE_TIMEOUT_MS:-5000}
+      DB_IDLE_IN_TX_TIMEOUT_MS: ${DB_IDLE_IN_TX_TIMEOUT_MS:-30000}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
+      HEARTBEAT_INTERVAL_MS: ${HEARTBEAT_INTERVAL_MS:-15000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      # Reads `worker:heartbeat` and requires it to be recent. The key is
+      # refreshed from the same event loop that runs the jobs and dropped
+      # before draining on SIGTERM, so this turns unhealthy for a wedged
+      # worker — not merely for a dead process.
+      test: ['CMD', 'node', '/app/healthcheck.mjs']
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+    # A redeploy must be allowed to finish the job in hand: `stop()` drops the
+    # heartbeat, then drains for up to SHUTDOWN_TIMEOUT_MS (25s default).
+    stop_grace_period: 40s
+    deploy:
+      resources:
+        limits: { memory: 320M }
+    logging: *logging
+
+  edge:
+    image: ${NEXT_EDGE_IMAGE:?}
+    container_name: ${NEXT_CONTAINER_PREFIX:-x-zoo}-edge
+    restart: *restart
+    ports:
+      # Loopback by default. Traefik reaches the edge over its own network
+      # (compose.traefik.yml), so nothing needs this port on a public
+      # interface; publishing it there would bypass the router.
+      - '${NEXT_EDGE_BIND:-127.0.0.1:8080}:80'
+    environment:
+      # Who may tell the edge the client's address. Empty here: with
+      # nothing in front, the TCP peer *is* the client, and a client's own
+      # X-Forwarded-For is ignored. `compose.traefik.yml` requires it.
+      NEXT_EDGE_TRUSTED_PROXIES: ${NEXT_EDGE_TRUSTED_PROXIES:-}
+    volumes:
+      - uploads:/data/uploads:ro
+      # The WeChat domain-verification files (`/<name>.txt`, README.md,
+      # "Domain verification files"): a host directory the operator fills by
+      # hand, read-only here. Relative to this file's directory, so on the
+      # host it is `data/domain-verification/` beside `shop`, which no release
+      # touches. `shop upgrade` creates it, so Docker never does (as root).
+      - ${NEXT_DOMAIN_VERIFICATION_DIR:-./data/domain-verification}:/srv/domain-verification:ro
+    depends_on:
+      web: { condition: service_healthy }
+    healthcheck:
+      # Both: `/healthz` is nginx answering for itself, `/api/v1/health` is the
+      # chain through to the app. An edge that is up but cannot reach `web` is
+      # not a healthy edge.
+      #
+      # Deliberately **not** `/readyz`. That path is the deep check and
+      # answers 503 while PostgreSQL or Redis is down — so probing it
+      # here would restart the edge because the database blipped, which is the
+      # outage-from-a-degradation that `apps/web/src/server/health.ts` exists to
+      # refuse. Nothing acts on readiness; `lib/readiness.sh` reads
+      # it to gate a release, and a human or a monitor reads it to know why.
+      test:
+        [
+          'CMD-SHELL',
+          'wget -q -O /dev/null http://127.0.0.1/healthz && wget -q -O /dev/null http://127.0.0.1/api/v1/health',
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 6
+      start_period: 20s
+    deploy:
+      resources:
+        limits: { memory: 64M }
+    logging: *logging
+
+volumes:
+  pgdata:
+  redisdata:
+  # Both apps write here and the edge serves it read-only. A *named* volume, so
+  # it inherits the uid-1000 ownership the images create, with no manual
+  # `chown` on the host.
+  uploads:

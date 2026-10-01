@@ -1,0 +1,14 @@
+@use '../../../ui/tokens' as *;
+
+.invoice-edit__import {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  color: var(--color-primary-text);
+}
+
+.invoice-edit__choices {
+  display: flex;
+  justify-content: flex-end;
+  gap: $space-6;
+}

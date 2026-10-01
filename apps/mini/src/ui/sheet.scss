@@ -1,0 +1,107 @@
+@use './tokens' as *;
+
+.shop-mask {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: $z-overlay;
+  background: var(--color-mask);
+  opacity: 0;
+  transition: opacity $duration-out $ease;
+
+  &--shown {
+    opacity: 1;
+    transition-duration: $duration-in;
+  }
+}
+
+.shop-sheet {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: $z-sheet;
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+  border-radius: $radius-lg $radius-lg 0 0;
+  background: var(--color-surface);
+  transform: translate3d(0, 100%, 0);
+  transition: transform $duration-out $ease;
+
+  &--shown {
+    transform: translate3d(0, 0, 0);
+    transition-duration: $duration-in;
+  }
+
+  // Sliding in (or out): nothing inside takes a touch (see `Sheet`). The sheet itself still
+  // does, so a quick tap on it does not reach the mask and close it. Named parts, not `> *`:
+  // WXSS rejects the universal selector.
+  &--entering &__header,
+  &--entering &__body,
+  &--entering &__footer {
+    pointer-events: none;
+  }
+
+  &--tall {
+    height: 75vh;
+  }
+
+  &__header {
+    position: relative;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100px;
+    padding: 0 $hit;
+  }
+
+  &__title {
+    @include text($font-title);
+    @include ellipsis;
+    color: var(--color-text);
+  }
+
+  &__close {
+    position: absolute;
+    top: 50%;
+    right: $space-3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: $hit;
+    height: $hit;
+    margin-top: -$hit * 0.5;
+    border-radius: 50%;
+    color: var(--color-text-tertiary);
+    font-size: 36px;
+  }
+
+  &__body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  &__body--padded {
+    padding: 0 $space-5 $space-5;
+  }
+
+  &__footer {
+    flex: none;
+    display: flex;
+    gap: $space-3;
+    padding: $space-3 $space-5 0;
+    @include safe-bottom($space-3);
+  }
+
+  // No footer: the body itself keeps clear of the home indicator.
+  &__spacer {
+    flex: none;
+    @include safe-bottom($space-3);
+  }
+}

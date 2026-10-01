@@ -1,0 +1,1 @@
+ALTER TABLE "effects" ADD COLUMN "outcome" jsonb;

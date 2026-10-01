@@ -1,0 +1,15 @@
+{
+  "miniprogramRoot": "./",
+  "projectname": "shop-mini",
+  "description": "商城小程序（Taro 构建产物）",
+  "appid": "wx4f4b772125e155ed",
+  "setting": {
+    "urlCheck": true,
+    "es6": false,
+    "enhance": false,
+    "compileHotReLoad": false,
+    "postcss": false,
+    "minified": false
+  },
+  "compileType": "miniprogram"
+}

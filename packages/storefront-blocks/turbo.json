@@ -1,0 +1,9 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "gen": {
+      "outputs": ["src/**/*.module.scss.d.ts", "dist/**"]
+    }
+  }
+}

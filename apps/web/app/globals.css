@@ -1,0 +1,28 @@
+@import 'antd/dist/reset.css';
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+#__next,
+body > div {
+  height: 100%;
+}
+
+/* Scrollbars that don't look out of place in dark mode. */
+* {
+  scrollbar-width: thin;
+}
+
+.admin-scroll-area::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.admin-scroll-area::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.35);
+  border-radius: 3px;
+}

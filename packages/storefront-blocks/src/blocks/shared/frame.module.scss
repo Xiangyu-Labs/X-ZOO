@@ -1,0 +1,65 @@
+// The frame every block sits in: the shared spacing / background / radius
+// (plan §2.1). Authored in px on the 750-wide design; Taro turns them into rpx,
+// the admin build into vw.
+
+.outer {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    'Noto Sans CJK SC', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 28px;
+  line-height: 1.4;
+  color: var(--color-text, #1a1a1a);
+}
+
+.inner {
+  display: block;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.myNone {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.mySm {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+.myMd {
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+.myLg {
+  padding-top: 30px;
+  padding-bottom: 30px;
+}
+
+.pxNone {
+  padding-left: 0;
+  padding-right: 0;
+}
+.pxSm {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+.pxMd {
+  padding-left: 20px;
+  padding-right: 20px;
+}
+.pxLg {
+  padding-left: 30px;
+  padding-right: 30px;
+}
+
+.radiusNone {
+  border-radius: 0;
+}
+.radiusSm {
+  border-radius: 12px;
+}
+.radiusLg {
+  border-radius: 24px;
+}

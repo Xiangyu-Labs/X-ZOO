@@ -1,0 +1,83 @@
+@use '../../../ui/tokens' as *;
+
+.refund-card {
+  overflow: hidden;
+  background: var(--color-surface);
+  @include themed-radius($radius-md);
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-2;
+    padding: $space-4 $space-5 $space-2;
+  }
+
+  &__head-left {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    min-width: 0;
+  }
+
+  &__no {
+    @include text($font-caption);
+    @include ellipsis;
+    color: var(--color-text-tertiary);
+  }
+
+  &__status {
+    flex: none;
+    @include text($font-body);
+    font-weight: 500;
+    color: var(--color-warning-text);
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: $space-4;
+    padding: $space-2 $space-5;
+  }
+
+  &__thumb {
+    flex: none;
+    width: 120px;
+  }
+
+  &__info {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  &__name {
+    @include text($font-body);
+    @include line-clamp(2);
+  }
+
+  &__spec,
+  &__qty,
+  &__label {
+    @include text($font-caption);
+    color: var(--color-text-secondary);
+  }
+
+  &__total {
+    display: flex;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: $space-2;
+    padding: $space-2 $space-5 $space-4;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: $space-3;
+    padding: $space-4 $space-5;
+    @include hairline(top, $space-5);
+  }
+}

@@ -1,0 +1,83 @@
+@use '../shared/tokens' as *;
+
+$line: 80px;
+
+.body {
+  background: $surface;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  padding: 0 $gutter;
+}
+
+.stacked {
+  align-items: flex-start;
+}
+
+.lead {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  height: $line;
+  margin-right: $space-16;
+}
+
+.icon {
+  width: 36px;
+  height: 36px;
+}
+
+.label {
+  margin-left: $space-8;
+  padding: 0 $space-8;
+  border-radius: $radius-sm;
+  background: $primary-soft;
+  color: $primary-text;
+  font-size: $font-small;
+  line-height: 36px;
+}
+
+.roll {
+  flex: 1;
+  min-width: 0;
+  height: $line;
+}
+
+.list {
+  flex: 1;
+  min-width: 0;
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  height: $line;
+  box-sizing: border-box;
+}
+
+.divided {
+  border-top: $hairline solid $border;
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: $text;
+  font-size: $font-caption;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+// A thin 》 drawn with two borders, so no icon font is needed.
+.chevron {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  margin: 0 4px 0 $space-12;
+  border-top: 3px solid $text-tertiary;
+  border-right: 3px solid $text-tertiary;
+  transform: rotate(45deg);
+}

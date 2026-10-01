@@ -1,0 +1,88 @@
+@use '../../../ui/tokens' as *;
+
+.refund-apply {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+  padding: $space-4 $space-5 $space-5;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    padding: $space-2 0;
+
+    &--blocked {
+      opacity: 0.6;
+    }
+  }
+
+  &__thumb {
+    flex: none;
+    width: 120px;
+  }
+
+  &__info {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  &__name {
+    @include text($font-body);
+    @include line-clamp(2);
+  }
+
+  &__spec,
+  &__blocked {
+    @include text($font-caption);
+    color: var(--color-text-tertiary);
+  }
+
+  &__blocked {
+    color: var(--color-warning-text);
+  }
+
+  &__kinds {
+    display: flex;
+    gap: $space-3;
+  }
+
+  &__placeholder {
+    color: var(--color-text-tertiary);
+  }
+
+  &__images {
+    margin-top: $space-3;
+  }
+
+  &__reasons {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__reason {
+    min-height: $hit;
+  }
+
+  &__order {
+    @include text($font-caption);
+    color: var(--color-text-tertiary);
+    text-align: center;
+  }
+
+  &__bar {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: $z-bar;
+    padding: $space-3 $space-5;
+    background: var(--color-surface);
+    box-shadow: $shadow-bar;
+    @include safe-bottom($space-3);
+  }
+}

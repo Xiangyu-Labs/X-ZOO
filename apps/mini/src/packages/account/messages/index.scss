@@ -1,0 +1,62 @@
+@use '../../../ui/tokens' as *;
+
+.messages__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $space-3 $space-5 0;
+  @include text($font-caption);
+  color: var(--color-text-secondary);
+}
+
+.message-row {
+  display: flex;
+  align-items: flex-start;
+  margin: $space-4 $space-5 0;
+  padding: $space-5 $space-3 $space-5 $space-5;
+  @include themed-radius($radius-md);
+  background: var(--color-surface);
+
+  &__main {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: $space-1;
+    min-width: 0;
+  }
+
+  &__title-line {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+  }
+
+  &__dot {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--color-danger);
+  }
+
+  &__title {
+    @include text($font-body-lg);
+    font-weight: 600;
+    @include ellipsis;
+  }
+
+  &__content {
+    @include text($font-body);
+    color: var(--color-text-secondary);
+    @include line-clamp(2);
+  }
+
+  &__time {
+    @include text($font-caption);
+    color: var(--color-text-tertiary);
+  }
+
+  &__delete {
+    flex: none;
+  }
+}

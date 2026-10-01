@@ -1,0 +1,30 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "guards": {
+      "cache": false
+    },
+    "typecheck": {
+      "dependsOn": ["gen", "^gen", "@shop/web#gen"]
+    },
+    "lint": {
+      "dependsOn": ["gen", "@shop/web#gen"]
+    },
+    "test:unit": {
+      "dependsOn": ["gen", "^gen", "@shop/web#gen"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/mini/**",
+        "!$TURBO_ROOT$/apps/mini/node_modules/**",
+        "!$TURBO_ROOT$/apps/mini/dist/**",
+        "!$TURBO_ROOT$/apps/mini/.swc/**",
+        "!$TURBO_ROOT$/apps/mini/.bundle-stats/**",
+        "!$TURBO_ROOT$/apps/mini/.turbo/**",
+        "!$TURBO_ROOT$/apps/mini/coverage/**",
+        "$TURBO_ROOT$/packages/api-client/src/**",
+        "$TURBO_ROOT$/packages/storefront-blocks/src/**"
+      ]
+    }
+  }
+}

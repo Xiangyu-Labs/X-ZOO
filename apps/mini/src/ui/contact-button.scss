@@ -1,0 +1,20 @@
+@use './tokens' as *;
+
+/* The native contact button around a block's face: no padding, border, colour or line of its own. */
+.shop-contact-area {
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  text-align: inherit;
+  @include native-button-width(100%);
+
+  &::after {
+    display: none;
+  }
+}

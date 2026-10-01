@@ -1,0 +1,37 @@
+@use '../../../ui/tokens' as *;
+
+.manage-row {
+  display: flex;
+  align-items: center;
+  margin: $space-4 $space-5 0;
+  padding: $space-4;
+  @include themed-radius($radius-md);
+  background: var(--color-surface);
+
+  &__check {
+    flex: none;
+    margin-right: $space-3;
+  }
+
+  &__card {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.manage-bar {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.manage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $space-4 $space-5 0;
+  @include text($font-caption);
+  color: var(--color-text-tertiary);
+}

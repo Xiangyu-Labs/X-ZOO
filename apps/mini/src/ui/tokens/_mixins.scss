@@ -1,0 +1,106 @@
+@use 'size' as *;
+
+/// A text style from a `$font-*` token.
+@mixin text($token) {
+  font-size: nth($token, 1);
+  line-height: nth($token, 2);
+  font-weight: nth($token, 3);
+}
+
+/// Numbers that tick (prices, countdowns) keep their width.
+@mixin tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@mixin ellipsis {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@mixin line-clamp($lines) {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: $lines;
+  word-break: break-all;
+}
+
+/// Padding for the home-indicator area, plus `$extra` (fixed bars and sheets only; the native
+/// tab bar handles its own).
+@mixin safe-bottom($extra: 0px) {
+  padding-bottom: calc(#{$extra} + constant(safe-area-inset-bottom));
+  padding-bottom: calc(#{$extra} + env(safe-area-inset-bottom));
+}
+
+/// A one-physical-pixel line (WeUI hairline). `1PX` is left alone by pxtransform.
+@mixin hairline($side: bottom, $inset-left: 0px) {
+  position: relative;
+  &::after {
+    content: '';
+    display: block;
+    position: absolute;
+    pointer-events: none;
+    left: $inset-left;
+    right: 0;
+    #{$side}: 0;
+    height: 1px;
+    background: var(--color-border);
+    transform: scaleY(0.5);
+    @if $side == top {
+      transform-origin: 0 0;
+    } @else {
+      transform-origin: 0 100%;
+    }
+  }
+}
+
+/// A hairline border all round, for outline buttons and tags.
+@mixin hairline-box($color: var(--color-border), $radius: 0px) {
+  position: relative;
+  &::after {
+    content: '';
+    display: block;
+    position: absolute;
+    pointer-events: none;
+    top: 0;
+    left: 0;
+    width: 200%;
+    height: 200%;
+    border: 1px solid $color;
+    border-radius: calc(#{$radius} * 2);
+    transform: scale(0.5);
+    transform-origin: 0 0;
+    box-sizing: border-box;
+  }
+}
+
+/// Radius that follows the shop's roundness setting.
+@mixin themed-radius($token) {
+  border-radius: calc(#{$token} * var(--radius-factor, 1));
+}
+
+/// A visually small control with a ≥ 88 × 88 hit area.
+// A native button (`button` in WeChat, `taro-button-core` on H5) arrives with the platform's
+// width (100% on H5, 184px under WeChat's style v2) and auto side margins. `[class]` lifts the
+// override over WeChat's `button:not([size=mini])`, which a single class would lose to.
+@mixin native-button-width($width: auto) {
+  &[class] {
+    width: $width;
+    margin-left: 0;
+    margin-right: 0;
+  }
+}
+
+@mixin hit-area {
+  position: relative;
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: $hit;
+    height: $hit;
+    transform: translate(-50%, -50%);
+  }
+}

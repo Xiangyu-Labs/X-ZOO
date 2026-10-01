@@ -1,0 +1,76 @@
+@use '../../../ui/tokens' as *;
+
+.addresses {
+  &__import {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    margin: $space-4 $space-5 0;
+    padding: $space-4 $space-5;
+    @include themed-radius($radius-md);
+    background: var(--color-surface);
+    color: var(--color-primary-text);
+  }
+
+  &__import-text {
+    flex: 1;
+    @include text($font-body);
+  }
+
+  &__import-arrow {
+    color: var(--color-text-tertiary);
+  }
+}
+
+.address-item {
+  margin: $space-4 $space-5 0;
+  @include themed-radius($radius-md);
+  background: var(--color-surface);
+  border: 2px solid transparent;
+
+  &--on {
+    border-color: var(--color-primary);
+  }
+
+  &__main {
+    display: block;
+    padding: $space-5 $space-5 $space-3;
+  }
+
+  &__who {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+  }
+
+  &__name {
+    @include text($font-title);
+    color: var(--color-text);
+  }
+
+  &__phone {
+    @include text($font-body);
+    @include tabular;
+    color: var(--color-text-secondary);
+  }
+
+  &__detail {
+    display: block;
+    margin-top: $space-2;
+    @include text($font-body);
+    color: var(--color-text-secondary);
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $space-1 $space-3 $space-1 $space-5;
+    @include hairline(top);
+  }
+
+  &__buttons {
+    display: flex;
+    gap: $space-1;
+  }
+}

@@ -1,0 +1,76 @@
+@use '../../ui/tokens' as *;
+
+.shop-stars {
+  display: inline-flex;
+  gap: 2px;
+  font-size: 22px;
+
+  &__on {
+    color: var(--color-warning-text);
+  }
+
+  &__off {
+    color: var(--color-text-disabled);
+  }
+}
+
+.shop-review {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+  }
+
+  &__avatar {
+    flex: none;
+    width: 64px;
+    overflow: hidden;
+    border-radius: 50%;
+  }
+
+  &__who {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: $space-1;
+    min-width: 0;
+  }
+
+  &__name {
+    @include text($font-caption);
+    @include ellipsis;
+  }
+
+  &__date,
+  &__spec {
+    @include text($font-caption);
+    color: var(--color-text-secondary);
+  }
+
+  &__content {
+    @include text($font-body);
+    word-break: break-all;
+
+    &--clamp {
+      @include line-clamp(3);
+    }
+  }
+
+  &__images {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: $space-2;
+  }
+
+  &__reply {
+    padding: $space-3;
+    border-radius: $radius-sm;
+    background: var(--color-surface-sunken);
+    @include text($font-caption);
+    color: var(--color-text-secondary);
+  }
+}

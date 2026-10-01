@@ -1,0 +1,28 @@
+@use './tokens' as *;
+
+.shop-nav-bar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: $z-bar;
+  background: var(--color-surface);
+
+  &__row {
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    padding-left: $space-5;
+  }
+
+  &__title {
+    flex: 1;
+    @include text($font-title);
+    @include ellipsis;
+    color: var(--color-text);
+  }
+
+  &__placeholder {
+    flex-shrink: 0;
+  }
+}

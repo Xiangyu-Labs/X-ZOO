@@ -1,0 +1,2 @@
+ALTER TABLE "orders" ADD COLUMN "operator_discount" numeric(12, 2) DEFAULT '0.00' NOT NULL;--> statement-breakpoint
+ALTER TABLE "orders" ADD CONSTRAINT "orders_operator_discount_range" CHECK ("orders"."operator_discount" >= 0 and "orders"."operator_discount" <= "orders"."coupon_discount");

@@ -1,0 +1,44 @@
+{
+  "name": "@shop/testing",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./global-setup": "./src/harness/global-setup.ts",
+    "./mock-server": "./src/mock-server/index.ts",
+    "./wechat": "./src/wechat/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "bin": {
+    "shop-mock": "./src/mock-server/cli.ts"
+  },
+  "scripts": {
+    "mock": "tsx src/mock-server/cli.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "test:unit": "vitest run --project unit --project web-server-unit",
+    "test:int": "vitest run --project int --project web-server-int"
+  },
+  "dependencies": {
+    "@shop/contracts": "workspace:*",
+    "@shop/core": "workspace:*",
+    "@shop/db": "workspace:*",
+    "drizzle-kit": "^0.31.10",
+    "drizzle-orm": "^0.45.2",
+    "ioredis": "^6.0.0",
+    "pg": "^8.23.0",
+    "testcontainers": "^12.1.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@shop/config": "workspace:*",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.11.0",
+    "eslint": "^10.11.0",
+    "tsx": "^4.20.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  }
+}

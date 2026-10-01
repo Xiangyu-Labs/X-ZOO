@@ -1,0 +1,95 @@
+@use './tokens' as *;
+
+.shop-skeleton {
+  background: var(--color-skeleton);
+  border-radius: $radius-xs;
+
+  &--animated {
+    background-image: linear-gradient(
+      90deg,
+      var(--color-skeleton) 0%,
+      var(--color-surface-sunken) 50%,
+      var(--color-skeleton) 100%
+    );
+    background-size: 400% 100%;
+    animation: shop-shimmer 1.4s ease infinite;
+  }
+
+  &--round {
+    border-radius: 50%;
+  }
+
+  &__line {
+    height: 28px;
+    margin-top: $space-2;
+
+    &--short {
+      width: 60%;
+    }
+
+    &--price {
+      width: 40%;
+      height: 36px;
+      margin-top: $space-4;
+    }
+  }
+}
+
+@keyframes shop-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+.shop-skeleton-card {
+  overflow: hidden;
+  background: var(--color-surface);
+  @include themed-radius($radius-md);
+
+  &__image {
+    width: 100%;
+    padding-top: 100%;
+    border-radius: 0;
+  }
+
+  &__body {
+    padding: $space-3 $space-3 $space-4;
+  }
+
+  &--list {
+    display: flex;
+    padding: $space-4;
+
+    .shop-skeleton-card__image {
+      flex: none;
+      width: 200px;
+      height: 200px;
+      padding-top: 0;
+      @include themed-radius($radius-sm);
+    }
+
+    .shop-skeleton-card__body {
+      flex: 1;
+      padding: 0 0 0 $space-4;
+    }
+  }
+}
+
+.shop-skeleton-cells {
+  background: var(--color-surface);
+
+  &__row {
+    display: flex;
+    align-items: center;
+    min-height: $cell-min-height;
+    padding: 0 $space-5;
+    @include hairline(bottom, $space-5);
+
+    .shop-skeleton__line {
+      margin-top: 0;
+    }
+  }
+}

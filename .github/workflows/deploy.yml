@@ -1,0 +1,185 @@
+name: Deploy to production
+
+# Ships master to the shop's host with `deploy/ship.sh`, once a person approves
+# it in the `production` environment (Settings → Environments; GitHub asks the
+# reviewers by e-mail and in GitHub Mobile). Nothing ships unapproved.
+#
+# Every passing push run of the merge gate asks once. Approving one ships the
+# newest master commit whose push run passed, not necessarily the one that
+# asked, so merges can pile up and go out together: ignore the older requests,
+# approve the newest. A request that finds that commit already running ends
+# without touching the host. One run at a time; a newer request replaces one
+# still waiting to start.
+#
+# `workflow_dispatch` ("Run workflow") asks for the same approval and ships
+# the same commit.
+#
+# Once the host runs that commit, `mini` builds the mini-program from it
+# against the production API and uploads it as robot 2's development version,
+# which 公众平台 shows as the 体验版 once someone picks it there (once; later
+# uploads by the same robot replace it). The approval above is the consent
+# upload.mjs asks for. Its key is in the `mini-trial` environment (secret
+# WX_MINI_UPLOAD_KEY, variable MINI_API_ORIGIN), master only.
+#
+# The environment holds the SSH credentials (secrets SHIP_SSH_KEY and
+# SHIP_SSH_KNOWN_HOSTS; variables SHIP_SSH_HOSTNAME, SHIP_SSH_USER, optional
+# SHIP_SSH_PORT, and SHIP_DIR) and admits master only, so no other branch and
+# no pull request can read them.
+on:
+  workflow_run:
+    workflows: [Merge gate & images]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  ship:
+    name: ship
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+    outputs:
+      sha: ${{ steps.pick.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: SSH to the host
+        env:
+          KEY: ${{ secrets.SHIP_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.SHIP_SSH_KNOWN_HOSTS }}
+          SSH_HOSTNAME: ${{ vars.SHIP_SSH_HOSTNAME }}
+          SSH_USER: ${{ vars.SHIP_SSH_USER }}
+          SSH_PORT: ${{ vars.SHIP_SSH_PORT }}
+        run: |
+          set -euo pipefail
+          for name in KEY KNOWN_HOSTS SSH_HOSTNAME SSH_USER; do
+            [ -n "${!name}" ] || { echo "::error::the production environment does not set $name"; exit 1; }
+          done
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/ship
+          chmod 600 ~/.ssh/ship
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host shop
+            HostName $SSH_HOSTNAME
+            User $SSH_USER
+            Port ${SSH_PORT:-22}
+            IdentityFile ~/.ssh/ship
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            ServerAliveInterval 30
+          EOF
+
+      # The newest master commit the merge gate built: its push run passed,
+      # so its images exist. Everything merged before it goes with it.
+      - name: What ships
+        id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHIP_DIR: ${{ vars.SHIP_DIR }}
+        run: |
+          set -euo pipefail
+          [ -n "$SHIP_DIR" ] || { echo "::error::the production environment does not set SHIP_DIR"; exit 1; }
+          sha="$(gh run list --workflow ci.yml --branch master --event push --status success \
+            --limit 1 --json headSha --jq '.[0].headSha // ""')"
+          [ -n "$sha" ] || { echo "::error::no push run of master has passed"; exit 1; }
+          running="$(ssh -o BatchMode=yes shop "head -n1 $(printf '%q' "$SHIP_DIR/REVISION") 2>/dev/null" || true)"
+          printf 'sha=%s\nrunning=%s\n' "$sha" "$running" >> "$GITHUB_OUTPUT"
+          {
+            printf '## Deploy\n\n'
+            printf -- '- ships: `%s` %s\n' "$sha" "$(git log -1 --format=%s "$sha")"
+            printf -- '- running before: `%s`\n' "${running:-unknown}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$sha" = "$running" ]; then
+            echo "$sha is already running; nothing to ship." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Ship
+        if: steps.pick.outputs.sha != steps.pick.outputs.running
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHIP_HOST: shop
+          SHIP_DIR: ${{ vars.SHIP_DIR }}
+          SHA: ${{ steps.pick.outputs.sha }}
+        run: deploy/ship.sh "$SHA"
+
+      # Exit 1, 3, 5 or 6 leave something for a person: show how the host ended.
+      - name: Host status after a failed release
+        if: failure() && steps.pick.outputs.sha != ''
+        env:
+          SHIP_HOST: shop
+          SHIP_DIR: ${{ vars.SHIP_DIR }}
+        run: deploy/ship.sh status || true
+
+  # The trial build of exactly what the host now runs: version package.json's
+  # (docs/mini/device-check.md §9), checked by size-report and upload.mjs
+  # (clean tree, on master, its push run passed) before anything goes up.
+  mini:
+    name: mini-program trial
+    needs: ship
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: mini-trial
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.ship.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install
+        run: corepack pnpm install --frozen-lockfile
+
+      - name: Generate aggregates
+        run: corepack pnpm gen
+
+      # Not through turbo: its strict env would drop TARO_APP_API_ORIGIN.
+      - name: Build against the production API
+        env:
+          TARO_APP_API_ORIGIN: ${{ vars.MINI_API_ORIGIN }}
+        run: |
+          set -euo pipefail
+          case "$TARO_APP_API_ORIGIN" in
+            https://*) ;;
+            *) echo "::error::the mini-trial environment's MINI_API_ORIGIN is not an https origin"; exit 1 ;;
+          esac
+          corepack pnpm --filter @shop/mini build:weapp
+
+      - name: Install miniprogram-ci
+        run: npm install --global miniprogram-ci@2.1.31
+
+      - name: Upload as robot 2
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEY: ${{ secrets.WX_MINI_UPLOAD_KEY }}
+          WX_MINI_UPLOAD_KEY_PATH: ${{ runner.temp }}/private.upload.key
+        run: |
+          set -euo pipefail
+          [ -n "$KEY" ] || { echo "::error::the mini-trial environment does not set WX_MINI_UPLOAD_KEY"; exit 1; }
+          (umask 077; printf '%s\n' "$KEY" > "$WX_MINI_UPLOAD_KEY_PATH")
+          node apps/mini/scripts/upload.mjs --confirm --robot 2
+          printf '## 体验版\n\n- uploaded %s as version %s (robot 2)\n' \
+            "$(git rev-parse --short=9 HEAD)" "$(node -p 'require("./apps/mini/package.json").version')" >> "$GITHUB_STEP_SUMMARY"

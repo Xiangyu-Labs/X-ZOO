@@ -1,0 +1,30 @@
+{
+  "name": "@shop/cli",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "bin": {
+    "shop": "./dist/shop.js"
+  },
+  "scripts": {
+    "dev": "tsx src/main.ts",
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "test:unit": "vitest run --project unit",
+    "test:int": "vitest run --project int --passWithNoTests"
+  },
+  "dependencies": {
+    "@shop/admin-ops": "workspace:*"
+  },
+  "devDependencies": {
+    "@shop/config": "workspace:*",
+    "@types/node": "^24.0.0",
+    "eslint": "^10.11.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.20.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  }
+}

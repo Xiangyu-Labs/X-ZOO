@@ -1,0 +1,17 @@
+@use '../shared/tokens' as *;
+
+.countdown {
+  margin-top: 4px;
+  color: $primary-text;
+  font-size: $font-small;
+  line-height: 30px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.empty {
+  padding: 40px $gutter;
+  color: $text-tertiary;
+  font-size: $font-caption;
+  text-align: center;
+}

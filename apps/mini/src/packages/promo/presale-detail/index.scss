@@ -1,0 +1,7 @@
+@use '../../../ui/tokens' as *;
+
+.presale-detail {
+  &__gone {
+    padding-top: $space-9;
+  }
+}

@@ -1,0 +1,65 @@
+@use './tokens' as *;
+
+.shop-price {
+  display: inline-flex;
+  align-items: baseline;
+  color: var(--color-price);
+  font-weight: 600;
+  white-space: nowrap;
+  @include tabular;
+
+  &__prefix {
+    margin-right: 4px;
+    font-size: 22px;
+    font-weight: 500;
+  }
+
+  &--lg {
+    .shop-price__symbol {
+      font-size: 32px;
+    }
+    .shop-price__whole {
+      font-size: 52px;
+      line-height: 1.1;
+    }
+    .shop-price__fraction {
+      font-size: 32px;
+    }
+  }
+
+  &--md {
+    .shop-price__symbol,
+    .shop-price__fraction {
+      font-size: 24px;
+    }
+    .shop-price__whole {
+      font-size: 36px;
+    }
+  }
+
+  &--sm {
+    .shop-price__symbol,
+    .shop-price__fraction {
+      font-size: 20px;
+    }
+    .shop-price__whole {
+      font-size: 28px;
+    }
+  }
+
+  &--text {
+    color: var(--color-text);
+  }
+
+  &--strike {
+    color: var(--color-text-tertiary);
+    font-weight: 400;
+    text-decoration: line-through;
+
+    .shop-price__symbol,
+    .shop-price__whole,
+    .shop-price__fraction {
+      font-size: 22px;
+    }
+  }
+}

@@ -1,0 +1,18 @@
+# Build context filter for `edge/Dockerfile` (context: the repository root).
+#
+# BuildKit prefers this per-Dockerfile file over the root `.dockerignore`, so
+# the edge build gets its own view of the context: its own config, nothing
+# else. The image carries no front-end files (docker/edge/Dockerfile).
+#
+# Everything is excluded, then the one thing the edge needs is allowed back.
+
+*
+!docker/edge
+
+# Never, whatever the rules above say.
+**/.git
+**/node_modules
+**/.env
+**/.env.*
+**/*.pem
+**/*.key

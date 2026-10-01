@@ -1,0 +1,96 @@
+@use '../../../ui/tokens' as *;
+
+.cashier {
+  &__amount-card {
+    text-align: center;
+  }
+
+  &__label {
+    display: block;
+    color: var(--color-text-secondary);
+    @include text($font-caption);
+  }
+
+  &__amount {
+    justify-content: center;
+    margin-top: $space-2;
+  }
+
+  &__deadline {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: $space-2;
+    margin-top: $space-3;
+    color: var(--color-text-secondary);
+    @include text($font-caption);
+  }
+
+  &__summary {
+    display: flex;
+    position: relative;
+    flex-direction: column;
+    padding: $space-5 $space-9 $space-5 $space-5;
+  }
+
+  &__summary-name {
+    color: var(--color-text);
+    @include text($font-body);
+    @include ellipsis;
+  }
+
+  &__summary-no {
+    margin-top: $space-1;
+    color: var(--color-text-tertiary);
+    @include text($font-caption);
+  }
+
+  &__summary-arrow {
+    position: absolute;
+    top: 50%;
+    right: $space-5;
+    transform: translateY(-50%);
+    color: var(--color-text-tertiary);
+  }
+
+  &__method {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+  }
+
+  &__method-icon {
+    color: var(--color-success);
+    font-size: 40px;
+  }
+
+  &__method-name {
+    flex: 1;
+    color: var(--color-text);
+    @include text($font-body);
+  }
+
+  &__method-check {
+    color: var(--color-primary);
+  }
+
+  &__notice {
+    display: block;
+    padding: $space-5 $space-5 0;
+    color: var(--color-warning-text);
+    text-align: center;
+    @include text($font-body);
+  }
+
+  &__bar {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: $z-bar;
+    padding: $space-3 $space-5;
+    background: var(--color-surface);
+    box-shadow: $shadow-bar;
+    @include safe-bottom($space-3);
+  }
+}

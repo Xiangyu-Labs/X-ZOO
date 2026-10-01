@@ -1,0 +1,32 @@
+{
+  "name": "@shop/e2e-admin",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@shop/contracts": "workspace:*",
+    "@shop/core": "workspace:*",
+    "@shop/db": "workspace:*",
+    "@shop/testing": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "ioredis": "^6.0.0",
+    "pg": "^8.23.0",
+    "testcontainers": "^12.1.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@shop/config": "workspace:*",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.11.0",
+    "eslint": "^10.11.0",
+    "tsx": "^4.20.0",
+    "typescript": "^7.0.2"
+  }
+}

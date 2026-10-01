@@ -1,0 +1,41 @@
+# Dependencies and build output
+node_modules/
+dist/
+.next/
+.turbo/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# Local settings
+.env
+.env.local
+.idea/
+.vscode/
+*.iml
+.DS_Store
+*.log
+
+# Aggregated by `pnpm gen` from per-domain files; never committed, so never conflicted.
+*.gen.ts
+openapi.json
+
+# Local agent tooling
+.codex/
+.zcode/
+
+# The mini-program's build by-products: Taro's SWC config cache, the bundle module lists
+# written by every build (config/bundle-stats.ts), and a developer's own AppID.
+/apps/mini/.swc/
+/apps/mini/.bundle-stats/
+/apps/mini/.env.*.local
+# miniprogram-ci's upload key: kept outside the repository (docs/mini/device-check.md); this
+# only stops an accidental `git add` of one dropped in by mistake. The `mini` guard fails on it.
+private.*.key
+
+# WeChat mini-program code-upload key (miniprogram-ci); never commit it
+private.*.key
+
+# Claude Code local state (worktrees, settings)
+.claude/

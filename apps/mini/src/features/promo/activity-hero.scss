@@ -1,0 +1,133 @@
+@use '../../ui/tokens' as *;
+
+.activity-hero {
+  &__gallery {
+    position: relative;
+    background: var(--color-surface);
+  }
+
+  &__swiper {
+    width: 750px;
+    height: 750px;
+  }
+
+  &__counter {
+    position: absolute;
+    right: $space-5;
+    bottom: $space-5;
+    padding: 2px $space-3;
+    border-radius: $radius-pill;
+    background: var(--color-mask);
+    @include text($font-small);
+    color: var(--color-on-primary);
+  }
+
+  &__overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    padding: $space-3 $space-6;
+    border-radius: $radius-pill;
+    background: var(--color-mask);
+    @include text($font-title);
+    color: var(--color-on-primary);
+    transform: translate(-50%, -50%);
+  }
+
+  &__band {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-3;
+    padding: $space-4 $space-5;
+    background: var(--color-primary-soft);
+  }
+
+  &__price {
+    display: flex;
+    align-items: baseline;
+    gap: $space-2;
+  }
+
+  &__deadline {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+  }
+
+  &__deadline-label {
+    @include text($font-caption);
+    color: var(--color-primary-text);
+  }
+
+  &__summary {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    padding: $space-5;
+    background: var(--color-surface);
+  }
+
+  &__title-row {
+    display: flex;
+    align-items: flex-start;
+    gap: $space-4;
+  }
+
+  &__title {
+    flex: 1;
+    min-width: 0;
+    @include text($font-title);
+    @include line-clamp(2);
+  }
+
+  &__share {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    color: var(--color-text-secondary);
+  }
+
+  &__share-text {
+    @include text($font-micro);
+  }
+
+  &__intro {
+    @include text($font-caption);
+    color: var(--color-text-secondary);
+    @include line-clamp(2);
+  }
+
+  &__sales {
+    @include text($font-caption);
+    color: var(--color-text-tertiary);
+  }
+
+  &__notes,
+  &__description {
+    margin-top: $space-3;
+  }
+
+  &__note {
+    display: block;
+    @include text($font-caption);
+    color: var(--color-text-secondary);
+
+    & + & {
+      margin-top: $space-1;
+    }
+  }
+
+  &__muted {
+    @include text($font-caption);
+    color: var(--color-text-tertiary);
+  }
+
+  &__skeleton-image {
+    width: 750px;
+    height: 750px;
+  }
+}

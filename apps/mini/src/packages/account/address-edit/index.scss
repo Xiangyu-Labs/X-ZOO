@@ -1,0 +1,8 @@
+@use '../../../ui/tokens' as *;
+
+.address-edit__import {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  color: var(--color-primary-text);
+}

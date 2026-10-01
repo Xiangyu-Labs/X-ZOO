@@ -1,0 +1,829 @@
+name: Merge gate & images
+
+# What each run is, at a glance in the Actions list.
+run-name: >-
+  ${{
+    github.event_name == 'merge_group' && format('Queue · {0}', github.event.merge_group.head_commit.message) ||
+    github.event_name == 'pull_request' && format('PR #{0} · {1}', github.event.pull_request.number, github.event.pull_request.title) ||
+    github.event_name == 'push' && format('master · {0}', github.event.head_commit.message) ||
+    github.event_name == 'schedule' && 'Nightly · soak and mutation run' ||
+    format('Manual · {0}', github.ref_name)
+  }}
+
+# The merge gate: typecheck, lint with the import boundaries, the guards, unit
+# tests, integration tests on a real PostgreSQL 17 and Redis 7, the contract
+# example check, formatting, the Playwright suites (admin, and the storefront:
+# the mini-program's "模拟小程序" build) and the build, which includes the
+# WeChat mini-program package and its size gate.
+#
+# It also builds the three container images and rehearses a deploy against
+# them, and on master publishes them. The deploy directory is in the paths
+# filter for that reason: the compose file and the host command are part of
+# what this workflow gates.
+#
+# Wall-clock time is the critical path, not the sum of the jobs, so nothing
+# waits for another gate job: every one starts as soon as `changes` has
+# answered, and what is slow is cut into pieces that run side by side, each on
+# a runner of its own (a hosted runner has four cores, and two heavy suites on
+# one of them take longer than the two run one after the other):
+#   - static / lint / typecheck: the three whole-tree checks;
+#   - unit: web, and everything else;
+#   - integration: `@shop/core` in three shards, and the other packages;
+#   - e2e-admin, storefront-e2e: two Playwright shards each;
+#   - drill-images builds the three images once, side by side; rehearsal then
+#     runs the deploy drill in shards (`drill.sh --shards`), each on its own
+#     stack, from those images. The `pipeline` guard holds that every shard the
+#     drill defines is in the matrix.
+# Splitting is free for correctness: a matrix job reports as one job, and
+# `ci-gate` needs it by name.
+#
+# Nothing here touches the production host. `deploy.yml` follows a passing
+# push run and ships once a person approves it in the `production`
+# environment (deploy/README.md); ship.sh refuses a commit this workflow did
+# not pass. Renaming this workflow means renaming it in `deploy.yml` too.
+
+# Prose alone does not need the gate, with one exception: `docs/invariants.md`
+# is not prose to the guards — the `invariants` check resolves every test it
+# cites — so an edit there runs the workflow like code does. Order matters:
+# the last pattern a file matches decides. The `pipeline` guard asserts that
+# every file a guard reads still triggers every event.
+#
+# master merges through a merge queue whose one required check is `ci-gate`.
+# A required check that never reports holds a pull request forever, so pull
+# requests carry no path filter: the `changes` job decides what runs, and
+# `ci-gate` passes when everything that ran passed.
+#
+# Each change runs the heavy suites once, in the queue:
+#   - pull request: the quick gate (`static`, `lint`, `typecheck`, `unit`, `shell`),
+#     nothing for prose;
+#   - merge queue (`merge_group`, which takes no filter): everything;
+#   - push to master: only the images, for a commit the queue already tested
+#     (the queue moves master to the very commit it tested); everything for a
+#     commit pushed past the queue.
+on:
+  push:
+    branches: [master]
+    paths:
+      - '**'
+      - '!docs/**'
+      - '!**/*.md'
+      - 'docs/invariants.md'
+  pull_request:
+  merge_group:
+  # The concurrency soak below is a flake hunt, not a gate, so it runs on a
+  # clock rather than on every push.
+  schedule:
+    - cron: '0 18 * * *' # 02:00 CST, after the day's merges
+  workflow_dispatch:
+
+# A newer push to a pull request makes the older run moot; a push to master
+# does not, since each master commit publishes the images a release ships.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
+
+env:
+  # Response validation is a merge-gate check, not a production cost.
+  VALIDATE_RESPONSES: '1'
+  # Keep turbo quiet and deterministic in CI.
+  TURBO_TELEMETRY_DISABLED: '1'
+  DO_NOT_TRACK: '1'
+  # The three release images (`images-build`, `images`).
+  WEB_IMAGE: ghcr.io/xiangyu-labs/x-zoo-web
+  WORKER_IMAGE: ghcr.io/xiangyu-labs/x-zoo-worker
+  EDGE_IMAGE: ghcr.io/xiangyu-labs/x-zoo-edge
+
+jobs:
+  # What this run gates (see the top of the file). `code`: the quick jobs;
+  # `full`: the heavy suites. A pull request's prose rule is the push filter's
+  # globs, written out.
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+      full: ${{ steps.diff.outputs.full }}
+    steps:
+      - uses: actions/checkout@v5
+        if: github.event_name == 'pull_request'
+        with:
+          fetch-depth: 0
+
+      - name: What runs
+        id: diff
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          code=true
+          full=true
+          case "$GITHUB_EVENT_NAME" in
+            pull_request)
+              full=false
+              code=false
+              while IFS= read -r file; do
+                case "$file" in
+                  docs/invariants.md) code=true ;;
+                  docs/* | *.md) ;;
+                  *) code=true ;;
+                esac
+              done < <(git diff --name-only "$BASE...$HEAD")
+              ;;
+            push)
+              # A `ci-gate` that passed on this very commit is the queue's.
+              passed="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs?check_name=ci-gate" \
+                --jq '[.check_runs[] | select(.conclusion == "success")] | length')"
+              if [ "$passed" -gt 0 ]; then
+                code=false
+                full=false
+              fi
+              ;;
+          esac
+          printf 'code=%s\nfull=%s\n' "$code" "$full" | tee -a "$GITHUB_OUTPUT"
+
+  # The whole-tree checks no single package's tests can make: a client call
+  # with no route behind it, a secret that reached a response, a menu entry
+  # pointing at nothing, a migration that is not additive, a business rule
+  # with no test; and the formatting and the contract examples.
+  static:
+    name: guards / prettier / contract examples
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup
+
+      # Exits non-zero on any failure.
+      - name: Guards
+        run: corepack pnpm guards
+
+      # The JSON is only worth uploading when something failed; on a green run
+      # it is noise in the artifact list.
+      - name: Guards (JSON for annotations)
+        if: failure()
+        run: corepack pnpm --filter @shop/guards guards --json > guards.json
+
+      - uses: actions/upload-artifact@v4
+        continue-on-error: true
+        if: failure()
+        with:
+          name: guards
+          path: guards.json
+
+      - name: Contract examples
+        run: corepack pnpm --filter @shop/contracts check:examples
+
+      - name: Prettier
+        run: corepack pnpm format:check
+
+      - name: Upload the OpenAPI document
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: openapi
+          path: packages/contracts/openapi.json
+          if-no-files-found: error
+
+  # Strict types, and with lint the import boundaries. Every workspace package
+  # through turbo — apps/mini, @shop/api-client and @shop/storefront-blocks
+  # included (each has typecheck, lint and test:unit).
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup
+        with:
+          turbo-key: typecheck
+
+      - name: Typecheck
+        run: corepack pnpm typecheck
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup
+        with:
+          turbo-key: lint
+
+      - name: Lint
+        run: corepack pnpm lint
+
+  # Two runners, because the web package's suite is about as long as every other
+  # package's together, and run on one four-core runner at once they thrash:
+  # the same tests took 223 s (web) and 186 s (mini) there, and 66 s and 31 s
+  # each on four cores of their own. Not `isolate: false`: it would save a few
+  # seconds in `@shop/core` and let one file's mocks leak into the next.
+  unit:
+    name: unit (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: web
+            filter: '--filter=@shop/web'
+          - name: everything else
+            filter: '--filter=!@shop/web'
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup
+        with:
+          turbo-key: unit-${{ matrix.name == 'web' && 'web' || 'rest' }}
+
+      - name: Unit tests
+        env:
+          FILTER: ${{ matrix.filter }}
+        run: corepack pnpm exec turbo run test:unit "$FILTER"
+
+  # `@shop/core`'s suite is most of the minutes, and each file clones its own
+  # database from one template, so files do not care which runner they are on:
+  # three shards of it, and one runner for the other packages. Every shard
+  # starts its own PostgreSQL and Redis (Testcontainers; Docker is preinstalled
+  # on the ubuntu runners). Pulling the images up front keeps the first
+  # container start from eating the per-test timeout.
+  integration:
+    name: integration (${{ matrix.shard }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ['core 1/3', 'core 2/3', 'core 3/3', 'the other packages']
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup
+
+      - name: Pre-pull the service images
+        run: |
+          docker pull postgres:17-alpine
+          docker pull redis:7-alpine
+
+      - name: Integration tests
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          case "$SHARD" in
+            'core '*) corepack pnpm --filter @shop/core exec vitest run --project int --shard="${SHARD#core }" ;;
+            *) corepack pnpm exec turbo run test:int '--filter=!@shop/core' ;;
+          esac
+
+  # No `pnpm build` step here on purpose: the suite's `webServer` is
+  # `e2e/admin/scripts/serve.ts`, which starts the containers, seeds and builds
+  # before it serves. Playwright starts `webServer` before `globalSetup`, so a
+  # globalSetup that created the database would create it after the server had
+  # already failed to connect.
+  #
+  # Two shards, each with a stack of its own (the suite runs one worker against
+  # one database, so shards cannot share one). Its specs read what they need
+  # from the database they run in and name what they create uniquely, so which
+  # shard a file lands in does not matter.
+  e2e-admin:
+    name: admin e2e (playwright, ${{ matrix.shard }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ['1/2', '2/2']
+    steps:
+      - uses: actions/checkout@v5
+
+      # The routes, error codes and config groups are generated, not committed;
+      # the web server the suite starts imports them.
+      - uses: ./.github/actions/setup
+
+      # Chromium only: these are assertions about the admin's own behaviour —
+      # an authorisation boundary, an audit row, a masked secret — not about
+      # browser compatibility.
+      - name: Install the browser
+        run: corepack pnpm --filter @shop/e2e-admin exec playwright install --with-deps chromium
+
+      - name: Pre-pull the service images
+        run: |
+          docker pull postgres:17-alpine
+          docker pull redis:7-alpine
+
+      - name: Admin e2e
+        run: corepack pnpm --filter @shop/e2e-admin e2e --shard=${{ matrix.shard }}
+
+      - uses: actions/upload-artifact@v4
+        continue-on-error: true
+        if: failure()
+        with:
+          name: playwright-report-${{ strategy.job-index }}
+          path: e2e/admin/playwright-report
+
+  # The storefront's journeys: the mini-program's "模拟小程序" H5 build of
+  # `apps/mini`, served by the suite's own Node edge in front of a real `web`,
+  # PostgreSQL and Redis, plus a fake api.weixin.qq.com. It runs every spec in
+  # `e2e/storefront/specs-mini/` (docs/mini/e2e-coverage.md maps them), in two
+  # shards with a stack each. The WeChat package itself (weapp build, size
+  # gate, test-only scan) is the build job's.
+  storefront-e2e:
+    name: storefront e2e (playwright, mini-program emulation, ${{ matrix.shard }})
+    runs-on: ubuntu-latest
+    # Cold: image pulls, the emulation build (~10 s), `next build` unless the
+    # cache has it, then the journeys (a few minutes, one worker).
+    timeout-minutes: 30
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ['1/2', '2/2']
+    steps:
+      - uses: actions/checkout@v5
+
+      # The web server and the emulation build both import generated files.
+      - uses: ./.github/actions/setup
+
+      # `scripts/serve.ts` runs `next build` only when `apps/web/.next` has no
+      # BUILD_ID, so a restored build saves each storefront job several minutes.
+      # The key is every source `next build` compiles; a stale `.next` would
+      # silently serve the old server (docs/mini/spikes/S4-e2e.md).
+      - name: Cache the web build
+        uses: actions/cache@v4
+        with:
+          path: |
+            apps/web/.next
+            !apps/web/.next/cache
+          key: next-build-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'apps/web/app/**', 'apps/web/src/**', 'apps/web/public/**', 'apps/web/*.ts', 'apps/web/*.mjs', 'apps/web/*.json', 'packages/*/src/**', 'packages/*/package.json', 'packages/storefront-blocks/scripts/**') }}
+
+      - name: Install the browser
+        run: corepack pnpm --filter @shop/e2e-storefront exec playwright install --with-deps chromium
+
+      - name: Pre-pull the service images
+        run: |
+          docker pull postgres:17-alpine
+          docker pull redis:7-alpine
+
+      # `serve.ts` builds `apps/mini/dist/h5-mp-emulation` itself. `CI` is set,
+      # so `.only` is forbidden, one retry, no reuse of a running server.
+      - name: Storefront e2e
+        run: corepack pnpm --filter @shop/e2e-storefront test --shard=${{ matrix.shard }}
+
+      # Every journey's console-errors.txt / failed-requests.txt, green or not.
+      - uses: actions/upload-artifact@v4
+        continue-on-error: true
+        if: always()
+        with:
+          name: storefront-playwright-report-${{ strategy.job-index }}
+          path: e2e/storefront/playwright-report
+          retention-days: 14
+
+      # Traces and screenshots (`retain-on-failure`).
+      - uses: actions/upload-artifact@v4
+        continue-on-error: true
+        if: failure()
+        with:
+          name: storefront-test-results-${{ strategy.job-index }}
+          path: e2e/storefront/test-results
+          retention-days: 14
+
+  # STAB-001. The races the concurrency suite covers — the last
+  # unit of stock, two refund approvals, a callback meeting the reconciliation
+  # sweep — are decided by the database, so one green run proves the statement
+  # is right and fifty prove the *test* is right, catching the one that passes
+  # because two transactions happened not to overlap.
+  #
+  # It never talks to a real WeChat, SMS or Aliyun endpoint and never runs
+  # against anything but a Testcontainers database.
+  concurrency-soak:
+    name: concurrency soak (50 rounds)
+    # Nightly and on demand — never on a pull request: this is a flake hunt,
+    # not a gate, and a gate that takes 40 minutes stops being read.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup
+
+      - name: Pre-pull the service images
+        run: |
+          docker pull postgres:17-alpine
+          docker pull redis:7-alpine
+
+      # One container set, fifty rounds, a different ordering seed each time.
+      # Every round that fails is recorded and the loop continues: "round 37
+      # failed" is a fact about the schedule, and stopping at the first failure
+      # throws away the distribution, which is the thing worth knowing.
+      - name: 50 rounds
+        run: |
+          set -uo pipefail
+          mkdir -p soak
+          failed=0
+          for round in $(seq 1 50); do
+            echo "::group::round $round"
+            # vitest lives in @shop/core, and its file filters are substrings,
+            # not globs: these two match the STAB-001 set.
+            if ! corepack pnpm --filter @shop/core exec vitest run --project int \
+                 --sequence.seed="$round" --sequence.shuffle \
+                 concurrency.int.test.ts order.sequence.int.test.ts \
+                 > "soak/round-$round.log" 2>&1; then
+              failed=$((failed + 1))
+              echo "round $round FAILED" | tee -a soak/failures.txt
+              tail -80 "soak/round-$round.log"
+            fi
+            echo "::endgroup::"
+          done
+          echo "$failed of 50 rounds failed"
+          test "$failed" -eq 0
+
+      - uses: actions/upload-artifact@v4
+        continue-on-error: true
+        if: always()
+        with:
+          name: soak-logs
+          path: soak
+
+  mutations:
+    name: mutation run (MUT-001, ten protections)
+    # Nightly and on demand, like the soak: it asks whether the guarding tests
+    # still guard, which is a question about the tree, not about the change.
+    # Each of the ten protections is removed in a scratch copy of HEAD and its
+    # named tests must fail; a survivor or a mutation string that no longer
+    # matches exits non-zero.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      # The live tree's generated files are not what the copy uses (the runner
+      # regenerates inside the copy), but guards imports @shop/contracts.
+      - uses: ./.github/actions/setup
+
+      - name: Pre-pull the service images
+        run: |
+          docker pull postgres:17-alpine
+          docker pull redis:7-alpine
+
+      - name: Ten mutants
+        run: corepack pnpm --filter @shop/guards mutations --json mutations.json
+
+      - uses: actions/upload-artifact@v4
+        continue-on-error: true
+        if: always()
+        with:
+          name: mutation-report
+          path: guards/mutations.json
+          if-no-files-found: ignore
+
+  # No dependency on `static`: the build costs nothing the checks need, and
+  # waiting for them put it on the end of the critical path.
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup
+
+      # Every package's `build`, through turbo. For apps/mini that is the WeChat
+      # package (`build:weapp`), the H5 preview and `scripts/size-report.mjs`:
+      # the main / sub-package / total budgets, no eval or new Function, ES2018
+      # syntax, every app.json page present, one React, no zod, and none of
+      # the e2e emulation in `dist/weapp` (docs/mini/spikes/S1-taro.md, S4).
+      - name: Build
+        run: corepack pnpm build
+
+  shell:
+    name: shellcheck (deploy, CI scripts)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    steps:
+      - uses: actions/checkout@v5
+
+      # `-x` follows `. lib/common.sh`, and --source-path=SCRIPTDIR resolves it
+      # relative to each script rather than to the working directory — without
+      # it the library is invisible and every variable it sets reads as unset.
+      - name: shellcheck
+        run: |
+          shellcheck --source-path=SCRIPTDIR -x \
+            deploy/*.sh deploy/shop deploy/lib/*.sh deploy/lib/commands/*.sh \
+            deploy/rehearsal/*.sh \
+            .github/scripts/*.sh
+
+  # The publish rules the images job relies on — a conflicting candidate never
+  # overwrites a tag, an unanswerable registry is never read as "absent" —
+  # proved against a throwaway registry rather than trusted from reading bash.
+  publish-rules:
+    name: publish rules (local registry)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Prove the publish rules
+        run: .github/scripts/publish-release.test.sh
+
+  # The release candidates: one runner per image (the web image is the slow one,
+  # about a minute and a half; the other two are done long before), each pushing
+  # `ci-<commit>-amd64`, a tag nothing deploys. `images` below then publishes the
+  # commit-scoped tags from them.
+  #
+  # No layer cache. Every source change changes the `COPY . .` that comes before
+  # the install, so the build stage never hits; exporting it (`mode=max`) took
+  # as long as the build did, about 90 s of the web job, for the sake of a few
+  # seconds on the runtime stage.
+  images-build:
+    name: image (${{ matrix.role }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [static, lint, typecheck, unit, build, publish-rules]
+    # Publishing happens for the branches that can become a release. A pull
+    # request builds in `drill-images` below and pushes nothing. For a commit the
+    # queue tested the jobs it needs are skipped, which is not a failure.
+    if: github.event_name == 'push' && !failure() && !cancelled()
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        role: [web, worker, edge]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Which image
+        id: which
+        env:
+          ROLE: ${{ matrix.role }}
+        run: |
+          set -euo pipefail
+          case "$ROLE" in
+            web) printf 'image=%s\nfile=docker/web.Dockerfile\n' "$WEB_IMAGE" ;;
+            worker) printf 'image=%s\nfile=docker/worker.Dockerfile\n' "$WORKER_IMAGE" ;;
+            # nginx and its config from `docker/edge/`, with no front-end files.
+            # The landing page at `/` is `web`'s (docs/mini/cutover.md §2.10).
+            edge) printf 'image=%s\nfile=docker/edge/Dockerfile\n' "$EDGE_IMAGE" ;;
+          esac >> "$GITHUB_OUTPUT"
+
+      # One architecture. The production host is a single amd64 box, so a
+      # second one would double the build for an image nothing will run. The
+      # context is the repository root for all three.
+      #
+      # `docker/build-push-action` rather than a bare `docker buildx build`
+      # so the build runs on the builder the step above set up.
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ steps.which.outputs.file }}
+          push: true
+          tags: ${{ steps.which.outputs.image }}:ci-${{ github.sha }}-amd64
+
+  images:
+    name: images (web, worker, edge)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [images-build]
+    if: github.event_name == 'push' && !failure() && !cancelled()
+    # A release is never cancelled mid-publish. The workflow-level group cancels
+    # in progress, which is right for the merge-gate jobs and would kill a
+    # publish halfway, so this job carries its own repository-wide group
+    # (REL-007).
+    concurrency:
+      group: next-images-${{ github.repository }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The publish rules live in .github/scripts/publish-release.sh (proved
+      # against a real registry by the publish-rules job), not inline here, so
+      # they are exercised rather than read. REL-006 is the guard that keeps it
+      # that way.
+      - name: Publish the commit-scoped tags
+        id: publish
+        run: |
+          set -euo pipefail
+          for role in web worker edge; do
+            case "$role" in
+              web) image="$WEB_IMAGE" ;;
+              worker) image="$WORKER_IMAGE" ;;
+              edge) image="$EDGE_IMAGE" ;;
+            esac
+            digest="$(bash .github/scripts/publish-release.sh tags "$image" "$GITHUB_SHA" \
+              "$image:ci-$GITHUB_SHA-amd64" | tail -1)"
+            test -n "$digest"
+            printf '%s=%s@%s\n' "$role" "$image" "$digest" >> "$GITHUB_OUTPUT"
+          done
+
+      # The one command that releases this commit. ship.sh finds the digests
+      # below on its own, from the `sha-<commit>` tags; they are listed so a
+      # release can be checked against what CI published.
+      - name: Release summary
+        run: |
+          {
+            printf '## x-zoo images\n\n'
+            printf '```sh\ndeploy/ship.sh %s\n```\n\n' "$GITHUB_SHA"
+            printf -- '- web: `%s`\n'    '${{ steps.publish.outputs.web }}'
+            printf -- '- worker: `%s`\n' '${{ steps.publish.outputs.worker }}'
+            printf -- '- edge: `%s`\n'   '${{ steps.publish.outputs.edge }}'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # The rehearsal's images, built once and handed to every shard (a build is
+  # about two minutes; a save and a load, about thirty seconds). The three build
+  # side by side: the web image takes the time, the others finish inside it.
+  drill-images:
+    name: rehearsal images
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build the three images
+        run: |
+          set -uo pipefail
+          roles=(web worker edge)
+          pids=()
+          for role in "${roles[@]}"; do
+            file="docker/$role.Dockerfile"
+            [ "$role" != edge ] || file=docker/edge/Dockerfile
+            docker build -f "$file" -t "x-zoo-$role:drill" . >"build-$role.log" 2>&1 &
+            pids+=("$!")
+          done
+          failed=0
+          for index in "${!roles[@]}"; do
+            if wait "${pids[$index]}"; then
+              echo "built ${roles[$index]}"
+            else
+              failed=1
+              echo "::error::the ${roles[$index]} image did not build"
+              echo "::group::${roles[$index]} build log"
+              cat "build-${roles[$index]}.log"
+              echo "::endgroup::"
+            fi
+          done
+          exit "$failed"
+
+      - name: Save them
+        run: |
+          set -euo pipefail
+          docker save x-zoo-web:drill x-zoo-worker:drill x-zoo-edge:drill |
+            zstd -T0 -3 -o drill-images.tar.zst
+          ls -lh drill-images.tar.zst
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: drill-images
+          path: drill-images.tar.zst
+          # Already compressed.
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error
+
+  # The deploy drill brings a full stack up several times over; it was the
+  # slowest job here, and is still the cheapest place to find out that a release
+  # cannot be rolled back. Its cases form chains (a rollback needs the upgrade
+  # before it), so a shard is a chain with a stack of its own, and the shards
+  # share nothing: `deploy/rehearsal/drill.sh --shards` names them, and the
+  # `pipeline` guard holds that this list is that list. The longest, `unhealthy`,
+  # waits out the real worker healthcheck and sets the time of the whole job.
+  rehearsal:
+    name: deploy rehearsal (${{ matrix.shard }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [changes, drill-images]
+    if: needs.changes.outputs.full == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [release, failures, unhealthy, serving, ship]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: drill-images
+
+      - name: Load the images
+        run: zstd -dc drill-images.tar.zst | docker load
+
+      # Failing a release for an unrelated registry hiccup mid-drill teaches
+      # people to rerun rather than to read, so the fixed dependencies are
+      # pulled up front.
+      - name: Pre-pull
+        run: |
+          set -euo pipefail
+          docker pull registry:2
+          grep -E '^NEXT_(POSTGRES|REDIS)_IMAGE=' deploy/deployment.env.example |
+            cut -d= -f2- | xargs -rn1 docker pull
+
+      # It publishes the images to a registry container it starts, and deploys,
+      # fails, and rolls back a stack several times. Nothing leaves the runner.
+      - name: Drill
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          deploy/rehearsal/drill.sh --shard "$SHARD" --no-build \
+            --web x-zoo-web:drill --worker x-zoo-worker:drill --edge x-zoo-edge:drill
+
+      - name: What it covers
+        if: always()
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          {
+            printf '### %s\n\n' "$SHARD"
+            deploy/rehearsal/drill.sh --list --shard "$SHARD" | sed 's/^/- /'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # The one check the merge queue requires: every gate job above passed, or
+  # was skipped because `changes` said so. When the heavy suites are due (the
+  # queue, an untested push) nothing may be skipped. A gate job added above
+  # belongs in `needs` here; the `pipeline` guard holds that.
+  gate:
+    name: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs:
+      [
+        changes,
+        static,
+        typecheck,
+        lint,
+        unit,
+        integration,
+        e2e-admin,
+        storefront-e2e,
+        build,
+        shell,
+        publish-rules,
+        drill-images,
+        rehearsal,
+      ]
+    if: always()
+    steps:
+      - name: Every gate job passed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          printf '%s' "$NEEDS" | jq -e '
+            (.changes.outputs.full == "true") as $full
+            | .changes.result == "success"
+              and ([del(.changes)[] | .result]
+                   | all(. == "success" or (($full | not) and . == "skipped")))' >/dev/null

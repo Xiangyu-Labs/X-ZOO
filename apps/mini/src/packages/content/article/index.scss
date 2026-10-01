@@ -1,0 +1,64 @@
+@use '../../../ui/tokens' as *;
+
+.article {
+  display: flex;
+  flex-direction: column;
+  padding: $space-6 $space-5 $space-8;
+
+  &__title {
+    @include text($font-title-lg);
+  }
+
+  &__meta {
+    margin-top: $space-2;
+    @include text($font-caption);
+    color: var(--color-text-tertiary);
+  }
+
+  &__body {
+    margin-top: $space-5;
+    @include text($font-body-lg);
+  }
+
+  &__links {
+    margin-top: $space-6;
+  }
+}
+
+.article-product {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  margin-top: $space-6;
+  padding: $space-3;
+  @include themed-radius($radius-md);
+  background: var(--color-surface-sunken);
+
+  &__image {
+    flex: none;
+    width: 120px;
+  }
+
+  &__text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: $space-2;
+    min-width: 0;
+  }
+
+  &__name {
+    @include text($font-body);
+    @include line-clamp(2);
+  }
+
+  &__prices {
+    display: flex;
+    align-items: baseline;
+    gap: $space-2;
+  }
+
+  &__arrow {
+    color: var(--color-text-tertiary);
+  }
+}

@@ -1,0 +1,16 @@
+@use './tokens' as *;
+
+.shop-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  background: var(--color-bg);
+
+  &--surface {
+    background: var(--color-surface);
+  }
+
+  // Room for a fixed bottom bar (ActionBar, a submit button) and the home indicator.
+  &--bar {
+    @include safe-bottom($bar-height + $space-4);
+  }
+}

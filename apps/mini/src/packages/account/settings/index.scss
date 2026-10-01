@@ -1,0 +1,8 @@
+@use '../../../ui/tokens' as *;
+
+.settings__actions {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+  padding: $space-7 $space-5 0;
+}

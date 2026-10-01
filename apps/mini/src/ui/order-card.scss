@@ -1,0 +1,130 @@
+@use './tokens' as *;
+
+.shop-order {
+  overflow: hidden;
+  background: var(--color-surface);
+  @include themed-radius($radius-md);
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $space-4 $space-5 $space-2;
+  }
+
+  &__head-left {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    min-width: 0;
+  }
+
+  &__no {
+    @include text($font-caption);
+    @include ellipsis;
+    color: var(--color-text-tertiary);
+  }
+
+  &__status {
+    flex: none;
+    @include text($font-body);
+    font-weight: 500;
+    color: var(--color-text);
+
+    &--alert {
+      color: var(--color-primary-text);
+    }
+  }
+
+  &__more {
+    display: block;
+    padding: 0 $space-5 $space-2;
+    @include text($font-caption);
+    color: var(--color-text-tertiary);
+  }
+
+  &__total {
+    display: flex;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: $space-2;
+    padding: $space-2 $space-5 $space-4;
+  }
+
+  &__count,
+  &__paid-label {
+    @include text($font-caption);
+    color: var(--color-text-secondary);
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: $space-3;
+    padding: $space-4 $space-5;
+    @include hairline(top, $space-5);
+  }
+
+  &__expiry {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    margin-right: auto;
+    white-space: nowrap;
+  }
+
+  &__expiry-label {
+    margin-right: $space-1;
+    @include text($font-caption);
+    color: var(--color-primary-text);
+  }
+}
+
+.shop-order-row {
+  display: flex;
+  gap: $space-4;
+  padding: $space-2 $space-5;
+
+  &__image {
+    flex: none;
+    width: 160px;
+  }
+
+  &__info {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  &__name {
+    @include text($font-body);
+    @include line-clamp(2);
+    color: var(--color-text);
+  }
+
+  &__spec {
+    @include text($font-caption);
+    @include ellipsis;
+    color: var(--color-text-tertiary);
+  }
+
+  &__note {
+    align-self: flex-start;
+  }
+
+  &__side {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+
+  &__qty {
+    @include text($font-caption);
+    color: var(--color-text-tertiary);
+  }
+}

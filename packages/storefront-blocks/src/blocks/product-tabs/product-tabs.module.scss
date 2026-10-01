@@ -1,0 +1,42 @@
+@use '../shared/tokens' as *;
+
+.tabs {
+  display: flex;
+  height: $hit;
+  background: $surface;
+}
+
+.tab {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.label {
+  position: relative;
+  padding: 0 $space-8;
+  overflow: hidden;
+  color: $text-secondary;
+  font-size: $font-body;
+  line-height: $hit;
+  white-space: nowrap;
+}
+
+.active .label {
+  color: $primary-text;
+  font-weight: 600;
+}
+
+.active .label::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  width: 40px;
+  height: 6px;
+  margin-left: -20px;
+  border-radius: 3px;
+  background: $primary;
+}

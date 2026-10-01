@@ -1,0 +1,29 @@
+@use '../../ui/tokens' as *;
+
+.splash {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: $z-overlay;
+  background: var(--color-surface);
+
+  display: flex;
+  align-items: center;
+
+  &__picture {
+    width: 100%;
+  }
+
+  &__skip {
+    position: absolute;
+    right: $space-5;
+    bottom: calc(#{$space-9} + env(safe-area-inset-bottom));
+    padding: $space-1 $space-4;
+    border-radius: $radius-pill;
+    background: var(--color-mask);
+    color: var(--color-on-primary);
+    @include text($font-caption);
+  }
+}

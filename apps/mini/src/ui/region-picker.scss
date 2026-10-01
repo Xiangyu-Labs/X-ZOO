@@ -1,0 +1,67 @@
+@use './tokens' as *;
+
+.shop-region {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+
+  &__value {
+    color: var(--color-text);
+
+    &--empty {
+      color: var(--color-text-disabled);
+    }
+  }
+
+  &__tabs {
+    display: flex;
+    gap: $space-6;
+    padding: 0 $space-5;
+    @include hairline(bottom);
+  }
+
+  &__tab {
+    position: relative;
+    max-width: 200px;
+    padding: $space-3 0;
+    @include text($font-body);
+    @include ellipsis;
+    color: var(--color-text);
+
+    &--on {
+      color: var(--color-primary-text);
+      font-weight: 600;
+
+      &::after {
+        content: '';
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        height: 4px;
+        border-radius: $radius-pill;
+        background: var(--color-primary);
+      }
+    }
+  }
+
+  &__list {
+    flex: 1;
+    height: 720px;
+  }
+
+  &__option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 88px;
+    padding: 0 $space-5;
+    @include text($font-body);
+    color: var(--color-text);
+
+    &--on {
+      color: var(--color-primary-text);
+      font-weight: 600;
+    }
+  }
+}

@@ -1,0 +1,98 @@
+@use '../../ui/tokens' as *;
+
+$search-height: 88px;
+$rail-width: 180px;
+
+.category {
+  display: flex;
+  align-items: flex-start;
+
+  &__search {
+    position: sticky;
+    top: 0;
+    z-index: $z-sticky;
+    @include hairline(bottom);
+  }
+
+  &__rail {
+    position: sticky;
+    top: $search-height;
+    flex: none;
+    width: $rail-width;
+    height: calc(100vh - #{$search-height});
+    background: var(--color-bg);
+  }
+
+  &__rail-skeleton {
+    height: 40px;
+    margin: $space-5 $space-3;
+  }
+
+  &__tab {
+    position: relative;
+    padding: $space-5 $space-3;
+    @include text($font-body);
+    color: var(--color-text-secondary);
+    text-align: center;
+    @include line-clamp(2);
+
+    &--on {
+      background: var(--color-surface);
+      color: var(--color-text);
+      font-weight: 600;
+
+      &::before {
+        content: '';
+        position: absolute;
+        top: $space-5;
+        bottom: $space-5;
+        left: 0;
+        width: 6px;
+        border-radius: 0 $radius-xs $radius-xs 0;
+        background: var(--color-primary);
+      }
+    }
+  }
+
+  &__main {
+    flex: 1;
+    min-width: 0;
+    min-height: calc(100vh - #{$search-height});
+    padding: $space-4 $space-4 $space-6;
+    box-sizing: border-box;
+  }
+
+  &__banner {
+    margin-bottom: $space-4;
+  }
+
+  &__subs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: $space-4 $space-2;
+    margin-bottom: $space-5;
+  }
+
+  &__sub {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $space-1;
+  }
+
+  &__sub-icon {
+    width: 112px;
+  }
+
+  &__sub-name {
+    width: 100%;
+    @include text($font-caption);
+    @include ellipsis;
+    color: var(--color-text);
+    text-align: center;
+  }
+
+  &__product {
+    margin-bottom: $space-3;
+  }
+}

@@ -1,0 +1,136 @@
+@use './tokens' as *;
+
+.shop-tag {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  box-sizing: border-box;
+  vertical-align: middle;
+  white-space: nowrap;
+
+  &__text {
+    font-weight: 500;
+  }
+
+  &--sm {
+    height: 32px;
+    padding: 0 8px;
+    border-radius: $radius-xs;
+    font-size: 20px;
+  }
+
+  &--md {
+    height: 40px;
+    padding: 0 12px;
+    border-radius: $radius-sm;
+    font-size: 22px;
+  }
+
+  // tone × variant
+  &--primary {
+    color: var(--color-primary-text);
+  }
+  &--primary.shop-tag--soft {
+    background: var(--color-primary-soft);
+  }
+  &--primary.shop-tag--solid {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+
+  &--warning {
+    color: var(--color-warning-text);
+  }
+  &--warning.shop-tag--soft {
+    background: var(--color-warning-soft);
+  }
+
+  &--success {
+    color: var(--color-success-text);
+  }
+  &--success.shop-tag--soft {
+    background: var(--color-surface-sunken);
+  }
+
+  &--danger {
+    color: var(--color-danger);
+  }
+  &--danger.shop-tag--soft {
+    background: var(--color-danger-soft);
+  }
+
+  &--neutral {
+    color: var(--color-text-secondary);
+  }
+  &--neutral.shop-tag--soft {
+    background: var(--color-surface-sunken);
+  }
+
+  &--outline {
+    @include hairline-box(currentColor, $radius-xs);
+  }
+}
+
+.shop-badge-host {
+  display: inline-flex;
+  position: relative;
+}
+
+.shop-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  border: 2px solid var(--color-surface);
+  border-radius: $radius-pill;
+  background: var(--color-danger);
+  color: var(--color-on-danger);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1;
+  @include tabular;
+
+  &--dot {
+    min-width: 0;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+  }
+
+  &--corner {
+    position: absolute;
+    top: 0;
+    right: 0;
+    transform: translate(50%, -40%);
+  }
+}
+
+.shop-divider {
+  height: 1px;
+  margin: $space-5 0;
+  background: var(--color-border);
+  transform: scaleY(0.5);
+
+  &--text {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    height: auto;
+    background: none;
+    transform: none;
+    @include text($font-caption);
+    color: var(--color-text-tertiary);
+
+    &::before,
+    &::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--color-border);
+      transform: scaleY(0.5);
+    }
+  }
+}

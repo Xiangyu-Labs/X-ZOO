@@ -1,0 +1,46 @@
+@use '../../../ui/tokens' as *;
+
+.goods-reviews {
+  &__summary {
+    display: flex;
+    gap: $space-8;
+    padding: $space-5;
+    background: var(--color-surface);
+  }
+
+  &__summary-skeleton {
+    width: 320px;
+    height: 88px;
+  }
+
+  &__score {
+    display: flex;
+    flex-direction: column;
+    gap: $space-1;
+  }
+
+  &__score-value {
+    @include text($font-title);
+    color: var(--color-primary-text);
+    font-weight: 600;
+  }
+
+  &__score-label {
+    @include text($font-caption);
+    color: var(--color-text-secondary);
+  }
+
+  &__list {
+    padding: $space-3 0;
+  }
+
+  &__item {
+    padding: $space-5;
+    background: var(--color-surface);
+    @include hairline(bottom);
+  }
+
+  &__item-skeleton {
+    height: 200px;
+  }
+}

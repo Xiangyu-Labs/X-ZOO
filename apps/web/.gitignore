@@ -1,0 +1,3 @@
+# Written by `next dev` / `next build`; its contents differ between the two
+# (`.next/types` vs `.next/dev/types`), so committing it only produces churn.
+next-env.d.ts

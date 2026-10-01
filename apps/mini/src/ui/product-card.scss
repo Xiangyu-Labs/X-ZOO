@@ -1,0 +1,159 @@
+@use './tokens' as *;
+
+.shop-product {
+  display: flex;
+  overflow: hidden;
+  background: var(--color-surface);
+  @include themed-radius($radius-md);
+
+  &--grid,
+  &--mini {
+    flex-direction: column;
+  }
+
+  &--mini {
+    width: 220px;
+  }
+
+  &--list {
+    gap: $space-4;
+    padding: $space-4;
+  }
+
+  &--unavailable {
+    opacity: 0.5;
+  }
+
+  &__media {
+    position: relative;
+    flex: none;
+  }
+
+  &--list &__media {
+    width: 200px;
+  }
+
+  &__activity {
+    position: absolute;
+    top: 0;
+    left: 0;
+    padding: 2px $space-2;
+    border-bottom-right-radius: $radius-md;
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    @include text($font-micro);
+  }
+
+  &__veil {
+    display: flex;
+    position: absolute;
+    // Not `inset`: iOS 14.1 and older ignore it.
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__veil-text {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 128px;
+    height: 128px;
+    border-radius: 50%;
+    background: var(--color-mask);
+    color: var(--color-on-primary);
+    @include text($font-body);
+    font-weight: 600;
+  }
+
+  &__body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    gap: $space-1;
+  }
+
+  &--grid &__body {
+    padding: $space-3 $space-4 $space-4;
+  }
+
+  &--mini &__body {
+    padding: $space-2 $space-3 $space-3;
+  }
+
+  &__name {
+    @include text($font-body);
+    @include line-clamp(2);
+    color: var(--color-text);
+  }
+
+  &--mini &__name {
+    @include text($font-caption);
+    @include line-clamp(1);
+  }
+
+  &__subtitle {
+    @include text($font-caption);
+    @include ellipsis;
+    color: var(--color-text-tertiary);
+  }
+
+  &__labels {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-1;
+    overflow: hidden;
+    max-height: 34px;
+  }
+
+  &__label {
+    padding: 0 $space-1;
+    border: 1px solid var(--color-primary);
+    border-radius: $radius-xs;
+    color: var(--color-primary-text);
+    @include text($font-micro);
+    line-height: 30px;
+  }
+
+  &__label-image {
+    height: 32px;
+  }
+
+  &__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: auto;
+  }
+
+  &__prices {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: $space-1;
+    min-width: 0;
+  }
+
+  &__cart {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    font-size: 30px;
+    @include hit-area;
+  }
+
+  &__sales {
+    @include text($font-small);
+    color: var(--color-text-tertiary);
+  }
+}

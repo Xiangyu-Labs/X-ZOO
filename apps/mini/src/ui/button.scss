@@ -1,0 +1,116 @@
+@use './tokens' as *;
+
+// Buttons: pill-shaped, one primary per page (design.md §1.1). Native <button> underneath
+// (open-type, accessibility), with WeChat's default look reset.
+.shop-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0 $space-6;
+  border: none;
+  border-radius: $radius-pill;
+  background: transparent;
+  color: var(--color-text);
+  font-family: inherit;
+  white-space: nowrap;
+  overflow: visible;
+  transition:
+    transform $duration-out $ease,
+    opacity $duration-out $ease;
+
+  @include native-button-width;
+
+  &::after {
+    display: none;
+    border: none;
+  }
+
+  // sizes: min-height, so the label can grow with the system font size
+  &--lg {
+    min-height: 88px;
+    padding: 0 $space-7;
+    @include text($font-body-lg);
+    font-weight: 600;
+  }
+  &--md {
+    min-height: 72px;
+    @include text($font-body);
+    font-weight: 500;
+  }
+  &--sm {
+    min-height: 56px;
+    padding: 0 $space-5;
+    @include text($font-caption);
+  }
+
+  &--block {
+    display: flex;
+    width: 100%;
+    @include native-button-width(100%);
+  }
+
+  // variants
+  &--primary {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+  &--secondary {
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+  }
+  &--soft {
+    background: var(--color-primary-soft);
+    color: var(--color-primary-text);
+  }
+  &--outline {
+    background: var(--color-surface);
+    color: var(--color-text);
+    @include hairline-box(var(--color-border-strong), $radius-pill);
+  }
+  &--outline-primary {
+    background: var(--color-surface);
+    color: var(--color-primary-text);
+    @include hairline-box(var(--color-primary-text), $radius-pill);
+  }
+  &--text {
+    padding-left: $space-3;
+    padding-right: $space-3;
+    color: var(--color-primary-text);
+  }
+  &--danger {
+    background: var(--color-danger);
+    color: var(--color-on-danger);
+  }
+
+  &--pressed {
+    opacity: 0.85;
+    transform: scale(0.98);
+  }
+
+  // Not the native `disabled` attribute: WeChat's `button[disabled]` greys every variant alike.
+  &--disabled {
+    opacity: 0.4;
+  }
+
+  &__label {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-1;
+  }
+
+  &--loading &__label {
+    visibility: hidden;
+  }
+
+  &__spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 36px;
+    height: 36px;
+    margin: -18px 0 0 -18px;
+  }
+}

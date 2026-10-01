@@ -1,0 +1,17 @@
+@use '../../../ui/tokens' as *;
+
+.account-submit-bar {
+  padding-left: $space-5;
+  padding-right: $space-5;
+}
+
+.account-page {
+  padding-bottom: $space-6;
+}
+
+.account-note {
+  display: block;
+  padding: $space-3 $space-5;
+  @include text($font-caption);
+  color: var(--color-text-tertiary);
+}

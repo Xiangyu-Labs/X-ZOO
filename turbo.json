@@ -1,0 +1,43 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "gen": { "dependsOn": ["^gen"], "outputs": ["src/**/*.gen.ts", "openapi.json"] },
+    "build": {
+      "dependsOn": ["gen", "^build"],
+      "env": ["NEXT_BUILD_CPUS", "TARO_APP_VERSION"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+    },
+    "typecheck": { "dependsOn": ["gen", "^gen"] },
+    "lint": { "dependsOn": ["gen"] },
+    "test": { "dependsOn": ["gen", "^gen"] },
+    "test:unit": { "dependsOn": ["gen", "^gen"] },
+    "test:int": { "dependsOn": ["gen", "^gen"], "cache": false },
+    "guards": { "dependsOn": ["gen", "^gen"] },
+    "dev": {
+      "dependsOn": ["gen"],
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": [
+        "DATABASE_URL",
+        "REDIS_URL",
+        "UPLOADS_DIR",
+        "UPLOADS_PUBLIC_PREFIX",
+        "APP_ORIGIN",
+        "EXTRA_ALLOWED_ORIGINS",
+        "APP_VERSION",
+        "DECOR_PREVIEW_URL",
+        "VALIDATE_RESPONSES",
+        "LOG_LEVEL",
+        "LOG_PRETTY",
+        "DB_POOL_MAX",
+        "DB_POOL_ACQUIRE_TIMEOUT_MS",
+        "DB_IDLE_IN_TX_TIMEOUT_MS",
+        "QUEUE_NAME",
+        "WORKER_CONCURRENCY",
+        "HEARTBEAT_INTERVAL_MS",
+        "SHUTDOWN_TIMEOUT_MS",
+        "SHOP_FAKE_SMS"
+      ]
+    }
+  }
+}

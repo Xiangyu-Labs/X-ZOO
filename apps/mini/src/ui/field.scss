@@ -1,0 +1,116 @@
+@use './tokens' as *;
+
+.shop-field {
+  padding: 0 $space-5;
+  background: var(--color-surface);
+
+  &__row {
+    display: flex;
+    align-items: center;
+    min-height: $cell-min-height;
+    box-sizing: border-box;
+    @include hairline(bottom);
+  }
+
+  &:last-child &__row::after {
+    display: none;
+  }
+
+  &--focused &__row::after {
+    background: var(--color-primary);
+    transform: scaleY(1);
+  }
+
+  &--error &__row::after {
+    background: var(--color-danger);
+  }
+
+  &__label {
+    flex: none;
+    width: 160px;
+    @include text($font-body-lg);
+    color: var(--color-text);
+  }
+
+  &__required {
+    margin-right: 4px;
+    color: var(--color-danger);
+  }
+
+  &__input {
+    flex: 1;
+    min-width: 0;
+    height: $cell-min-height;
+    @include text($font-body-lg);
+    color: var(--color-text);
+  }
+
+  &__placeholder {
+    color: var(--color-text-disabled);
+  }
+
+  &__clear {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    font-size: 32px;
+    color: var(--color-text-disabled);
+    @include hit-area;
+
+    &--hidden {
+      display: none;
+    }
+  }
+
+  &__suffix {
+    flex: none;
+    margin-left: $space-2;
+    @include text($font-body);
+    color: var(--color-text-secondary);
+  }
+
+  &__count {
+    display: block;
+    padding-bottom: $space-2;
+    @include text($font-small);
+    color: var(--color-text-tertiary);
+    text-align: right;
+  }
+
+  &__error {
+    display: block;
+    padding: $space-1 0 $space-3;
+    @include text($font-caption);
+    color: var(--color-danger);
+
+    &--hidden {
+      display: none;
+    }
+  }
+
+  &--disabled &__input,
+  &--disabled &__label {
+    color: var(--color-text-disabled);
+  }
+}
+
+.shop-textarea {
+  padding: $space-4 $space-5;
+  background: var(--color-surface);
+
+  &__input {
+    width: 100%;
+    min-height: 180px;
+    @include text($font-body-lg);
+    color: var(--color-text);
+  }
+
+  &__count {
+    display: block;
+    @include text($font-small);
+    color: var(--color-text-tertiary);
+    text-align: right;
+  }
+}

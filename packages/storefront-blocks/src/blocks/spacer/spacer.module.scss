@@ -1,0 +1,22 @@
+@use '../shared/tokens' as *;
+
+.space {
+  display: flex;
+  align-items: center;
+  height: calc(var(--sb-height) * 1px);
+}
+
+// A hairline (`$hairline`): one CSS pixel on any screen.
+.line {
+  flex: 1;
+  height: 0;
+  border-top: $hairline solid $border;
+}
+
+.dashed {
+  border-top-style: dashed;
+}
+
+.inset {
+  margin: 0 $gutter;
+}

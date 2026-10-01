@@ -1,0 +1,22 @@
+@use '../../ui/tokens' as *;
+
+.product-coupons {
+  &__tags {
+    display: flex;
+    justify-content: flex-end;
+    gap: $space-2;
+  }
+
+  &__hint {
+    display: block;
+    margin-bottom: $space-4;
+    @include text($font-caption);
+    color: var(--color-text-secondary);
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+  }
+}

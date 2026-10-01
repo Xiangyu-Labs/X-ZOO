@@ -1,0 +1,71 @@
+@use '../shared/tokens' as *;
+
+.sticky {
+  position: sticky;
+  top: 0;
+  z-index: $z-sticky;
+}
+
+.body {
+  padding: $space-16 $gutter;
+  background: $surface;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  height: 72px;
+  padding: 0 $space-24;
+  background: $surface-sunken;
+  border: $hairline solid $border;
+  box-sizing: border-box;
+}
+
+.round {
+  border-radius: $radius-pill;
+}
+
+.square {
+  border-radius: $radius-sm;
+}
+
+.icon {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  margin-right: $space-12;
+}
+
+.placeholder {
+  overflow: hidden;
+  color: $text-tertiary;
+  font-size: $font-body;
+  line-height: 72px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+// A chip is 48 high; its tap area is 88 (design.md §touch), the extra 20
+// above and below overlapping the block's padding.
+.hot {
+  margin: -4px 0 -20px;
+  white-space: nowrap;
+}
+
+.hit {
+  flex: 0 0 auto;
+  padding: 20px $space-12 20px 0;
+}
+
+.hotTrack {
+  display: flex;
+}
+
+.word {
+  padding: 0 $space-20;
+  border-radius: $radius-pill;
+  background: $surface-sunken;
+  color: $text-secondary;
+  font-size: $font-caption;
+  line-height: 48px;
+}

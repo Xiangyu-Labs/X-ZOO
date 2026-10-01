@@ -1,0 +1,73 @@
+@use './tokens' as *;
+
+.shop-action-bar {
+  display: flex;
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: $z-bar;
+  align-items: center;
+  min-height: $bar-height;
+  padding: 0 $space-5 0 $space-2;
+  background: var(--color-surface);
+  box-shadow: $shadow-bar;
+  @include safe-bottom;
+
+  &__item {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 96px;
+    height: $bar-height;
+    color: var(--color-text);
+
+    &--button {
+      margin: 0;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: none;
+      line-height: 1;
+      @include native-button-width(96px);
+
+      &::after {
+        display: none;
+      }
+    }
+
+    &--active {
+      color: var(--color-primary-text);
+    }
+  }
+
+  &__icon {
+    font-size: 44px;
+  }
+
+  &__label {
+    margin-top: 4px;
+    @include text($font-micro);
+    font-weight: 400;
+    color: var(--color-text-secondary);
+  }
+
+  &__buttons {
+    display: flex;
+    flex: 1;
+    gap: $space-3;
+    margin-left: $space-3;
+
+    // Two buttons share what the icons leave: they shrink (no min-content floor) and keep a
+    // narrower padding, so 「加入购物车」「立即购买」 fit a 375 px phone with three icons.
+    // No `> *`: WXSS rejects the universal selector and the upload fails (scripts/wxss-check.mjs).
+    > .shop-btn {
+      flex: 1;
+      min-width: 0;
+      padding-left: $space-3;
+      padding-right: $space-3;
+    }
+  }
+}

@@ -1,0 +1,7 @@
+@use '../../../ui/tokens' as *;
+
+.password__switch {
+  display: flex;
+  justify-content: center;
+  padding-top: $space-3;
+}

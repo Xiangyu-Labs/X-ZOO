@@ -1,0 +1,100 @@
+@use '../shared/tokens' as *;
+
+.body {
+  background: $surface;
+}
+
+.items {
+  box-sizing: border-box;
+  padding: 0 $gutter;
+}
+
+.item {
+  box-sizing: border-box;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: $text;
+  font-size: $font-body;
+  line-height: 40px;
+  word-break: break-all;
+}
+
+.summary {
+  margin-top: $space-8;
+  overflow: hidden;
+  color: $text-secondary;
+  font-size: $font-caption;
+  line-height: 34px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  margin-top: $space-8;
+  color: $text-tertiary;
+  font-size: $font-small;
+  line-height: 30px;
+}
+
+// --- rows: text left, a small cover right, hairline between rows -------------
+.rows {
+  .item {
+    display: flex;
+    align-items: center;
+    min-height: 180px;
+    padding: $space-20 0;
+    border-top: $hairline solid $border;
+  }
+
+  .text {
+    flex: 1;
+  }
+}
+
+.thumb {
+  flex: 0 0 auto;
+  width: 200px;
+  height: 140px;
+  margin-left: $space-20;
+  border-radius: $radius-sm;
+  background: $skeleton;
+}
+
+// --- cards: a wide cover above the text --------------------------------------
+.cards {
+  padding-bottom: 4px;
+
+  .item {
+    margin-bottom: $space-20;
+  }
+}
+
+.cover {
+  display: block;
+  width: 100%;
+  height: 360px;
+  border-radius: $radius-md;
+  background: $skeleton;
+}
+
+.cards .text {
+  padding-top: $space-16;
+}
+
+.empty {
+  padding: 40px $gutter;
+  color: $text-tertiary;
+  font-size: $font-caption;
+  text-align: center;
+}

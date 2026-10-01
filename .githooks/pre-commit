@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Fast checks on the files this commit touches (a few seconds; the full suites stay in CI):
+#
+# - Prettier on the staged files;
+# - ESLint on the staged scripts, package by package (each has its own config);
+# - the mini-program guards when the commit touches the mini-program or a package it compiles
+#   from source: pages and routes, WXSS-safe stylesheets, no eval (guards/README.md).
+#
+# It reads the working tree, not the index: stage whole files. `git commit --no-verify` skips it.
+# Installed by `pnpm install` (the root `prepare` script sets core.hooksPath to .githooks).
+set -euo pipefail
+
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+
+mapfile -t staged < <(git diff --cached --name-only --diff-filter=ACMR)
+[ ${#staged[@]} -eq 0 ] && exit 0
+
+fail=0
+
+pnpm exec prettier --check --ignore-unknown --log-level warn "${staged[@]}" || fail=1
+
+declare -A byPackage=()
+for file in "${staged[@]}"; do
+  case "$file" in
+    *.ts | *.tsx | *.mts | *.js | *.mjs) ;;
+    *) continue ;;
+  esac
+  case "$file" in
+    apps/*/* | packages/*/*) pkg=$(echo "$file" | cut -d/ -f1-2) ;;
+    guards/*) pkg=guards ;;
+    *) continue ;;
+  esac
+  [ -f "$pkg/eslint.config.mjs" ] || [ -f "$pkg/eslint.config.js" ] || continue
+  byPackage[$pkg]+="${file#"$pkg"/}"$'\n'
+done
+for pkg in "${!byPackage[@]}"; do
+  mapfile -t files < <(printf '%s' "${byPackage[$pkg]}")
+  if [ -f "$pkg/scripts/eslint-ts6.mjs" ]; then
+    # apps/web lints through the TypeScript 6 shim (its package.json `lint`)
+    (cd "$pkg" && node scripts/eslint-ts6.mjs "${files[@]}") || fail=1
+  else
+    (cd "$pkg" && pnpm exec eslint --no-warn-ignored "${files[@]}") || fail=1
+  fi
+done
+
+if printf '%s\n' "${staged[@]}" | grep -qE '^(apps/mini|packages/(storefront-blocks|api-client|contracts))/'; then
+  pnpm --silent --filter @shop/guards guards mini mini-styles banned --quiet || fail=1
+fi
+
+if [ $fail -ne 0 ]; then
+  echo 'pre-commit: fix the above, or `git commit --no-verify` to skip' >&2
+  exit 1
+fi

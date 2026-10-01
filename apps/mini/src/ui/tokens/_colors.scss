@@ -1,0 +1,45 @@
+// Colour tokens (docs/mini/design.md §2.1): the defaults every page starts from. Contrast ratios
+// are in the design doc; `src/theme/derive.ts` recomputes the operator-editable ones at run time
+// and `PageShell` writes them over these (page-meta `page-style`).
+//
+// Hex literals are allowed here and nowhere else in the app (design.md §8).
+@mixin default-colors {
+  --color-primary: #e1251b;
+  --color-on-primary: #ffffff;
+  --color-primary-soft: #fce9e8;
+  --color-primary-text: #e1251b;
+  --color-accent: #ff7e00;
+  --color-on-accent: #ffffff;
+  --color-price: #e1251b;
+  --color-text: #1a1a1a;
+  --color-text-secondary: #666666;
+  --color-text-tertiary: #707070;
+  --color-text-disabled: #b2b2b2;
+  --color-bg: #f5f5f5;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f7f7f7;
+  --color-mask: rgba(0, 0, 0, 0.6);
+  --color-border: #e5e5e5;
+  --color-border-strong: #8c8c8c;
+  --color-success-text: #0f7b3f;
+  --color-success: #07c160;
+  --color-warning-text: #a85a00;
+  --color-warning-soft: #fff4e5;
+  --color-danger: #d32f2f;
+  --color-danger-soft: #fdecec;
+  --color-on-danger: #ffffff;
+  --color-link: #576b95;
+  --color-skeleton: #eeeeee;
+  --color-pressed: rgba(0, 0, 0, 0.05);
+  // How round cards and pictures are (`app/config` appearance.theme.radius). Multiplies the
+  // card and image radius tokens; buttons and tags stay pill / xs.
+  --radius-factor: 1;
+}
+
+// The DIY blocks (`@shop/storefront-blocks`) read their own names; point them at ours so a
+// block follows the shop's theme like the rest of the page.
+@mixin block-bridge {
+  --sb-color-primary: var(--color-primary);
+  --sb-color-text: var(--color-text);
+  --sb-color-price: var(--color-price);
+}

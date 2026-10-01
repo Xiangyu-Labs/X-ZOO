@@ -1,0 +1,7 @@
+@use '../../../ui/tokens' as *;
+
+.profile__avatar {
+  display: flex;
+  justify-content: center;
+  padding: $space-7 0 $space-6;
+}

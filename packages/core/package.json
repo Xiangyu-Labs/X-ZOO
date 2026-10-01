@@ -1,0 +1,41 @@
+{
+  "name": "@shop/core",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./kernel": "./src/kernel/index.ts",
+    "./kernel/*": "./src/kernel/*.ts",
+    "./order/ports": "./src/order/ports.ts",
+    "./domains": "./src/domains.gen.ts",
+    "./*": "./src/*/index.ts"
+  },
+  "scripts": {
+    "gen": "tsx scripts/gen-config-groups.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "test:unit": "vitest run --project unit",
+    "test:int": "vitest run --project int --passWithNoTests"
+  },
+  "dependencies": {
+    "@shop/contracts": "workspace:*",
+    "@shop/db": "workspace:*",
+    "bcryptjs": "^3.0.2",
+    "bullmq": "^6.3.8",
+    "drizzle-orm": "^0.45.2",
+    "ioredis": "^6.0.0",
+    "pino": "^10.3.1",
+    "sharp": "^0.35.4",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@shop/config": "workspace:*",
+    "@types/node": "^24.0.0",
+    "eslint": "^10.11.0",
+    "tsx": "^4.20.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  }
+}

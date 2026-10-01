@@ -1,0 +1,114 @@
+[
+  {
+    "block": "searchBar",
+    "admin": "750×168",
+    "h5": "750×168",
+    "mismatched": 1481,
+    "total": 126000,
+    "percent": 1.18
+  },
+  {
+    "block": "carousel",
+    "admin": "750×340",
+    "h5": "750×340",
+    "mismatched": 458,
+    "total": 255000,
+    "percent": 0.18
+  },
+  {
+    "block": "navGrid",
+    "admin": "750×332",
+    "h5": "750×332",
+    "mismatched": 2092,
+    "total": 249000,
+    "percent": 0.84
+  },
+  {
+    "block": "notice",
+    "admin": "750×160",
+    "h5": "750×160",
+    "mismatched": 2549,
+    "total": 120000,
+    "percent": 2.12
+  },
+  {
+    "block": "titleBar",
+    "admin": "750×112",
+    "h5": "750×112",
+    "mismatched": 1520,
+    "total": 84000,
+    "percent": 1.81
+  },
+  {
+    "block": "productGrid",
+    "admin": "750×1570",
+    "h5": "750×1570",
+    "mismatched": 21132,
+    "total": 1177500,
+    "percent": 1.79
+  },
+  {
+    "block": "imageCube",
+    "admin": "750×380",
+    "h5": "750×380",
+    "mismatched": 8357,
+    "total": 285000,
+    "percent": 2.93
+  },
+  {
+    "block": "hotspotImage",
+    "admin": "750×360",
+    "h5": "750×360",
+    "mismatched": 3708,
+    "total": 270000,
+    "percent": 1.37
+  },
+  {
+    "block": "productTabs",
+    "admin": "750×1142",
+    "h5": "750×1142",
+    "mismatched": 14354,
+    "total": 856500,
+    "percent": 1.68
+  },
+  {
+    "block": "spacer",
+    "admin": "750×40",
+    "h5": "750×40",
+    "mismatched": 0,
+    "total": 30000,
+    "percent": 0
+  },
+  {
+    "block": "richText",
+    "admin": "750×290",
+    "h5": "750×290",
+    "mismatched": 7125,
+    "total": 217500,
+    "percent": 3.28
+  },
+  {
+    "block": "userCard",
+    "admin": "750×292",
+    "h5": "750×292",
+    "mismatched": 3479,
+    "total": 219000,
+    "percent": 1.59
+  },
+  {
+    "block": "orderEntry",
+    "admin": "750×254",
+    "h5": "750×254",
+    "mismatched": 3978,
+    "total": 190500,
+    "percent": 2.09
+  },
+  {
+    "block": "serviceGrid",
+    "admin": "750×280",
+    "h5": "750×280",
+    "mismatched": 3213,
+    "total": 210000,
+    "percent": 1.53
+  }
+]

@@ -1,0 +1,180 @@
+@use '../../../../ui/tokens' as *;
+
+.gallery-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+  padding: $space-7 $space-5 $space-5;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+  color: var(--color-on-primary);
+
+  &__glow {
+    position: absolute;
+    top: -160px;
+    right: -120px;
+    width: 420px;
+    height: 420px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0));
+  }
+
+  &__eyebrow {
+    @include text($font-micro);
+    letter-spacing: 4px;
+    opacity: 0.8;
+  }
+
+  &__title {
+    @include text($font-display);
+  }
+
+  &__lead {
+    @include text($font-caption);
+    opacity: 0.9;
+  }
+
+  &__search {
+    margin: $space-4 (-$space-5) 0;
+  }
+}
+
+.gallery-body {
+  padding-bottom: $space-5;
+}
+
+// Cards and cell groups carry the page gutter themselves; everything else gets it here.
+.gallery-pad,
+.gallery-stack,
+.gallery-grid,
+.gallery-flash {
+  margin-left: $space-5;
+  margin-right: $space-5;
+}
+
+.gallery-section {
+  margin-top: $space-6;
+
+  &__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: $space-3;
+    padding: 0 ($space-5 + $space-1);
+  }
+
+  &__title {
+    @include text($font-title);
+    color: var(--color-text);
+  }
+
+  > .shop-card {
+    margin-top: 0;
+  }
+
+  &__note {
+    @include text($font-caption);
+    color: var(--color-text-tertiary);
+  }
+}
+
+.gallery-stack {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: $space-3;
+}
+
+.gallery-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $space-3;
+
+  & + & {
+    margin-top: $space-4;
+  }
+
+  &--center {
+    justify-content: center;
+  }
+}
+
+.gallery-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}
+
+.gallery-choices {
+  display: flex;
+  gap: $space-7;
+  padding: $space-2 $space-5 $space-4;
+}
+
+.gallery-gap {
+  height: $space-4;
+}
+
+.gallery-muted {
+  @include text($font-caption);
+  color: var(--color-text-tertiary);
+}
+
+.gallery-badges {
+  gap: $space-6;
+  padding-top: $space-2;
+}
+
+.gallery-icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 112px;
+  height: 64px;
+  border-radius: $radius-sm;
+  background: var(--color-surface-sunken);
+  @include text($font-caption);
+  color: var(--color-text-secondary);
+}
+
+.gallery-flash {
+  overflow: hidden;
+  @include themed-radius($radius-lg);
+  background: linear-gradient(180deg, var(--color-primary-soft) 0%, var(--color-surface) 55%);
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    padding: $space-4 $space-5 $space-3;
+  }
+
+  &__title {
+    @include text($font-title);
+    color: var(--color-primary-text);
+    margin-right: auto;
+  }
+
+  &__ends {
+    @include text($font-caption);
+    color: var(--color-text-secondary);
+  }
+
+  &__rail {
+    width: 100%;
+    white-space: nowrap;
+  }
+
+  &__row {
+    display: inline-flex;
+    gap: $space-3;
+    padding: 0 $space-5 $space-5;
+  }
+}

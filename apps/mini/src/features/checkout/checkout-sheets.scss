@@ -1,0 +1,63 @@
+@use '../../ui/tokens' as *;
+
+.checkout-sheet {
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+  }
+
+  &__none {
+    padding: $space-3 0;
+  }
+
+  &__empty {
+    display: block;
+    padding: $space-7 0;
+    color: var(--color-text-tertiary);
+    text-align: center;
+    @include text($font-body);
+  }
+
+  &__actions {
+    display: flex;
+    gap: $space-3;
+  }
+
+  &__address {
+    align-items: flex-start;
+    padding: $space-4 0;
+    @include hairline(bottom);
+  }
+
+  &__address-body {
+    flex: 1;
+    min-width: 0;
+    margin-left: $space-3;
+  }
+
+  &__address-who {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+  }
+
+  &__address-name {
+    color: var(--color-text);
+    font-weight: 600;
+    @include text($font-body-lg);
+  }
+
+  &__address-phone {
+    color: var(--color-text-secondary);
+    @include text($font-body);
+  }
+
+  &__address-text {
+    display: block;
+    margin-top: $space-1;
+    color: var(--color-text-secondary);
+    @include text($font-caption);
+    @include line-clamp(2);
+  }
+}

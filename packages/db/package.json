@@ -1,0 +1,32 @@
+{
+  "name": "@shop/db",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema/*": "./src/schema/*.ts",
+    "./migrations/journal": "./migrations/meta/_journal.json"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/migrate.ts",
+    "db:seed": "tsx src/seed/index.ts"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.2",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "@shop/config": "workspace:*",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.11.0",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^10.11.0",
+    "tsx": "^4.20.0",
+    "typescript": "^7.0.2"
+  }
+}

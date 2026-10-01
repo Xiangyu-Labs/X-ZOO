@@ -1,0 +1,75 @@
+@use '../shared/tokens' as *;
+
+.body {
+  background: $surface;
+}
+
+.title {
+  height: $hit;
+  padding: 0 $gutter;
+  border-bottom: $hairline solid $border;
+  color: $text;
+  font-size: $font-body;
+  font-weight: 600;
+  line-height: $hit;
+  box-sizing: border-box;
+}
+
+.cells {
+  display: flex;
+  flex-wrap: wrap;
+  padding: $space-12 0;
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-sizing: border-box;
+  height: 148px;
+}
+
+.face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.cols4 .cell {
+  width: 25%;
+}
+
+.cols5 .cell {
+  width: 20%;
+}
+
+.icon {
+  width: 56px;
+  height: 56px;
+}
+
+// No icon chosen: the label's first character in a soft circle.
+.glyph {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: $surface-sunken;
+  color: $text-secondary;
+  font-size: $font-caption;
+  line-height: 56px;
+  text-align: center;
+}
+
+.label {
+  max-width: 100%;
+  margin-top: $space-12;
+  padding: 0 $space-8;
+  box-sizing: border-box;
+  overflow: hidden;
+  color: $text;
+  font-size: $font-caption;
+  line-height: 34px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

@@ -1,0 +1,13 @@
+@use '../../../ui/tokens' as *;
+
+.goods-featured {
+  &__body {
+    padding: $space-4;
+  }
+
+  &__skeleton {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: $space-3;
+  }
+}

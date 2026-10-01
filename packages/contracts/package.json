@@ -1,0 +1,36 @@
+{
+  "name": "@shop/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./conventions": "./src/_conventions/index.ts",
+    "./routes": "./src/routes.gen.ts",
+    "./errors": "./src/errors.gen.ts",
+    "./openapi.json": "./openapi.json",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "gen": "tsx scripts/gen.ts && tsx scripts/openapi.ts",
+    "openapi": "tsx scripts/openapi.ts",
+    "check:examples": "tsx scripts/check-examples.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "test:unit": "vitest run --project unit",
+    "test:int": "vitest run --project int --passWithNoTests"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@asteasolutions/zod-to-openapi": "^9.1.0",
+    "@shop/config": "workspace:*",
+    "@types/node": "^24.0.0",
+    "eslint": "^10.11.0",
+    "tsx": "^4.20.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  }
+}

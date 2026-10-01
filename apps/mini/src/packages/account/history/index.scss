@@ -1,0 +1,8 @@
+@use '../../../ui/tokens' as *;
+
+.history__day {
+  display: block;
+  padding: $space-5 $space-5 0;
+  @include text($font-caption);
+  color: var(--color-text-secondary);
+}

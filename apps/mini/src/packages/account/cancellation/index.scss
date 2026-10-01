@@ -1,0 +1,43 @@
+@use '../../../ui/tokens' as *;
+
+.cancellation {
+  &__notice {
+    display: block;
+    margin: $space-4 $space-5 0;
+    padding: $space-3 $space-5;
+    @include themed-radius($radius-sm);
+    @include text($font-body);
+    background: var(--color-warning-soft);
+    color: var(--color-warning-text);
+  }
+
+  &__effects {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    padding: $space-4 $space-5;
+  }
+
+  &__effect {
+    @include text($font-body);
+    color: var(--color-text-secondary);
+  }
+
+  &__agreement {
+    max-height: 640px;
+    overflow-y: auto;
+    padding: $space-4 $space-5;
+    @include text($font-body);
+  }
+
+  &__agree {
+    padding: $space-4 $space-5;
+  }
+
+  &__reason {
+    display: block;
+    margin-top: $space-3;
+    @include text($font-body);
+    color: var(--color-text-secondary);
+  }
+}

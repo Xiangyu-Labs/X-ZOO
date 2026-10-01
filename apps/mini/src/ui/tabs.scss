@@ -1,0 +1,66 @@
+@use './tokens' as *;
+
+.shop-tabs {
+  background: var(--color-surface);
+  @include hairline(bottom);
+
+  &--sticky {
+    position: sticky;
+    top: 0;
+    z-index: $z-sticky;
+  }
+
+  &__scroller {
+    width: 100%;
+    white-space: nowrap;
+  }
+
+  &__row {
+    display: flex;
+  }
+
+  &--scroll &__row {
+    display: inline-flex;
+    padding: 0 $space-3;
+  }
+
+  &__tab {
+    display: flex;
+    flex: 1;
+    position: relative;
+    align-items: center;
+    justify-content: center;
+    height: 88px;
+    padding: 0 $space-4;
+    @include text($font-body);
+    color: var(--color-text-secondary);
+
+    &--selected {
+      color: var(--color-text);
+      font-weight: 600;
+
+      &::after {
+        content: '';
+        position: absolute;
+        bottom: 8px;
+        left: 50%;
+        width: 40px;
+        height: 6px;
+        margin-left: -20px;
+        border-radius: $radius-pill;
+        background: var(--color-primary);
+      }
+    }
+  }
+
+  &--scroll &__tab {
+    flex: none;
+  }
+
+  &__count {
+    margin-left: 4px;
+    @include text($font-small);
+    @include tabular;
+    color: var(--color-primary-text);
+  }
+}

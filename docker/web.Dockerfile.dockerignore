@@ -1,0 +1,41 @@
+# Build context filter for `web.Dockerfile` (context: the repository root).
+#
+# BuildKit prefers `<dockerfile>.dockerignore` over the context's own
+# `.dockerignore`, so each image's context filter lives next to its Dockerfile.
+
+# Installed inside the image from the lockfile; shipping the host's copy would
+# be both huge and wrong (it is linked into the host's pnpm store).
+**/node_modules
+
+# Build output and caches: `pnpm build` runs in the image.
+**/.next
+**/dist
+**/.turbo
+**/coverage
+**/*.tsbuildinfo
+
+# Aggregates: `pnpm gen` runs in the image, and a stale copy would win.
+**/*.gen.ts
+**/openapi.json
+
+# Never into a build context.
+**/.env
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.key
+
+# Outside the pnpm workspace: the deploy scripts, the docs and the
+# repository's own metadata.
+.git
+.github
+deploy
+docs
+load
+tests
+
+# Test-only weight. Workspace *packages* (`e2e/*`, `guards`) are deliberately
+# not excluded: pnpm-workspace.yaml lists them, and `--frozen-lockfile` fails on
+# an importer whose directory is missing.
+**/playwright-report
+**/test-results

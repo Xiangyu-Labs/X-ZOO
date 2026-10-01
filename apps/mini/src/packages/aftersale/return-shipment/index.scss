@@ -1,0 +1,48 @@
+@use '../../../ui/tokens' as *;
+
+.return-shipment {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+  padding: $space-4 $space-5 $space-5;
+
+  &__line {
+    display: block;
+    @include text($font-body);
+
+    &--muted {
+      color: var(--color-text-secondary);
+    }
+  }
+
+  &__link {
+    @include text($font-caption);
+    color: var(--color-link);
+  }
+
+  &__placeholder {
+    color: var(--color-text-tertiary);
+  }
+
+  &__hint {
+    display: block;
+    padding: $space-2 0;
+    @include text($font-caption);
+    color: var(--color-text-tertiary);
+    text-align: center;
+  }
+
+  &__companies {
+    display: flex;
+    flex-direction: column;
+    padding-top: $space-2;
+  }
+
+  &__company {
+    min-height: $hit;
+  }
+
+  &__bar {
+    padding-top: $space-4;
+  }
+}

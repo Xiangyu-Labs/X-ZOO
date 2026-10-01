@@ -1,0 +1,33 @@
+@use '../../ui/tokens' as *;
+
+.decor-page {
+  min-height: 100vh;
+  padding-bottom: $space-6;
+  box-sizing: border-box;
+}
+
+.decor-skeleton {
+  padding: $space-4 $space-5;
+
+  &__banner {
+    height: 300px;
+    border-radius: $radius-md;
+  }
+
+  &__row {
+    display: flex;
+    justify-content: space-between;
+    margin: $space-6 $space-4;
+  }
+
+  &__icon {
+    width: 96px;
+    height: 96px;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $space-4;
+  }
+}

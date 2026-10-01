@@ -1,0 +1,167 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1790030693371,
+      "tag": "0000_init",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790088725415,
+      "tag": "0001_wechat_mini_codes",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790125983954,
+      "tag": "0002_audit_actor_kind",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790167444522,
+      "tag": "0003_attachments_url_idx",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790176561240,
+      "tag": "0004_decor",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790176600000,
+      "tag": "0005_groupbuy_virtual_fill_off",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790176700000,
+      "tag": "0006_mini_shipping_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790178077508,
+      "tag": "0007_content_security",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790226617361,
+      "tag": "0008_drop_legacy_diy",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790240000000,
+      "tag": "0009_drop_cutover_leftover_config",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790245572676,
+      "tag": "0010_api_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790249647497,
+      "tag": "0011_order_operator_discount",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790249823674,
+      "tag": "0012_order_reprice_permission",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790250202754,
+      "tag": "0013_editor_permission_requirements",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790296043650,
+      "tag": "0014_refund_zero_amount",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1790296143650,
+      "tag": "0015_admin_user_permission_requirements",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790332003303,
+      "tag": "0016_invoice_voided_timeline",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790815908340,
+      "tag": "0017_stats_sales_permission",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790825953995,
+      "tag": "0018_coupon_grant_permission_requirements",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790835825647,
+      "tag": "0019_effect_outcome",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790838533106,
+      "tag": "0020_last_error_summary",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790841528446,
+      "tag": "0021_coupon_template_picker_requirements",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1790843471026,
+      "tag": "0022_error_summary_failed_jobs_oa_menu",
+      "breakpoints": true
+    }
+  ]
+}

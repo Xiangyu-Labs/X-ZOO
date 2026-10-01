@@ -1,0 +1,15 @@
+# The configured deployment: two passwords and the digests of whatever this
+# host is actually running. `deployment.env.example` is the committed template.
+deployment.env
+deployment.env.*
+!deployment.env.example
+
+# Dumps, upgrade manifests and settings backups.
+data/
+
+# Where `ship.sh` releases to, on this machine. `ship.local.env.example` is the
+# committed template.
+ship.local.env
+
+# What a release writes on the host, when this directory is the host's.
+REVISION

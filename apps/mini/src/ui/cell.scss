@@ -1,0 +1,110 @@
+@use './tokens' as *;
+
+.shop-cell {
+  display: block;
+  padding: 0 $space-5;
+  background: var(--color-surface);
+
+  &__row {
+    display: flex;
+    align-items: center;
+    min-height: $cell-min-height;
+    padding: $space-4 0;
+    box-sizing: border-box;
+    @include hairline(bottom);
+
+    &--top {
+      align-items: flex-start;
+    }
+  }
+
+  &:last-child &__row::after {
+    display: none;
+  }
+
+  &__icon {
+    flex: none;
+    margin-right: $space-3;
+    font-size: 40px;
+    color: var(--color-text);
+  }
+
+  &__main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__title {
+    @include text($font-body-lg);
+    color: var(--color-text);
+  }
+
+  &__required {
+    margin-right: 4px;
+    color: var(--color-danger);
+  }
+
+  &__description {
+    margin-top: 4px;
+    @include text($font-caption);
+    color: var(--color-text-tertiary);
+  }
+
+  &__value {
+    flex: none;
+    max-width: 60%;
+    margin-left: $space-3;
+    @include text($font-body);
+    color: var(--color-text-secondary);
+    text-align: right;
+  }
+
+  &__arrow {
+    flex: none;
+    margin-left: $space-1;
+    margin-right: -$space-1;
+    font-size: 32px;
+    color: var(--color-text-disabled);
+  }
+
+  &__error {
+    display: block;
+    padding-bottom: $space-3;
+    @include text($font-caption);
+    color: var(--color-danger);
+  }
+
+  &--disabled &__title,
+  &--disabled &__value {
+    color: var(--color-text-disabled);
+  }
+}
+
+.shop-cell-group {
+  margin-top: $space-4;
+
+  &__title {
+    display: block;
+    padding: 0 $space-5 $space-2;
+    @include text($font-caption);
+    color: var(--color-text-tertiary);
+  }
+
+  &__body {
+    overflow: hidden;
+    background: var(--color-surface);
+  }
+
+  &--inset {
+    margin-left: $space-5;
+    margin-right: $space-5;
+  }
+
+  &--inset &__title {
+    padding-left: $space-2;
+  }
+
+  &--inset &__body {
+    @include themed-radius($radius-md);
+  }
+}

@@ -1,0 +1,27 @@
+@use '../../ui/tokens' as *;
+
+.agreement {
+  display: flex;
+  flex-direction: column;
+  padding: $space-6 $space-5 $space-8;
+
+  &__title {
+    @include text($font-title-lg);
+  }
+
+  &__date {
+    margin-top: $space-2;
+    @include text($font-caption);
+    color: var(--color-text-tertiary);
+  }
+
+  &__body {
+    margin-top: $space-5;
+    @include text($font-body-lg);
+    color: var(--color-text);
+  }
+
+  &__extra {
+    margin-top: $space-7;
+  }
+}

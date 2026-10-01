@@ -1,0 +1,33 @@
+@use './tokens' as *;
+
+.shop-card {
+  margin: $space-4 $space-5 0;
+  overflow: hidden;
+  background: var(--color-surface);
+  @include themed-radius($radius-md);
+
+  &--padded {
+    padding: $space-5;
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: $space-3;
+  }
+
+  &--padded > &__header:first-child {
+    margin-top: -$space-1;
+  }
+
+  &__title {
+    @include text($font-title);
+    color: var(--color-text);
+  }
+
+  &__extra {
+    @include text($font-caption);
+    color: var(--color-text-tertiary);
+  }
+}

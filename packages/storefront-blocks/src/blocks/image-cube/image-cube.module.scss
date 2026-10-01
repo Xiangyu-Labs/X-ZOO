@@ -1,0 +1,59 @@
+// Row layouts keep each picture's ratio (widthFix); the composite layouts are a
+// fixed-height box the pictures fill (aspectFill).
+
+.row {
+  display: flex;
+  align-items: flex-start;
+}
+
+.rowCell {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.rowImage {
+  display: block;
+  width: 100%;
+  // As in 热区图: widthFix sizes the height on WeChat, not in Taro H5.
+  height: auto;
+}
+
+.box {
+  display: flex;
+  height: calc(var(--sb-height) * 1px);
+}
+
+.column {
+  flex-direction: column;
+}
+
+.split {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+.cell {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #f2f2f2;
+}
+
+.fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+// Gaps are margins, not `gap`: flex `gap` is not safe on every WeChat renderer.
+.gapLeft {
+  margin-left: calc(var(--sb-gap) * 1px);
+}
+
+.gapTop {
+  margin-top: calc(var(--sb-gap) * 1px);
+}

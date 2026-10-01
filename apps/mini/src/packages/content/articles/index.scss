@@ -1,0 +1,45 @@
+@use '../../../ui/tokens' as *;
+
+.articles {
+  padding-bottom: $space-6;
+}
+
+.article-row {
+  display: flex;
+  gap: $space-4;
+  margin: $space-4 $space-5 0;
+  padding: $space-5;
+  @include themed-radius($radius-md);
+  background: var(--color-surface);
+
+  &__text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: $space-1;
+    min-width: 0;
+  }
+
+  &__title {
+    @include text($font-body-lg);
+    font-weight: 600;
+    @include line-clamp(2);
+  }
+
+  &__summary {
+    @include text($font-caption);
+    color: var(--color-text-secondary);
+    @include line-clamp(2);
+  }
+
+  &__meta {
+    margin-top: auto;
+    @include text($font-caption);
+    color: var(--color-text-tertiary);
+  }
+
+  &__cover {
+    flex: none;
+    width: 200px;
+  }
+}

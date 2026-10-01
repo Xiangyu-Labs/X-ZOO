@@ -1,0 +1,49 @@
+@use './tokens' as *;
+
+.shop-agreement {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  @include text($font-caption);
+  color: var(--color-text-tertiary);
+
+  .shop-choice__mark {
+    width: 32px;
+    height: 32px;
+    font-size: 22px;
+  }
+
+  &__text {
+    @include text($font-caption);
+    color: var(--color-text-tertiary);
+  }
+
+  &__link {
+    display: inline-flex;
+    align-items: center;
+    min-height: $hit;
+    color: var(--color-link);
+  }
+
+  &--shake-0 {
+    animation: shop-shake-0 0.4s $ease;
+  }
+
+  &--shake-1 {
+    animation: shop-shake-1 0.4s $ease;
+  }
+}
+
+@each $name in (shop-shake-0, shop-shake-1) {
+  @keyframes #{$name} {
+    20%,
+    60% {
+      transform: translateX(-12px);
+    }
+    40%,
+    80% {
+      transform: translateX(12px);
+    }
+  }
+}

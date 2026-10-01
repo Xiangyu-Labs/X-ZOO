@@ -1,0 +1,83 @@
+@use './tokens' as *;
+
+.shop-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  min-height: $hit;
+
+  &__mark {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    box-sizing: border-box;
+    border: 3px solid var(--color-border-strong);
+    border-radius: 50%;
+    font-size: 28px;
+    color: var(--color-on-primary);
+    transition:
+      background-color $duration-in $ease,
+      border-color $duration-in $ease;
+
+    &--on {
+      border-color: var(--color-primary);
+      background: var(--color-primary);
+    }
+  }
+
+  &__label {
+    @include text($font-body);
+    color: var(--color-text);
+  }
+
+  &--disabled {
+    opacity: 0.4;
+  }
+}
+
+.shop-switch {
+  display: inline-flex;
+  position: relative;
+  width: 96px;
+  height: 56px;
+  box-sizing: border-box;
+  padding: 4px;
+  border-radius: $radius-pill;
+  background: var(--color-border);
+  transition: background-color $duration-in $ease;
+  vertical-align: middle;
+  @include hit-area;
+
+  &__knob {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--color-surface);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    transition: transform $duration-in $ease;
+  }
+
+  &__spinner {
+    width: 28px;
+    height: 28px;
+    color: var(--color-text-tertiary);
+  }
+
+  &--on {
+    background: var(--color-primary);
+  }
+
+  &--on &__knob {
+    transform: translateX(40px);
+  }
+
+  &--disabled {
+    opacity: 0.4;
+  }
+}

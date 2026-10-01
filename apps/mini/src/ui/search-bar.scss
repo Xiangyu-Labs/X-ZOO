@@ -1,0 +1,66 @@
+@use './tokens' as *;
+
+.shop-search {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-2 $space-5;
+  background: var(--color-surface);
+
+  &--on-color {
+    background: transparent;
+  }
+
+  &__field {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    height: 68px;
+    padding: 0 $space-4;
+    border-radius: $radius-pill;
+    background: var(--color-surface-sunken);
+  }
+
+  &--on-color &__field {
+    background: var(--color-surface);
+  }
+
+  &__icon {
+    flex: none;
+    margin-right: $space-2;
+    font-size: 32px;
+    color: var(--color-text-tertiary);
+  }
+
+  &__input {
+    flex: 1;
+    height: 68px;
+    @include text($font-body);
+    color: var(--color-text);
+  }
+
+  &__placeholder {
+    @include text($font-body);
+    color: var(--color-text-disabled);
+  }
+
+  &__clear {
+    display: flex;
+    align-items: center;
+    font-size: 32px;
+    color: var(--color-text-disabled);
+    @include hit-area;
+
+    &--hidden {
+      display: none;
+    }
+  }
+
+  &__submit {
+    flex: none;
+    @include text($font-body-lg);
+    font-weight: 500;
+    color: var(--color-text);
+    @include hit-area;
+  }
+}

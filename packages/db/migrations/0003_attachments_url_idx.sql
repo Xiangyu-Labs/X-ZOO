@@ -1,0 +1,1 @@
+CREATE INDEX "attachments_url_idx" ON "attachments" USING hash ("url");

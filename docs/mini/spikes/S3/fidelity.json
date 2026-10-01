@@ -1,0 +1,26 @@
+[
+  {
+    "block": "carousel",
+    "admin": "750×340",
+    "h5": "750×340",
+    "mismatched": 458,
+    "total": 255000,
+    "percent": 0.18
+  },
+  {
+    "block": "productGrid",
+    "admin": "750×1588",
+    "h5": "750×1588",
+    "mismatched": 27457,
+    "total": 1191000,
+    "percent": 2.31
+  },
+  {
+    "block": "imageCube",
+    "admin": "750×380",
+    "h5": "750×380",
+    "mismatched": 7610,
+    "total": 285000,
+    "percent": 2.67
+  }
+]

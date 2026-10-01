@@ -1,0 +1,40 @@
+@use '../../../ui/tokens' as *;
+
+.coupons {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+  padding: $space-4 $space-5;
+  @include safe-bottom($space-5);
+
+  &__welcome,
+  &__skeleton,
+  &__list .shop-list__items {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+  }
+
+  &__heading {
+    color: var(--color-text);
+    @include text($font-title);
+  }
+
+  &__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 56px;
+    padding: 0 $space-3;
+  }
+
+  &__held {
+    color: var(--color-text-tertiary);
+    @include text($font-caption);
+  }
+}
+
+.coupons__skeleton-card {
+  height: 176px;
+  @include themed-radius($radius-md);
+}

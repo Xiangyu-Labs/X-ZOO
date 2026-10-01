@@ -1,0 +1,48 @@
+@use '../../../ui/tokens' as *;
+
+.my-groupbuys {
+  padding: $space-4 $space-5;
+  @include safe-bottom($space-5);
+
+  &__list .shop-list__items {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+  }
+
+  &__main {
+    display: flex;
+    gap: $space-3;
+  }
+
+  &__image {
+    flex: none;
+    width: 160px;
+  }
+
+  &__body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: $space-1;
+    min-width: 0;
+  }
+
+  &__title {
+    color: var(--color-text);
+    @include text($font-body);
+    @include line-clamp(2);
+  }
+
+  &__meta {
+    color: var(--color-text-tertiary);
+    @include text($font-caption);
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: $space-3;
+    margin-top: $space-3;
+  }
+}

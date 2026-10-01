@@ -1,0 +1,20 @@
+@use '../../../ui/tokens' as *;
+
+.webview-blocked {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+
+  &__note {
+    @include text($font-body);
+    color: var(--color-text-secondary);
+  }
+
+  &__url {
+    padding: $space-3;
+    @include themed-radius($radius-sm);
+    @include text($font-caption);
+    background: var(--color-surface-sunken);
+    word-break: break-all;
+  }
+}

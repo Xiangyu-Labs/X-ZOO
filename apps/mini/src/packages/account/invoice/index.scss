@@ -1,0 +1,26 @@
+@use '../../../ui/tokens' as *;
+
+.invoice-state {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  margin: $space-4 $space-5 0;
+  padding: $space-6 $space-5;
+  @include themed-radius($radius-md);
+  background: var(--color-surface);
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+  }
+
+  &__title {
+    @include text($font-title-lg);
+  }
+
+  &__note {
+    @include text($font-body);
+    color: var(--color-text-secondary);
+  }
+}

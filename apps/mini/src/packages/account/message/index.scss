@@ -1,0 +1,34 @@
+@use '../../../ui/tokens' as *;
+
+.message {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  margin: $space-4 $space-5 0;
+  padding: $space-6 $space-5;
+  @include themed-radius($radius-md);
+  background: var(--color-surface);
+
+  &__title {
+    @include text($font-title);
+  }
+
+  &__time {
+    @include text($font-caption);
+    color: var(--color-text-tertiary);
+  }
+
+  &__content {
+    margin-top: $space-3;
+    @include text($font-body-lg);
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  &__actions {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+    margin-top: $space-6;
+  }
+}

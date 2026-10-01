@@ -1,0 +1,21 @@
+@use '../../../ui/tokens' as *;
+
+.pay-result {
+  &__recommend {
+    padding: $space-7 $space-5 $space-5;
+  }
+
+  &__recommend-title {
+    display: block;
+    margin-bottom: $space-4;
+    color: var(--color-text);
+    text-align: center;
+    @include text($font-title);
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $space-4;
+  }
+}

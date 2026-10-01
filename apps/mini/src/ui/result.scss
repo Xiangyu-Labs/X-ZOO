@@ -1,0 +1,56 @@
+@use './tokens' as *;
+
+.shop-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: $space-9 $space-7 $space-7;
+  background: var(--color-surface);
+  text-align: center;
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 128px;
+    height: 128px;
+    border-radius: 50%;
+    font-size: 80px;
+  }
+
+  &--success &__icon {
+    background: var(--color-primary-soft);
+    color: var(--color-primary-text);
+  }
+
+  &--pending &__icon,
+  &--waiting &__icon {
+    background: var(--color-warning-soft);
+    color: var(--color-warning-text);
+  }
+
+  &--fail &__icon {
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
+  }
+
+  &__title {
+    margin-top: $space-6;
+    @include text($font-title-lg);
+    color: var(--color-text);
+  }
+
+  &__description {
+    margin-top: $space-2;
+    @include text($font-body);
+    color: var(--color-text-tertiary);
+  }
+
+  &__actions {
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+    gap: $space-4;
+    margin-top: $space-7;
+  }
+}

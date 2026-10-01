@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "paths": {
+      // `@shop/testing` depends on `@shop/core`, so core cannot depend back on
+      // it without a workspace cycle that turbo refuses to schedule. Integration
+      // tests still import the harness by its package name; this alias (mirrored
+      // in `vitest.config.ts`) is what makes that resolve. Remove it if the
+      // harness is ever split into a core-free package.
+      "@shop/testing": ["../testing/src/index.ts"],
+      "@shop/testing/*": ["../testing/src/*"]
+    }
+  },
+  "include": ["src", "scripts"]
+}

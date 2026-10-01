@@ -1,0 +1,18 @@
+# Generated or machine-owned: formatting them is either pointless or harmful.
+pnpm-lock.yaml
+node_modules/
+dist/
+.next/
+.turbo/
+coverage/
+*.gen.ts
+openapi.json
+# Written by `pnpm --filter @shop/guards api-compat:refresh` at a mini-program release.
+guards/baselines/
+# Written by `next build`, so the Definition of Done's own order (build, then
+# `prettier --check .`) goes red without this. See docs/rewrite/status/golden.md.
+apps/web/next-env.d.ts
+
+# Data, not code.
+packages/db/seed-data/
+packages/db/migrations/

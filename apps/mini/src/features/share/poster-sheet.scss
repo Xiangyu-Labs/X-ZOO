@@ -1,0 +1,64 @@
+@use '../../ui/tokens' as *;
+
+.shop-poster {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+  padding: 0 $space-5 $space-5;
+
+  // Drawn on, never shown: the picture is the <image> below.
+  &__canvas {
+    position: fixed;
+    top: 0;
+    left: -10000px;
+    width: 600px;
+    height: 1200px;
+  }
+
+  &__stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 480px;
+    padding: $space-4;
+    background: var(--color-surface-sunken);
+    @include themed-radius($radius-md);
+  }
+
+  &__preview {
+    width: 70%;
+  }
+
+  // `height: auto` for H5, whose <image> host keeps a default 240px height under widthFix.
+  &__image {
+    display: block;
+    width: 100%;
+    height: auto;
+    box-shadow: $shadow-float;
+  }
+
+  &__note {
+    color: var(--color-text-secondary);
+    text-align: center;
+    @include text($font-body);
+  }
+
+  &__failed,
+  &__denied {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $space-3;
+  }
+
+  &__option {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+  }
+
+  &__option-text {
+    color: var(--color-text);
+    @include text($font-body);
+  }
+}

@@ -1,0 +1,186 @@
+@use '../shared/tokens' as *;
+
+.cards {
+  box-sizing: border-box;
+}
+
+.card {
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: $radius-md;
+  background: $surface;
+}
+
+.media {
+  position: relative;
+  overflow: hidden;
+  background: $skeleton;
+}
+
+.image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.badge {
+  position: absolute;
+  top: $space-12;
+  left: $space-12;
+  padding: 0 $space-8;
+  border-radius: $radius-sm;
+  background: rgba(0, 0, 0, 0.55);
+  color: #ffffff;
+  font-size: $font-small;
+  line-height: 32px;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: $text;
+  font-size: $font-body;
+  line-height: 40px;
+  word-break: break-all;
+}
+
+.bottom {
+  margin-top: auto;
+}
+
+.prices {
+  display: flex;
+  align-items: baseline;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.priceLabel {
+  margin-right: 6px;
+  color: $price;
+  font-size: $font-small;
+}
+
+.price {
+  color: $price;
+  font-size: 36px;
+  font-weight: 600;
+  line-height: 44px;
+  font-variant-numeric: tabular-nums;
+}
+
+.minor {
+  font-size: $font-small;
+}
+
+.struck {
+  margin-left: $space-8;
+  color: $text-tertiary;
+  font-size: $font-small;
+  text-decoration: line-through;
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: $space-8;
+}
+
+.note {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: $text-tertiary;
+  font-size: $font-small;
+  line-height: 30px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.button {
+  flex: 0 0 auto;
+  height: 52px;
+  margin-left: $space-12;
+  padding: 0 $space-20;
+  border-radius: $radius-pill;
+  background: $primary;
+  color: $on-primary;
+  font-size: $font-caption;
+  line-height: 52px;
+}
+
+// --- one column, picture on the left ----------------------------------------
+.list {
+  padding: 0 $gutter 4px;
+
+  .card {
+    display: flex;
+    margin-bottom: $space-16;
+  }
+
+  .media {
+    flex: 0 0 auto;
+    width: 220px;
+    height: 220px;
+  }
+
+  .body {
+    flex: 1;
+    box-sizing: border-box;
+    height: 220px;
+    padding: $space-16 $space-20;
+  }
+}
+
+// --- one row, scrolled sideways --------------------------------------------
+.scroll {
+  width: 100%;
+  padding-bottom: $space-20;
+  white-space: nowrap;
+}
+
+.track {
+  display: flex;
+  padding: 0 $gutter;
+
+  .card {
+    flex: 0 0 auto;
+    width: 300px;
+    margin-right: $space-16;
+    white-space: normal;
+  }
+
+  .media {
+    width: 100%;
+    padding-top: 100%;
+  }
+
+  .body {
+    box-sizing: border-box;
+    padding: $space-12 $space-16 $space-16;
+  }
+
+  .title {
+    height: 80px;
+    font-size: 26px;
+  }
+
+  .note {
+    display: none;
+  }
+
+  .foot {
+    display: none;
+  }
+}

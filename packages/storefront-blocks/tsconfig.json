@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["node"],
+    // The blocks run on React 18 in the mini-program (Taro's React plugin supports
+    // 18 only) and on React 19 in the admin. This package is typechecked against
+    // the React 18 types so a 19-only API does not compile; `apps/web` checks the
+    // same source against the 19 types.
+    "paths": {
+      "react": ["./node_modules/@types/react-18"],
+      "react/*": ["./node_modules/@types/react-18/*"],
+      "react-dom": ["./node_modules/@types/react-dom-18"],
+      "react-dom/*": ["./node_modules/@types/react-dom-18/*"]
+    }
+  },
+  "include": ["src", "scripts", "fidelity", "*.ts"]
+}

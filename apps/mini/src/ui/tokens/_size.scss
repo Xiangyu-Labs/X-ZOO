@@ -1,0 +1,55 @@
+// Size tokens (docs/mini/design.md §2.2–2.6). Every size is in 750-wide design px: Taro turns
+// `px` into `rpx` at build time, so these must stay Sass literals, never CSS variables.
+
+// -- type ------------------------------------------------------------------------------------
+// (size, line-height, weight)
+$font-display: (48px, 64px, 600);
+$font-title-lg: (36px, 50px, 600);
+$font-title: (32px, 44px, 600);
+$font-body-lg: (30px, 42px, 400);
+$font-body: (28px, 40px, 400);
+$font-caption: (24px, 34px, 400);
+$font-small: (22px, 30px, 400);
+$font-micro: (20px, 28px, 500);
+
+$font-family:
+  -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei', sans-serif;
+
+// -- spacing (multiples of 4) ------------------------------------------------------------------
+$space-1: 8px;
+$space-2: 12px;
+$space-3: 16px;
+$space-4: 20px;
+$space-5: 24px; // the page gutter
+$space-6: 32px;
+$space-7: 40px;
+$space-8: 48px;
+$space-9: 64px;
+
+// -- radius --------------------------------------------------------------------------------------
+$radius-xs: 4px;
+$radius-sm: 8px;
+$radius-md: 16px;
+$radius-lg: 24px;
+$radius-pill: 999px;
+
+// -- elevation -----------------------------------------------------------------------------------
+$shadow-bar: 0 -2px 12px rgba(0, 0, 0, 0.06);
+$shadow-float: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+// -- layers --------------------------------------------------------------------------------------
+$z-sticky: 100;
+$z-bar: 200;
+$z-overlay: 900;
+$z-sheet: 1000;
+$z-toast: 2000;
+
+// -- motion --------------------------------------------------------------------------------------
+$ease: cubic-bezier(0.2, 0, 0, 1);
+$duration-in: 200ms;
+$duration-out: 150ms;
+
+// -- hit area ------------------------------------------------------------------------------------
+$hit: 88px;
+$bar-height: 100px;
+$cell-min-height: 96px;

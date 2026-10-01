@@ -1,0 +1,119 @@
+@use '../../ui/tokens' as *;
+
+.cart-row {
+  display: flex;
+  align-items: flex-start;
+  padding: $space-5 $space-5 $space-5 0;
+
+  & + & {
+    @include hairline(top, 88px);
+  }
+
+  &__check {
+    flex: none;
+    align-self: center;
+    padding-left: $space-3;
+  }
+
+  &__off-tag {
+    flex: none;
+    align-self: center;
+    width: 64px;
+    margin: 0 $space-3;
+    padding: 2px 0;
+    border-radius: $radius-pill;
+    background: var(--color-surface-sunken);
+    color: var(--color-text-tertiary);
+    text-align: center;
+    @include text($font-micro);
+  }
+
+  &__media {
+    flex: none;
+    width: 176px;
+    height: 176px;
+    margin-right: $space-4;
+    overflow: hidden;
+    border-radius: $radius-sm;
+  }
+
+  &__body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 176px;
+  }
+
+  &__name {
+    color: var(--color-text);
+    @include text($font-body);
+    @include line-clamp(2);
+  }
+
+  &__spec {
+    align-self: flex-start;
+    max-width: 100%;
+    margin-top: $space-2;
+    padding: 2px $space-3;
+    border-radius: $radius-xs;
+    background: var(--color-surface-sunken);
+    color: var(--color-text-secondary);
+    @include text($font-caption);
+    @include ellipsis;
+
+    &--button {
+      display: flex;
+      align-items: center;
+    }
+  }
+
+  &__spec-text {
+    min-width: 0;
+    @include ellipsis;
+  }
+
+  &__spec-icon {
+    flex: none;
+    margin-left: $space-1;
+    font-size: 24px;
+  }
+
+  &__reason {
+    margin-top: $space-2;
+    color: var(--color-warning-text);
+    @include text($font-caption);
+  }
+
+  &__note {
+    margin-top: $space-2;
+    color: var(--color-text-tertiary);
+    @include text($font-caption);
+  }
+
+  &__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: auto;
+    padding-top: $space-3;
+  }
+
+  &__qty {
+    color: var(--color-text-tertiary);
+    @include text($font-caption);
+  }
+
+  &__rescue {
+    padding: $space-1 $space-4;
+    border: 2px solid var(--color-primary);
+    border-radius: $radius-pill;
+    color: var(--color-primary-text);
+    @include text($font-caption);
+  }
+
+  &--off &__name,
+  &--off &__media {
+    opacity: 0.6;
+  }
+}

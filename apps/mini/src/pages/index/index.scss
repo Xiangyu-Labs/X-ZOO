@@ -1,0 +1,13 @@
+@use '../../ui/tokens' as *;
+
+.home {
+  &__search {
+    flex: 1;
+    padding: 0;
+    background: transparent;
+  }
+
+  &__empty {
+    padding-top: $space-9;
+  }
+}

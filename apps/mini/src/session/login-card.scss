@@ -1,0 +1,23 @@
+@use '../ui/tokens' as *;
+
+.shop-login-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: $space-3;
+  margin: $space-4 $space-5 0;
+  padding: $space-6 $space-5 $space-4;
+  background: var(--color-surface);
+  text-align: center;
+  @include themed-radius($radius-md);
+
+  &__reason {
+    @include text($font-body);
+    color: var(--color-text-secondary);
+  }
+}
+
+.shop-login-gate .shop-login-card {
+  margin-top: 0;
+  background: transparent;
+}

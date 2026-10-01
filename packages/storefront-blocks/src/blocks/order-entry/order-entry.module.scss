@@ -1,0 +1,88 @@
+@use '../shared/tokens' as *;
+
+.body {
+  background: $surface;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: $hit;
+  padding: 0 $gutter;
+  border-bottom: $hairline solid $border;
+  box-sizing: border-box;
+}
+
+.title {
+  color: $text;
+  font-size: $font-body;
+  font-weight: 600;
+}
+
+.all {
+  display: flex;
+  align-items: center;
+  height: $hit;
+  color: $text-tertiary;
+  font-size: $font-caption;
+}
+
+.chevron {
+  width: 12px;
+  height: 12px;
+  margin-left: 6px;
+  border-top: 3px solid $text-tertiary;
+  border-right: 3px solid $text-tertiary;
+  transform: rotate(45deg);
+}
+
+.entries {
+  display: flex;
+  padding: $space-20 0 $space-24;
+}
+
+.entry {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.iconBox {
+  position: relative;
+  width: 56px;
+  height: 56px;
+}
+
+.icon {
+  width: 56px;
+  height: 56px;
+}
+
+.badge {
+  position: absolute;
+  top: -10px;
+  left: 36px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  border: 2px solid $surface;
+  border-radius: $radius-pill;
+  background: $primary;
+  color: $on-primary;
+  font-size: 20px;
+  line-height: 28px;
+  text-align: center;
+}
+
+.label {
+  margin-top: $space-12;
+  overflow: hidden;
+  color: $text;
+  font-size: $font-caption;
+  line-height: 34px;
+  white-space: nowrap;
+}

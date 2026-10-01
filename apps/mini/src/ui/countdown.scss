@@ -1,0 +1,40 @@
+@use './tokens' as *;
+
+.shop-countdown {
+  display: inline-flex;
+  align-items: center;
+  @include tabular;
+  @include text($font-caption);
+  color: inherit;
+
+  &__group {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  &__days {
+    margin-right: 6px;
+  }
+
+  &__colon {
+    padding: 0 4px;
+  }
+
+  &--boxed &__digits {
+    min-width: 40px;
+    padding: 2px 6px;
+    border-radius: $radius-xs;
+    background: var(--color-text);
+    color: var(--color-surface);
+    font-weight: 600;
+    text-align: center;
+  }
+
+  &--boxed &__colon {
+    font-weight: 600;
+  }
+
+  &--ended {
+    color: var(--color-text-tertiary);
+  }
+}

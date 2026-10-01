@@ -1,0 +1,79 @@
+@use '../shared/tokens' as *;
+
+// One cell: an 88 icon over a one-line label, 152 tall — the whole cell is
+// the tap target.
+$cell-height: 152px;
+
+.body {
+  padding: $space-20 0 $space-8;
+  background: $surface;
+}
+
+.cells {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+  height: $cell-height;
+  padding-top: $space-8;
+}
+
+.cols4 .cell {
+  width: 25%;
+}
+
+.cols5 .cell {
+  width: 20%;
+}
+
+.icon {
+  width: 88px;
+  height: 88px;
+  border-radius: $radius-md;
+  background: $surface-sunken;
+}
+
+.circle {
+  border-radius: 50%;
+}
+
+.label {
+  max-width: 100%;
+  margin-top: $space-12;
+  padding: 0 $space-8;
+  box-sizing: border-box;
+  overflow: hidden;
+  color: $text;
+  font-size: $font-caption;
+  line-height: 34px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pages {
+  height: calc(var(--sb-rows) * #{$cell-height});
+}
+
+.dots {
+  display: flex;
+  justify-content: center;
+  padding: $space-8 0 $space-12;
+}
+
+.dot {
+  width: 12px;
+  height: 6px;
+  margin: 0 4px;
+  border-radius: 3px;
+  background: $border;
+}
+
+.dotActive {
+  width: 24px;
+  background: $primary;
+}

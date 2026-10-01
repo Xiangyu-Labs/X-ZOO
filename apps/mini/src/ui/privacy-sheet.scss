@@ -1,0 +1,32 @@
+@use './tokens' as *;
+
+.shop-privacy {
+  &__lead {
+    display: block;
+    @include text($font-body);
+    color: var(--color-text-secondary);
+  }
+
+  // Inline, so the link stays in the sentence (a Pressable is a View).
+  &__link {
+    display: inline;
+    color: var(--color-link);
+  }
+
+  &__note {
+    display: block;
+    margin-top: $space-3;
+    @include text($font-caption);
+    color: var(--color-text-tertiary);
+  }
+
+  &__actions {
+    display: flex;
+    gap: $space-3;
+    width: 100%;
+
+    > .shop-btn {
+      flex: 1;
+    }
+  }
+}

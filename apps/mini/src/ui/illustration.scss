@@ -1,0 +1,101 @@
+@use './tokens' as *;
+
+// Empty-state illustrations (design.md §4.2), 200 × 160, in three layers so they follow the
+// theme: a soft fill (skeleton grey), the line drawing (disabled grey) and one accent stroke
+// in the shop's primary colour. Each layer is a CSS mask, like the icons, and like them the
+// drawing's class sets only a custom property per layer, so each data URL is written once.
+
+$fill-attrs: "fill='black'";
+$line-attrs: "fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'";
+
+@function art($d, $attrs) {
+  @return url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 160' #{$attrs}%3E%3Cpath d='#{$d}'/%3E%3C/svg%3E");
+}
+
+$ground: 'M44 140a56 6 0 1 0 112 0a56 6 0 1 0-112 0z';
+
+// name: (fill, line, accent)
+$art: (
+  'general': (
+    $ground + 'M58 72h84v56a5 5 0 0 1-5 5H63a5 5 0 0 1-5-5z',
+    'M58 72h84v56a5 5 0 0 1-5 5H63a5 5 0 0 1-5-5zM58 72l-12 17h38l8-17M142 72l12 17h-38l-8-17M88 104h24',
+    'M100 26v14M93 33h14M140 44l6-6M60 44l-6-6',
+  ),
+  'search': (
+    $ground + 'M92 38a34 34 0 1 1 0 68a34 34 0 1 1 0-68z',
+    'M92 38a34 34 0 1 1 0 68a34 34 0 1 1 0-68zM117 97l26 26M72 66a21 21 0 0 1 13-12',
+    'M84 66a8 8 0 1 1 11 7.4c-2.6 1-3 2.6-3 5.6M92 88h.01',
+  ),
+  'order': (
+    $ground + 'M66 28h54l20 20v80a5 5 0 0 1-5 5H66a5 5 0 0 1-5-5V33a5 5 0 0 1 5-5z',
+    'M66 28h54l20 20v80a5 5 0 0 1-5 5H66a5 5 0 0 1-5-5V33a5 5 0 0 1 5-5zM120 28v20h20M76 64h40M76 80h48M76 96h28',
+    'M128 118a14 14 0 1 0 28 0a14 14 0 1 0-28 0M135 118l5 5 9-9',
+  ),
+  'network': (
+    $ground + 'M66 110a24 24 0 0 1 2-47.8A32 32 0 0 1 128 56a26 26 0 0 1 8 54z',
+    'M66 110a24 24 0 0 1 2-47.8A32 32 0 0 1 128 56a26 26 0 0 1 8 54z',
+    'M62 36l76 88M88 92l12-12 12 12',
+  ),
+  'cart': (
+    $ground + 'M60 60h80l-6 68a5 5 0 0 1-5 5H71a5 5 0 0 1-5-5z',
+    'M60 60h80l-6 68a5 5 0 0 1-5 5H71a5 5 0 0 1-5-5zM82 60v-8a18 18 0 0 1 36 0v8',
+    'M100 84v24M88 96h24',
+  ),
+  'coupon': (
+    $ground + 'M42 58h116v18a10 10 0 0 0 0 20v18H42V96a10 10 0 0 0 0-20z',
+    'M42 58h116v18a10 10 0 0 0 0 20v18H42V96a10 10 0 0 0 0-20zM122 64v6M122 78v6M122 92v6M122 106v2',
+    'M72 72l10 12 10-12M82 84v18M74 88h16M74 96h16',
+  ),
+  'building': (
+    $ground + 'M90 44h20l22 84H68z',
+    'M90 44h20l22 84H68zM56 128h88v8H56zM96 30h8v14h-8z',
+    'M84 72h32M77 100h46',
+  ),
+);
+
+.shop-art {
+  position: relative;
+  width: 320px;
+  height: 256px;
+
+  &--sm {
+    width: 200px;
+    height: 160px;
+  }
+
+  &__layer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+  }
+
+  &__layer--fill {
+    background: var(--color-skeleton);
+    -webkit-mask-image: var(--shop-art-fill);
+    mask-image: var(--shop-art-fill);
+  }
+  &__layer--line {
+    background: var(--color-text-disabled);
+    -webkit-mask-image: var(--shop-art-line);
+    mask-image: var(--shop-art-line);
+  }
+  &__layer--accent {
+    background: var(--color-primary);
+    -webkit-mask-image: var(--shop-art-accent);
+    mask-image: var(--shop-art-accent);
+  }
+}
+
+@each $name, $layers in $art {
+  .shop-art--#{$name} {
+    --shop-art-fill: #{art(nth($layers, 1), $fill-attrs)};
+    --shop-art-line: #{art(nth($layers, 2), $line-attrs)};
+    --shop-art-accent: #{art(nth($layers, 3), $line-attrs)};
+  }
+}

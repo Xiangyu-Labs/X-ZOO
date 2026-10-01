@@ -1,0 +1,14 @@
+## Ground rules (all executors)
+
+- Work ONLY in your worktree (path in your brief). Start every shell command with `cd <worktree> &&` or use absolute paths; run `pwd` before any file write from the shell. NEVER write into `/home/xiangyu/Projects/x-zoo` (the user's master checkout) or `/home/xiangyu/Projects/x-zoo-mini` (integration; the orchestrator merges).
+- Run `pnpm install --frozen-lockfile` and `pnpm gen` first.
+- Read `docs/conventions.md`, `docs/contributing.md`, `docs/mini/README.md`, `docs/mini/pages.md` and the parts of `docs/mini/status/*.md` your brief names before coding.
+- Dev/test only with the fakes in `@shop/testing`. Never call real WeChat, SMS or Aliyun endpoints. No production data, no real credentials anywhere (repo, logs, screenshots). Never print secret values from the old system's config table.
+- No `git push`, no PRs, no production access. Commit on your branch only, small commits, message style like the existing history, ending with the trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- Core business logic (orders, payment, refunds, stock, coupons, group-buy, presale, auth state machines) must not be rewritten; additive changes only where the brief says so.
+- `apps/mini` pages never call `Taro.*` directly (the `mini` guard); go through `@/platform`. All shopper-facing text is Simplified Chinese; the shop is an adult-products store, keep copy restrained.
+- A business rule proved by a test carries its rule ID in the test title and `docs/invariants.md` cites it. A test expected to fail on a known defect is `test.fail` with the reason.
+- Sub-agents: at most one at a time, omit the `model` parameter.
+- Keep `docs/mini/status/<your-task>.md` current (Done / In progress / Pending / Page-form changes / Backend gaps / Open questions / Tests for the orchestrator to run) so a killed run can resume from it. Commit it.
+- **Machine load (hard rule — the user's dev machine crashed once from parallel test runs, and the user is angry about tests running endlessly):** do NOT run full suites — no repo-wide `turbo run`, no `test:int`, no Playwright e2e, no `build` of apps you did not touch. Run only: `pnpm --filter <pkg> typecheck` and `lint` for packages you changed, and the unit tests of the files you changed (`pnpm --filter <pkg> exec vitest run <paths> --maxWorkers=2`). If you wrote/changed an int test or e2e spec, do NOT run it: list it under "Tests for the orchestrator to run" and the orchestrator runs it once in a batch. `pnpm guards` and `pnpm exec prettier --check <your files>` are fine. Never leave a background process running when you finish. Don't rerun the same checks repeatedly.
+- Your final message: what you did, the targeted checks you ran and results, tests the orchestrator must run, any page-form change (旧→新 and why) the user must be told about, backend gaps, open questions. Concise.

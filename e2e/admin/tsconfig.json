@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // `page.evaluate` bodies run in the browser, so the DOM lib has to be here
+    // even though nothing in this package runs in a browser itself.
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"],
+    "allowImportingTsExtensions": true
+  },
+  "include": ["specs", "src", "scripts", "playwright.config.ts"]
+}

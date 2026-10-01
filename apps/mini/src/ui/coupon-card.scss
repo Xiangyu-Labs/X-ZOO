@@ -1,0 +1,155 @@
+@use './tokens' as *;
+
+.shop-coupon {
+  overflow: hidden;
+  background: var(--color-surface);
+  @include themed-radius($radius-md);
+
+  &__main {
+    display: flex;
+    align-items: stretch;
+    min-height: 176px;
+  }
+
+  &__value {
+    display: flex;
+    position: relative;
+    flex: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 200px;
+    background: var(--color-primary-soft);
+    color: var(--color-price);
+
+    // The perforation between the stub and the terms.
+    &::after {
+      content: '';
+      position: absolute;
+      top: $space-3;
+      right: 0;
+      bottom: $space-3;
+      border-right: 2px dashed var(--color-surface);
+    }
+  }
+
+  &__amount {
+    display: flex;
+    align-items: baseline;
+  }
+
+  &__yuan {
+    @include text($font-body);
+    font-weight: 600;
+  }
+
+  &__whole {
+    font-size: 64px;
+    line-height: 72px;
+    font-weight: 700;
+    @include tabular;
+  }
+
+  &__threshold {
+    @include text($font-small);
+  }
+
+  &__terms {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    gap: 4px;
+    padding: $space-4;
+  }
+
+  &__title {
+    @include text($font-body);
+    font-weight: 600;
+    @include line-clamp(2);
+    color: var(--color-text);
+  }
+
+  &__scope,
+  &__validity {
+    @include text($font-small);
+    color: var(--color-text-tertiary);
+  }
+
+  &__side {
+    display: flex;
+    flex: none;
+    align-items: center;
+    padding-right: $space-4;
+  }
+
+  &__action {
+    padding: 0 $space-4;
+    border-radius: $radius-pill;
+    @include text($font-caption);
+    line-height: 52px;
+    font-weight: 500;
+
+    &--solid {
+      background: var(--color-primary);
+      color: var(--color-on-primary);
+    }
+
+    &--outline {
+      border: 1px solid var(--color-primary);
+      color: var(--color-primary-text);
+    }
+
+    &--busy {
+      opacity: 0.6;
+    }
+  }
+
+  &__stamp {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 104px;
+    height: 104px;
+    border: 3px solid var(--color-border-strong);
+    border-radius: 50%;
+    color: var(--color-text-tertiary);
+    @include text($font-caption);
+    font-weight: 600;
+    transform: rotate(-18deg);
+  }
+
+  &__pick {
+    box-sizing: border-box;
+    width: 40px;
+    height: 40px;
+    border: 2px solid var(--color-border-strong);
+    border-radius: 50%;
+
+    &--on {
+      border: 12px solid var(--color-primary);
+    }
+  }
+
+  &--dim &__value {
+    background: var(--color-surface-sunken);
+    color: var(--color-text-tertiary);
+  }
+
+  &--dim &__title {
+    color: var(--color-text-secondary);
+  }
+
+  &--selected {
+    box-shadow: inset 0 0 0 2px var(--color-primary);
+  }
+
+  &__reason {
+    display: block;
+    padding: $space-2 $space-4;
+    background: var(--color-surface-sunken);
+    @include text($font-small);
+    color: var(--color-text-secondary);
+  }
+}

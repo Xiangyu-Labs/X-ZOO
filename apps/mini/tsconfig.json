@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "allowArbitraryExtensions": true,
+    "types": ["node"],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src", "config", "types", "scripts", "*.mts"],
+  // Only for tsconfig.weapp.json, which leaves @types/node out.
+  "exclude": ["types/weapp"]
+}
