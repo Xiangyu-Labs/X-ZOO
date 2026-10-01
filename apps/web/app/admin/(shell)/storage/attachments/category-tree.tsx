@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Card, Empty, Popconfirm, Space, Spin, Tree, Typography, message } from 'antd';
+import { Button, Card, Empty, Popconfirm, Space, Spin, Typography, message } from 'antd';
 import { useMemo, useState } from 'react';
 import {
   storageCategoryCreate,
@@ -15,6 +15,7 @@ import {
 
 import { useRouteMutation, useRouteQuery } from '@/admin/api/hooks';
 import { ModalForm } from '@/admin/kit/form/modal-form';
+import { SideTree } from '@/admin/kit/tree/side-tree';
 import { Can } from '@/admin/session/can';
 
 interface TreeNode {
@@ -81,10 +82,9 @@ export function CategoryTree({
       ) : tree.length === 0 ? (
         <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有分类" />
       ) : (
-        <Tree
+        <SideTree
           treeData={[{ key: '', title: '全部素材', children: tree }]}
           defaultExpandAll
-          blockNode
           selectedKeys={[selectedId ?? '']}
           onSelect={(keys) => {
             const key = String(keys[0] ?? '');
@@ -94,8 +94,10 @@ export function CategoryTree({
       )}
 
       {selected && (
-        <Space style={{ padding: '8px 4px 0' }} size="small">
-          <Typography.Text type="secondary">{selected.name}</Typography.Text>
+        <Space style={{ padding: '8px 4px 0' }} size="small" wrap>
+          <Typography.Text type="secondary" style={{ wordBreak: 'break-all' }}>
+            {selected.name}
+          </Typography.Text>
           <Can permission="storage:category:write">
             <Button type="link" size="small" onClick={() => setEditing(selected)}>
               重命名

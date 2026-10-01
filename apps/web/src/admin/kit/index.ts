@@ -111,6 +111,8 @@ export type { FieldErrorMatch } from './form/zod-bridge';
 export { FormErrorBanner, useFieldErrors } from './form/form-errors';
 
 // ── Asset library ───────────────────────────────────────────────────────────
+export { SideTree } from './tree/side-tree';
+export type { SideTreeProps } from './tree/side-tree';
 export { AssetPicker, useAssetPicker } from './asset/asset-picker';
 export type { AssetPickerHandle, AssetPickerProps } from './asset/asset-picker';
 export { AssetSourceProvider, useAssetSource } from './asset/asset-source-context';
