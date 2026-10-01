@@ -13,6 +13,7 @@ describe('aliyunExpressType', () => {
     ['youzhengguonei', 'CHINAPOST'],
     ['jd', 'JD'],
     ['ems', 'EMS'],
+    ['zhongyouwuliu', 'ZYWL'],
   ])('translates our %s to the vendor’s %s', (ours, theirs) => {
     expect(aliyunExpressType(ours)).toBe(theirs);
   });

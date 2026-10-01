@@ -37,6 +37,7 @@ const ALIYUN_TYPE: Readonly<Record<string, string>> = {
   danniao: 'DANNIAO',
   yimidida: 'YIMIDIDA',
   sxjdfreight: 'SXJD',
+  zhongyouwuliu: 'ZYWL',
   suer: 'SURE',
   kuaijiesudi: 'FASTEXPRESS',
   rrs: 'RRS',
