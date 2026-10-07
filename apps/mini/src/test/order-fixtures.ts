@@ -47,6 +47,8 @@ export function orderItem(
 export function orderListItem(
   overrides: Partial<StorefrontOrderListItem> = {},
 ): StorefrontOrderListItem {
+  // What the server says with no 售后期限 set (REFUND-022): open until the order completes.
+  const status = overrides.status ?? 'paid';
   return {
     id: '9001',
     orderNo: '202602011000000010123456',
@@ -65,6 +67,7 @@ export function orderListItem(
     items: [orderItem('7001')],
     refundedAmount: '0.00',
     hasOpenRefund: false,
+    aftersaleOpen: status === 'paid' || status === 'shipped' || status === 'received',
     groupbuyTeam: null,
     ...overrides,
   };
@@ -75,7 +78,7 @@ export function orderDetail(overrides: Partial<OrderDetail> = {}): OrderDetail {
   const status = overrides.status ?? 'paid';
   const invoiceRequestable = !['pending_payment', 'cancelled', 'refunded'].includes(status);
   return {
-    ...orderListItem(),
+    ...orderListItem({ status }),
     receiver: {
       addressId: '301',
       name: '张三',

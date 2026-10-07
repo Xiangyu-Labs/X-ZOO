@@ -78,6 +78,7 @@ export const paidOrderFixture: ResponseOf<'order.detail'> = {
   createdAt: '2026-09-20T10:00:00+08:00',
   refundedAmount: '0.00',
   hasOpenRefund: false,
+  aftersaleOpen: true,
   groupbuyTeam: null,
   invoiceRequestable: true,
   invoiceAmount: '118.00',

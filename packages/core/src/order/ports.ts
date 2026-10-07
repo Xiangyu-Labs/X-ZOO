@@ -527,6 +527,15 @@ export interface OrderFactsPort {
   hasOpenOrders(tx: Tx, productId: number): Promise<boolean>;
 }
 
+/**
+ * The refund domain's 售后期限 (`refundConfig.afterSaleDays`), which the buyer's order
+ * reads turn into `aftersaleOpen` with `aftersaleOpen()` — the rule the refund domain
+ * applies to the request itself.
+ */
+export interface AftersalePolicyPort {
+  windowDays(ctx: Ctx): Promise<number>;
+}
+
 // ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
@@ -559,6 +568,7 @@ const paymentSlot = slot<PaymentPort>('PaymentPort');
 const freightSlot = slot<FreightPort>('FreightPort');
 const stateMachineSlot = slot<OrderStateMachine>('OrderStateMachine');
 const orderFactsSlot = slot<OrderFactsPort>('OrderFactsPort');
+const aftersaleSlot = slot<AftersalePolicyPort>('AftersalePolicyPort');
 
 export const registerStockPort = stockSlot.set;
 export const getStockPort = stockSlot.get;
@@ -574,6 +584,16 @@ export const getOrderStateMachine = stateMachineSlot.get;
 
 export const registerOrderFacts = orderFactsSlot.set;
 export const getOrderFacts = orderFactsSlot.get;
+
+export const registerAftersalePolicy = aftersaleSlot.set;
+
+/**
+ * The 售后期限 in days. Without the refund domain (a test that installs only the order
+ * domain) it is `0`: no window beyond `received`, the setting's default.
+ */
+export async function aftersaleWindowDays(ctx: Ctx): Promise<number> {
+  return (await aftersaleSlot.peek()?.windowDays(ctx)) ?? 0;
+}
 
 const contributors: PricingContributor[] = [];
 
@@ -628,6 +648,7 @@ export function resetOrderPorts(): void {
   freightSlot.clear();
   stateMachineSlot.clear();
   orderFactsSlot.clear();
+  aftersaleSlot.clear();
   contributors.length = 0;
   kindHandlers.clear();
   onOrderPaid.clear();

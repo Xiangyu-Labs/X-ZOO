@@ -1,3 +1,5 @@
+import { registerAftersalePolicy } from '../order/ports';
+import { refundAftersalePolicy } from './refund.config';
 import { registerRefundEffects } from './refund.effects';
 import { registerRefundNotificationEvents } from './refund.notifications';
 
@@ -98,4 +100,6 @@ export function registerRefundDomain(): void {
   // A gateway answer that does not match the refund (wrong merchant, wrong
   // amount) is raised to an operator.
   registerRefundNotificationEvents();
+  // 我的订单 shows 申请售后 by the same 售后期限 `apply` enforces (REFUND-022).
+  registerAftersalePolicy(refundAftersalePolicy);
 }

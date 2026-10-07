@@ -1336,6 +1336,15 @@ Approving a 仅退款 takes what the request covered when the buyer applied: uni
 - `packages/core/src/refund/refund.concurrency.int.test.ts::shipping the last unshipped units while a 仅退款 is approved > REFUND-021 — has exactly one winner on a line shipped in part before the request, when the operator goes first`
 - `packages/core/src/refund/refund.concurrency.int.test.ts::shipping the last unshipped units while a 仅退款 is approved > REFUND-021 — refuses a 仅退款 whose units shipped after the buyer asked, and still approves one on goods shipped before`
 
+### REFUND-022
+
+The buyer may open after-sales on a `paid` or `shipped` order, and from 确认收货 (`received_at`, the buyer's or the automatic one) for the shop's 售后期限 (`refund.afterSaleDays`) — through `completed` — to the same instant that many days later. With no 售后期限 (`0`) the buyer may apply while the order is `received` and not once it is `completed`. Past it, both the apply screen's read and the request are refused (`REFUND_AFTERSALE_EXPIRED`), and 我的订单 and 订单详情 offer no 申请售后 (`aftersaleOpen`, decided by the same `aftersaleOpen()`).
+
+- `packages/core/src/order/order.aftersale.test.ts::aftersaleOpen (REFUND-022) > runs 售后期限 days from 确认收货, through completion, to the millisecond`
+- `packages/core/src/refund/refund.int.test.ts::REFUND-022 — the buyer may apply until the 售后期 runs out > with no 售后期限, takes a received order and refuses a completed one`
+- `packages/core/src/refund/refund.int.test.ts::REFUND-022 — the buyer may apply until the 售后期 runs out > counts 售后期限 days from 确认收货, through completion`
+- `packages/core/src/refund/refund.int.test.ts::REFUND-022 — the buyer may apply until the 售后期 runs out > is what 我的订单 and 订单详情 show as aftersaleOpen`
+
 ## Registration and notifications
 
 ### USER-001
