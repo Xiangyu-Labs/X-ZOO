@@ -57,6 +57,7 @@ export { autoCancel, cancel, cancelOrder, sweepExpiredOrders } from './order.can
 export { remindUnpaid } from './order.remind.service';
 export type { CancelInput, CancelOutcome, CancelReason } from './order.cancel.service';
 export { counts, detail, detailOf, giftCoupons, list } from './order.query.service';
+export { aftersaleOpen } from './order.aftersale';
 export { hide } from './order.hide.service';
 export { ORDER_NO_LENGTH, isOrderNo, requireOrderRef, resolveOrderRef } from './order.ref';
 export { orderStateMachine } from './order.state-machine';

@@ -50,7 +50,7 @@ export const refundApplicableItems = defineRoute({
   tags: ['refund'],
   params: refundableItemsParams,
   response: refundableItemsResult,
-  errors: ['REFUND_ORDER_NOT_FOUND', 'REFUND_ORDER_NOT_REFUNDABLE'],
+  errors: ['REFUND_ORDER_NOT_FOUND', 'REFUND_ORDER_NOT_REFUNDABLE', 'REFUND_AFTERSALE_EXPIRED'],
   examples: [
     { name: 'one-line', params: { orderId: '3001' }, response: refundableItemsExample },
     {
@@ -85,6 +85,7 @@ export const refundApply = defineRoute({
   errors: [
     'REFUND_ORDER_NOT_FOUND',
     'REFUND_ORDER_NOT_REFUNDABLE',
+    'REFUND_AFTERSALE_EXPIRED',
     'REFUND_LINE_INVALID',
     'REFUND_ALREADY_OPEN',
     'REFUND_EXCEEDS_PAID',

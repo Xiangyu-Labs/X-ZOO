@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { defineConfigGroup } from '../kernel/config-registry';
 import type { Ctx } from '../kernel/context';
+import type { AftersalePolicyPort } from '../order/ports';
 
 /**
  * The `refund` config group: where returned goods go, and the canned reasons.
@@ -43,8 +44,10 @@ export const refundConfig = defineConfigGroup({
     returnPhone: configText(20),
     returnAddress: configText(255),
     /**
-     * How long a buyer may still open after-sales on a completed order, in
-     * days. `0` disables the window entirely.
+     * 售后期限: how long after 确认收货 (`orders.received_at`, the buyer's or the
+     * automatic one) the buyer may still open after-sales, in days — the order
+     * completing in between does not shorten it. `0` means no window: the buyer
+     * may apply until the order completes (REFUND-022, `aftersaleOpen`).
      */
     afterSaleDays: z.number().int().min(0).max(365).default(0),
   }),
@@ -56,7 +59,7 @@ export const refundConfig = defineConfigGroup({
       label: '售后期限',
       type: 'number',
       unit: 'days',
-      help: '0 表示不限制',
+      help: '从确认收货（含自动确认收货）起算，期内买家可申请售后；填 0 表示订单完成后不能再申请。',
       section: '售后',
       order: 40,
     },
@@ -64,6 +67,13 @@ export const refundConfig = defineConfigGroup({
 });
 
 export type RefundConfig = z.infer<typeof refundConfig.schema>;
+
+/** The 售后期限 the order domain reads through `AftersalePolicyPort`. */
+export const refundAftersalePolicy: AftersalePolicyPort = {
+  async windowDays(ctx) {
+    return (await ctx.config.get(refundConfig)).afterSaleDays;
+  },
+};
 
 export interface ReturnAddress {
   name: string;

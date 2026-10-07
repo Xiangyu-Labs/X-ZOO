@@ -45,6 +45,7 @@ const order: StorefrontOrderListItem = {
   createdAt: '2026-02-01T10:00:00+08:00',
   refundedAmount: '0.00',
   hasOpenRefund: false,
+  aftersaleOpen: true,
   groupbuyTeam: null,
   items: [item('1'), item('2'), item('3'), item('4')],
 };
@@ -68,15 +69,32 @@ describe('orderActions', () => {
     ]);
     expect(keys({ status: 'shipped' })).toEqual(['aftersale', 'logistics', 'confirm']);
     expect(keys({ status: 'received', items: toReview })).toEqual(['aftersale', 'rebuy', 'review']);
-    expect(keys({ status: 'completed' })).toEqual(['delete', 'rebuy']);
-    expect(keys({ status: 'cancelled' })).toEqual(['delete', 'rebuy']);
-    expect(keys({ status: 'cancelled', kind: 'groupbuy' })).toEqual(['delete']);
+    expect(keys({ status: 'completed', aftersaleOpen: false })).toEqual(['delete', 'rebuy']);
+    expect(keys({ status: 'cancelled', aftersaleOpen: false })).toEqual(['delete', 'rebuy']);
+    expect(keys({ status: 'cancelled', aftersaleOpen: false, kind: 'groupbuy' })).toEqual([
+      'delete',
+    ]);
     expect(orderActions({ ...order, status: 'pending_payment' }).at(-1)?.variant).toBe('primary');
   });
 
   it('offers 去评价 only while some line can be reviewed', () => {
     expect(keys({ status: 'received', items: reviewed })).toEqual(['aftersale', 'rebuy']);
-    expect(keys({ status: 'completed', items: toReview })).toEqual(['delete', 'rebuy', 'review']);
+    expect(keys({ status: 'completed', aftersaleOpen: false, items: toReview })).toEqual([
+      'delete',
+      'rebuy',
+      'review',
+    ]);
+  });
+
+  it('offers 申请售后 for as long as the server says the 售后期 runs (REFUND-022)', () => {
+    expect(keys({ status: 'completed' })).toEqual(['aftersale', 'delete', 'rebuy']);
+    expect(keys({ status: 'completed', refundStatus: 'partially_refunded' })).toEqual([
+      'aftersale',
+      'delete',
+      'rebuy',
+    ]);
+    expect(keys({ status: 'completed', refundStatus: 'requested' })).toEqual(['delete', 'rebuy']);
+    expect(keys({ status: 'received', aftersaleOpen: false })).toEqual(['rebuy']);
   });
 
   it('holds 申请售后 back while one is open', () => {

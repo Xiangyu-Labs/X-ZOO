@@ -24,6 +24,11 @@ export const refundErrors = defineErrors({
   REFUND_ORDER_NOT_FOUND: { status: 404, message: '订单不存在' },
   /** Unpaid, cancelled, or already fully refunded: there is nothing to give back. */
   REFUND_ORDER_NOT_REFUNDABLE: { status: 409, message: '该订单当前无法申请退款' },
+  /**
+   * 售后期 is over (REFUND-022): the order was received more than 售后期限 days ago, or has
+   * completed and the shop sets no 售后期限.
+   */
+  REFUND_AFTERSALE_EXPIRED: { status: 409, message: '已超过售后期限，无法申请售后' },
   /** A line id that is not on this order, or a quantity beyond what is left. */
   REFUND_LINE_INVALID: { status: 422, message: '退款商品或数量不正确' },
   /** `refund_items_open_uq` refused: that line is already inside an in-flight refund. */

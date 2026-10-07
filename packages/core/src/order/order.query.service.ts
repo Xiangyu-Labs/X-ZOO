@@ -15,7 +15,13 @@ import { listOpenInvoiceStatuses } from './order.fulfil.repo';
 import { invoiceableAmount, isInvoiceRequestable } from './order.invoice.service';
 import { requireOrderRef } from './order.ref';
 import * as repo from './order.repo';
-import { getOrderKindHandler, kindStatesFor, type OrderKindState } from './ports';
+import { aftersaleOpen } from './order.aftersale';
+import {
+  aftersaleWindowDays,
+  getOrderKindHandler,
+  kindStatesFor,
+  type OrderKindState,
+} from './ports';
 
 /**
  * The buyer's own orders: the list, the tab badges and one order's detail.
@@ -63,10 +69,15 @@ export async function list(
     ctx.db,
     rows.map((row) => row.id),
   );
+  const windowDays = await aftersaleWindowDays(ctx);
+  const now = ctx.clock.now();
 
   return {
     items: rows.map((row) =>
-      toListItem(row, byOrder.get(row.id) ?? [], states.get(row.id), openRefund.has(row.id)),
+      toListItem(row, byOrder.get(row.id) ?? [], states.get(row.id), {
+        hasOpenRefund: openRefund.has(row.id),
+        aftersaleOpen: aftersaleOpen(row, windowDays, now),
+      }),
     ),
     total,
     page: query.page,
@@ -152,12 +163,16 @@ export async function detailOf(
   const invoices = await listOpenInvoiceStatuses(ctx.db, [row.id]);
   const hasOpenInvoice = invoices.some((i) => i.status === 'requested' || i.status === 'issued');
   const openRefund = await repo.orderHasOpenRefund(ctx.db, row.id);
+  const windowDays = await aftersaleWindowDays(ctx);
   return {
     ...toDetail(
       row,
       items.map((item) => toOrderItem(item, row.status, reviewed)),
       states.get(row.id),
-      openRefund,
+      {
+        hasOpenRefund: openRefund,
+        aftersaleOpen: aftersaleOpen(row, windowDays, ctx.clock.now()),
+      },
     ),
     groupbuyTeamId: toIdOrNull(links.groupbuyTeamId ?? null),
     invoiceRequestable: isInvoiceRequestable(row, hasOpenInvoice),
@@ -250,11 +265,17 @@ function toOrderItem(
   };
 }
 
+/** What the refund side says about the order, for 售后中 and 申请售后. */
+interface AftersaleFacts {
+  hasOpenRefund: boolean;
+  aftersaleOpen: boolean;
+}
+
 function toListItem(
   row: repo.OrderRow,
   items: StorefrontOrderItem[],
   state: OrderKindState | undefined,
-  hasOpenRefund: boolean,
+  { hasOpenRefund, aftersaleOpen }: AftersaleFacts,
 ): StorefrontOrderListItem {
   const team = state?.groupbuyTeam;
   return {
@@ -276,6 +297,7 @@ function toListItem(
     items,
     refundedAmount: row.refundedAmount,
     hasOpenRefund,
+    aftersaleOpen,
     groupbuyTeam: team
       ? {
           id: toId(team.id),
@@ -293,10 +315,10 @@ function toDetail(
   row: repo.OrderRow,
   items: StorefrontOrderItem[],
   state: OrderKindState | undefined,
-  hasOpenRefund: boolean,
+  facts: AftersaleFacts,
 ): Omit<OrderDetail, 'groupbuyTeamId' | 'invoiceRequestable' | 'invoiceAmount'> {
   return {
-    ...toListItem(row, items, state, hasOpenRefund),
+    ...toListItem(row, items, state, facts),
     receiver: {
       // The order carries a snapshot, not a link: editing the address book
       // later must never rewrite where an order was sent.

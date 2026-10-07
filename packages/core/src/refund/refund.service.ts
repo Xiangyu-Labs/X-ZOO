@@ -17,7 +17,7 @@ import { DomainError } from '../kernel/errors';
 import { generateOrderNo, toId, toIdOrNull } from '../kernel/ids';
 import { Money } from '../kernel/money';
 import { notify } from '../notification';
-import { requireOrderRef, resolveStockPort } from '../order';
+import { aftersaleOpen, requireOrderRef, resolveStockPort } from '../order';
 import { onOrderRefunded } from '../order/ports';
 import { isStoredImageUrl } from '../storage';
 import {
@@ -30,6 +30,7 @@ import {
   type WebhookResult,
 } from '../payment';
 import { REFUND_NO_ANSWER, refundEndedMessage, refundRefusalMessage } from '../wechat';
+import { refundConfig } from './refund.config';
 import { REFUND_EXCEPTION_EVENT } from './refund.notifications';
 import * as repo from './refund.repo';
 import {
@@ -114,6 +115,7 @@ export async function applicableItems(
   if (order.paidAmount === null || order.status === 'cancelled') {
     throw new DomainError('REFUND_ORDER_NOT_REFUNDABLE');
   }
+  await requireAftersaleOpen(ctx, order);
   return refundableFor(ctx, order, order.paidAmount);
 }
 
@@ -185,6 +187,18 @@ export async function refundableFor(
   };
 }
 
+/**
+ * REFUND-022: past the 售后期 the buyer may not apply, and the apply screen says so
+ * before they pick anything. `refunded` stays `REFUND_ORDER_NOT_REFUNDABLE`.
+ */
+async function requireAftersaleOpen(ctx: Ctx, order: repo.OrderRefundRow): Promise<void> {
+  if (order.status === 'refunded') return;
+  const { afterSaleDays } = await ctx.config.get(refundConfig);
+  if (!aftersaleOpen(order, afterSaleDays, ctx.clock.now())) {
+    throw new DomainError('REFUND_AFTERSALE_EXPIRED');
+  }
+}
+
 // ---------------------------------------------------------------------------
 // applying
 // ---------------------------------------------------------------------------
@@ -205,6 +219,7 @@ export async function apply(ctx: Ctx, body: RefundApplyBody): Promise<RefundDeta
   for (const url of new Set(body.images)) {
     if (!(await isStoredImageUrl(ctx, url))) throw new DomainError('REFUND_IMAGE_NOT_ALLOWED');
   }
+  const { afterSaleDays } = await ctx.config.get(refundConfig);
 
   const refundId = await ctx.withTx(async (tx) => {
     const order = await repo.lockOrder(tx, orderId);
@@ -212,6 +227,10 @@ export async function apply(ctx: Ctx, body: RefundApplyBody): Promise<RefundDeta
       throw new DomainError('REFUND_ORDER_NOT_FOUND');
     }
     const paidAmount = refundableOrderPaid(order);
+    // Decided on the locked row: 确认收货 or the completion sweep may have moved it since.
+    if (!aftersaleOpen(order, afterSaleDays, ctx.clock.now())) {
+      throw new DomainError('REFUND_AFTERSALE_EXPIRED');
+    }
     const priced = await priceRequest(tx, order, paidAmount, body);
     const refund = await openRefund(tx, ctx, {
       order,

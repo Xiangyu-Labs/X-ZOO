@@ -2,6 +2,7 @@ import type {
   OrderGroupbuyTeam,
   OrderListItem,
   StorefrontOrderItem,
+  StorefrontOrderListItem,
 } from '@shop/contracts/order/schemas';
 import type { ButtonVariant } from './button';
 
@@ -29,17 +30,18 @@ const LABEL: Record<OrderActionKey, string> = {
   delete: '删除订单',
 };
 
-type OrderShape = Pick<OrderListItem, 'status' | 'refundStatus' | 'fulfillmentStatus' | 'kind'> & {
-  /** A 拼团 order's team (`storefrontOrderListItem.groupbuyTeam`): 拼团中 while it forms. */
-  groupbuyTeam?: Pick<OrderGroupbuyTeam, 'status'> | null | undefined;
-  /**
-   * The lines' review state (`storefrontOrderItem.reviewable`, ORDER-010): 去评价 and 待评价
-   * only while some line can still be reviewed.
-   */
-  items: ReadonlyArray<Pick<StorefrontOrderItem, 'reviewable'>>;
-  /** An after-sales request is still being handled: the order cannot be deleted (ORDER-014). */
-  hasOpenRefund?: boolean | undefined;
-};
+type OrderShape = Pick<OrderListItem, 'status' | 'refundStatus' | 'fulfillmentStatus' | 'kind'> &
+  Pick<StorefrontOrderListItem, 'aftersaleOpen'> & {
+    /** A 拼团 order's team (`storefrontOrderListItem.groupbuyTeam`): 拼团中 while it forms. */
+    groupbuyTeam?: Pick<OrderGroupbuyTeam, 'status'> | null | undefined;
+    /**
+     * The lines' review state (`storefrontOrderItem.reviewable`, ORDER-010): 去评价 and 待评价
+     * only while some line can still be reviewed.
+     */
+    items: ReadonlyArray<Pick<StorefrontOrderItem, 'reviewable'>>;
+    /** An after-sales request is still being handled: the order cannot be deleted (ORDER-014). */
+    hasOpenRefund?: boolean | undefined;
+  };
 
 /** Some line can be reviewed now (the order was received and the line has no review yet). */
 export function awaitsReview(order: Pick<OrderShape, 'items'>): boolean {
@@ -49,7 +51,10 @@ export function awaitsReview(order: Pick<OrderShape, 'items'>): boolean {
 /** Left to right as shown; the last one is the primary action where there is one. */
 export function orderActions(order: OrderShape): OrderAction[] {
   const keys: OrderActionKey[] = [];
-  const refundable = order.refundStatus === 'none' || order.refundStatus === 'partially_refunded';
+  // The server decides the 售后期 (`aftersaleOpen`, REFUND-022); here only whether money is left.
+  const refundable =
+    order.aftersaleOpen &&
+    (order.refundStatus === 'none' || order.refundStatus === 'partially_refunded');
   switch (order.status) {
     case 'pending_payment':
       keys.push('cancel', 'pay');
@@ -68,6 +73,7 @@ export function orderActions(order: OrderShape): OrderAction[] {
       if (awaitsReview(order)) keys.push('review');
       break;
     case 'completed':
+      if (refundable) keys.push('aftersale');
       if (!order.hasOpenRefund) keys.push('delete');
       keys.push('rebuy');
       if (awaitsReview(order)) keys.push('review');

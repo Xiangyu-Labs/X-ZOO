@@ -20,11 +20,18 @@ import { effects as effectsTable } from '@shop/db/schema/system';
 import { resetEffectHandlers } from '../effects';
 import type { Actor, Ctx } from '../kernel/context';
 import { registerNotificationDomain } from '../notification';
-import { registerStockPort, resetOrderPorts, type StockLine } from '../order/ports';
+import {
+  registerAftersalePolicy,
+  registerStockPort,
+  resetOrderPorts,
+  type StockLine,
+} from '../order/ports';
+import { orderListQuery } from '@shop/contracts/order/schemas';
+import * as orderQuery from '../order';
 import { installFulfilmentHooks } from '../order';
 import { handleTransactionNotify, paymentConfig, startPayment } from '../payment';
 import { wechatConfig } from '../wechat';
-import { refundConfig } from './refund.config';
+import { refundAftersalePolicy, refundConfig } from './refund.config';
 import * as repo from './refund.repo';
 import * as admin from './refund.admin';
 import * as service from './refund.service';
@@ -1256,7 +1263,9 @@ describe('商家发起售后', () => {
     const refundOnly = await open(order);
     await expect(withdraw(refundOnly.id)).rejects.toMatchObject({ code: 'REFUND_NOT_ACTIONABLE' });
 
-    // A buyer's own request is reviewed, not withdrawn by the shop.
+    // A buyer's own request is reviewed, not withdrawn by the shop. Completed, so the
+    // buyer applies inside a 售后期限 (REFUND-022).
+    await harness.ctx.config.set(refundConfig, { ...RETURNS_TO, afterSaleDays: 15 });
     const other = await completedOrder();
     const buyers = await service.apply(racer(userActor(other.userId)), {
       ...applyBody(other, 1),
@@ -1285,7 +1294,9 @@ describe('商家发起售后', () => {
   });
 
   it('prices by the same rules as the buyer: one open request per line, never past what was paid', async () => {
+    await harness.ctx.config.set(refundConfig, { afterSaleDays: 15 });
     const order = await completedOrder();
+    // The buyer's own, inside the 售后期限 (REFUND-022).
     await service.apply(racer(userActor(order.userId)), applyBody(order, 1));
     await expect(open(order)).rejects.toMatchObject({ code: 'REFUND_ALREADY_OPEN' });
     await expect(
@@ -1325,5 +1336,88 @@ describe('商家发起售后', () => {
     await expect(
       admin.adminApplicable(racer(adminActor(order.adminId)), { id: String(order.orderId) }),
     ).rejects.toMatchObject({ code: 'REFUND_ORDER_NOT_REFUNDABLE' });
+  });
+});
+
+describe('REFUND-022 — the buyer may apply until the 售后期 runs out', () => {
+  const DAY = 86_400_000;
+
+  /** 确认收货 `ago` milliseconds before now, then left `received` or swept to `completed`. */
+  async function receivedOrder(status: 'received' | 'completed', ago: number): Promise<PaidOrder> {
+    const order = await paidOrder();
+    const now = harness.clock.now().getTime();
+    await harness.ctx.db
+      .update(orders)
+      .set({
+        status,
+        fulfillmentStatus: 'fulfilled',
+        receivedAt: new Date(now - ago),
+        completedAt: status === 'completed' ? new Date(now - ago / 2) : null,
+      })
+      .where(eq(orders.id, order.orderId));
+    return order;
+  }
+
+  const setWindow = (afterSaleDays: number) =>
+    harness.ctx.config.set(refundConfig, { afterSaleDays });
+
+  /** Both doors the buyer has: the apply screen's read, and the request itself. */
+  async function attempt(order: PaidOrder): Promise<'open' | string> {
+    const buyer = racer(userActor(order.userId));
+    try {
+      await service.applicableItems(buyer, { orderId: String(order.orderId) });
+    } catch (error) {
+      await expect(service.apply(buyer, applyBody(order, 1))).rejects.toMatchObject({
+        code: (error as { code: string }).code,
+      });
+      return (error as { code: string }).code;
+    }
+    await service.apply(buyer, applyBody(order, 1));
+    return 'open';
+  }
+
+  it('with no 售后期限, takes a received order and refuses a completed one', async () => {
+    await setWindow(0);
+    expect(await attempt(await receivedOrder('received', 30 * DAY))).toBe('open');
+    expect(await attempt(await receivedOrder('completed', 30 * DAY))).toBe(
+      'REFUND_AFTERSALE_EXPIRED',
+    );
+  });
+
+  it('counts 售后期限 days from 确认收货, through completion', async () => {
+    await setWindow(15);
+    expect(await attempt(await receivedOrder('completed', 15 * DAY))).toBe('open');
+    expect(await attempt(await receivedOrder('completed', 15 * DAY + 1))).toBe(
+      'REFUND_AFTERSALE_EXPIRED',
+    );
+    // A review window longer than the 售后期: still received, and shut all the same.
+    expect(await attempt(await receivedOrder('received', 16 * DAY))).toBe(
+      'REFUND_AFTERSALE_EXPIRED',
+    );
+  });
+
+  it('never shuts on goods that have not arrived', async () => {
+    await setWindow(1);
+    const order = await paidOrder();
+    harness.clock.set(new Date(Date.parse(NOW) + 60 * DAY).toISOString());
+    expect(await attempt(order)).toBe('open');
+  });
+
+  it('is what 我的订单 and 订单详情 show as aftersaleOpen', async () => {
+    registerAftersalePolicy(refundAftersalePolicy);
+    await setWindow(15);
+    const inside = await receivedOrder('completed', 14 * DAY);
+    const past = await receivedOrder('completed', 16 * DAY);
+
+    for (const [order, open] of [
+      [inside, true],
+      [past, false],
+    ] as const) {
+      const buyer = racer(userActor(order.userId));
+      const listed = await orderQuery.list(buyer, orderListQuery.parse({}));
+      expect(listed.items.map((item) => item.aftersaleOpen)).toEqual([open]);
+      const shown = await orderQuery.detail(buyer, { id: String(order.orderId) });
+      expect(shown.aftersaleOpen).toBe(open);
+    }
   });
 });

@@ -82,6 +82,8 @@ export interface OrderRefundRow {
   freightAmount: string;
   fulfillmentStatus: string;
   userCouponId: number | null;
+  /** 确认收货: the 售后期 runs from here (REFUND-022). */
+  receivedAt: Date | null;
   deletedAt: Date | null;
 }
 
@@ -96,6 +98,7 @@ const orderColumns = {
   freightAmount: orders.freightAmount,
   fulfillmentStatus: orders.fulfillmentStatus,
   userCouponId: orders.userCouponId,
+  receivedAt: orders.receivedAt,
   deletedAt: orders.deletedAt,
 } as const;
 

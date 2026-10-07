@@ -501,6 +501,12 @@ export const storefrontOrderListItem = orderListItem.extend({
    * that roll-up stays `partially_refunded` once any money went back, open request or not.
    */
   hasOpenRefund: z.boolean(),
+  /**
+   * The 售后期 is still running (REFUND-022): `paid` and `shipped`, and from 确认收货 for the
+   * shop's 售后期限 — through `completed` — or, with no 售后期限 set, while `received`. Whether
+   * a line still has something to give back is `refundStatus` and the apply screen's.
+   */
+  aftersaleOpen: z.boolean(),
   /** 拼团 orders only; `null` for every other kind. */
   groupbuyTeam: orderGroupbuyTeam.nullable(),
 });
@@ -511,6 +517,7 @@ export const storefrontOrderListItemExample = {
   items: [storefrontOrderItemExample],
   refundedAmount: '0.00',
   hasOpenRefund: false,
+  aftersaleOpen: false,
   groupbuyTeam: null,
 } satisfies StorefrontOrderListItem;
 
