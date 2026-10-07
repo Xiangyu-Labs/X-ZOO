@@ -1,6 +1,7 @@
 'use client';
 
 import { Alert, InputNumber, Space, Table, Typography } from 'antd';
+import { useMemo } from 'react';
 import {
   orderAdminDetail,
   orderAdminList,
@@ -22,7 +23,7 @@ import { z } from 'zod';
 
 import { errorMessage, useRouteQuery } from '@/admin/api';
 import { ModalForm } from '@/admin/kit/form/modal-form';
-import { fenToMoney, moneyToFen } from '@/admin/kit/money';
+import { fenToMoney, isMoney, moneyToFen } from '@/admin/kit/money';
 import { MoneyText } from '@/admin/kit/money-text';
 import { useOutcomeToast, type Outcome } from '@/admin/kit/outcome-toast';
 import { Thumbnail } from '@/admin/kit/thumbnail';
@@ -30,16 +31,59 @@ import { Thumbnail } from '@/admin/kit/thumbnail';
 /** Units per order line, keyed by `orderItemId`; a line left at 0 is not in the request. */
 type Quantities = Record<string, number>;
 
-const aftersaleForm = z.object({
+const aftersaleFields = z.object({
   kind: refundKind,
   quantities: z
     .record(z.string(), z.number().int().min(0))
     .refine((q) => Object.values(q).some((n) => n > 0), '请选择要售后的商品和数量'),
+  /** 仅退款 only: what goes back, at most what the chosen lines are worth. */
+  amount: z.string().optional(),
   reason: z.string().trim().min(1, '请填写售后原因').max(255),
   remark: z.string().max(255).optional(),
   includeFreight: z.boolean().optional(),
 });
-type AftersaleForm = z.output<typeof aftersaleForm>;
+type AftersaleForm = z.output<typeof aftersaleFields>;
+
+/**
+ * The form with its cross-field check: a 仅退款 names an amount, and not more
+ * than the chosen lines (and freight) are estimated at. The server prices it
+ * again and has the last word (`REFUND_AMOUNT_ABOVE_ITEMS`).
+ */
+export function aftersaleForm(applicable: RefundableItemsResult | undefined) {
+  return aftersaleFields.superRefine((values, ctx) => {
+    if (values.kind !== 'refund_only') return;
+    if (values.amount === undefined) {
+      ctx.addIssue({ code: 'custom', path: ['amount'], message: '请填写退款金额' });
+      return;
+    }
+    if (!isMoney(values.amount)) {
+      ctx.addIssue({ code: 'custom', path: ['amount'], message: '请填写正确的金额，例如 12.50' });
+      return;
+    }
+    const fen = moneyToFen(values.amount);
+    if (fen <= 0n) {
+      ctx.addIssue({ code: 'custom', path: ['amount'], message: '退款金额必须大于 0' });
+      return;
+    }
+    if (applicable === undefined) return;
+    const ceiling = ceilingFen(applicable, values);
+    if (fen > ceiling) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['amount'],
+        message: `不能超过所选商品的可退金额 ¥${fenToMoney(ceiling)}`,
+      });
+    }
+  });
+}
+
+/** The estimate for the chosen lines, plus freight when it is asked for. */
+function ceilingFen(applicable: RefundableItemsResult, values: AftersaleForm): bigint {
+  const lines = estimateFen(applicable.items, values.quantities);
+  return values.includeFreight && applicable.freightRefundable
+    ? lines + moneyToFen(applicable.freightAmount)
+    : lines;
+}
 
 /** Every screen that shows what a new after-sales changes. */
 const REFRESHES = [
@@ -52,8 +96,8 @@ const REFRESHES = [
 ] as const;
 
 const KIND_OPTIONS = [
-  { label: '仅退款', value: 'refund_only' },
   { label: '退货退款', value: 'return_and_refund' },
+  { label: '仅退款', value: 'refund_only' },
 ] as const;
 
 /**
@@ -62,8 +106,11 @@ const KIND_OPTIONS = [
  *
  * The operator picks the kind, the lines and the units; the server prices them
  * exactly as it prices a buyer's request, so the total here is only an
- * estimate and the toast reports the amount the server froze. It opens already
- * approved: a 仅退款 goes to WeChat on submit, a 退货退款 waits for the goods.
+ * estimate and the toast reports the amount the server froze. A 仅退款 also
+ * names its amount — up to that estimate, for a refund the buyer and the shop
+ * agreed on — while a 退货退款 gives back what the goods are worth. It opens
+ * already approved: a 仅退款 goes to WeChat on submit, a 退货退款 waits for the
+ * goods.
  */
 export function AftersaleModal({
   orderId,
@@ -83,6 +130,7 @@ export function AftersaleModal({
   );
   const tellOutcome = useOutcomeToast();
   const data = applicable.data;
+  const schema = useMemo(() => aftersaleForm(data), [data]);
 
   return (
     <ModalForm
@@ -90,8 +138,8 @@ export function AftersaleModal({
       onClose={onClose}
       title="发起售后"
       size="large"
-      schema={aftersaleForm}
-      initialValues={{ kind: 'refund_only', quantities: {}, includeFreight: false }}
+      schema={schema}
+      initialValues={{ kind: 'return_and_refund', quantities: {}, includeFreight: false }}
       fields={[
         {
           kind: 'radio',
@@ -130,6 +178,14 @@ export function AftersaleModal({
               },
             ] as const)
           : []),
+        {
+          kind: 'money',
+          name: 'amount',
+          label: '退款金额',
+          required: true,
+          visibleWhen: (values) => values['kind'] === 'refund_only',
+          help: '不能超过上面的预计退款（勾选退运费时含运费）。少退的部分以后不能再退。',
+        },
         {
           kind: 'textarea',
           name: 'reason',
@@ -312,6 +368,10 @@ export function aftersaleBody(values: AftersaleForm) {
     lines: Object.entries(values.quantities)
       .filter(([, quantity]) => quantity > 0)
       .map(([orderItemId, quantity]) => ({ orderItemId, quantity })),
+    // A 退货退款 is worth its goods; an amount left over from switching kinds stays here.
+    ...(values.kind === 'refund_only' && values.amount !== undefined
+      ? { amount: values.amount }
+      : {}),
     reason: values.reason,
     ...(remark ? { remark } : {}),
     includeFreight: values.includeFreight ?? false,

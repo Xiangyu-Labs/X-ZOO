@@ -331,22 +331,33 @@ export type RefundRemarkBody = z.infer<typeof refundRemarkBody>;
 /**
  * `POST /admin-api/orders/:id/refunds` — 商家发起售后.
  *
- * The buyer's apply body without the evidence, and still without an amount:
- * the operator picks lines and quantities and the service prices them exactly
- * as it prices a buyer's request (REFUND-005). It opens already approved, so a
- * 仅退款 goes to the gateway and a 退货退款 waits for the goods at the address
- * in 售后设置.
+ * The buyer's apply body without the evidence. The operator picks lines and
+ * quantities and the service prices them exactly as it prices a buyer's
+ * request (REFUND-005); a 仅退款 may then settle for less (`amount`), never
+ * more. It opens already approved, so a 仅退款 goes to the gateway and a
+ * 退货退款 waits for the goods at the address in 售后设置.
  */
-export const adminRefundCreateBody = z.object({
-  kind: refundKind,
-  lines: z.array(refundLine).min(1).max(100),
-  /** Shown to the buyer as the reason for the after-sales. */
-  reason: z.string().trim().min(1, '请填写售后原因').max(255),
-  /** Staff-only note, the same field as 售后备注. */
-  remark: z.string().max(255).optional(),
-  /** Only honoured while nothing has shipped and the request takes everything left. */
-  includeFreight: z.boolean().default(false),
-});
+export const adminRefundCreateBody = z
+  .object({
+    kind: refundKind,
+    lines: z.array(refundLine).min(1).max(100),
+    /**
+     * 仅退款 only: what the shop agreed to give back, at most what the lines (and
+     * freight) are worth. Absent means all of it. The units still count as
+     * refunded; the rest of their money is not refundable later.
+     */
+    amount: money.optional(),
+    /** Shown to the buyer as the reason for the after-sales. */
+    reason: z.string().trim().min(1, '请填写售后原因').max(255),
+    /** Staff-only note, the same field as 售后备注. */
+    remark: z.string().max(255).optional(),
+    /** Only honoured while nothing has shipped and the request takes everything left. */
+    includeFreight: z.boolean().default(false),
+  })
+  .refine((body) => body.amount === undefined || body.kind === 'refund_only', {
+    path: ['amount'],
+    message: '退货退款按商品金额退款，不能另填金额',
+  });
 export type AdminRefundCreateBody = z.infer<typeof adminRefundCreateBody>;
 
 /** 撤销 a refund the shop opened, before any money or goods have moved. */

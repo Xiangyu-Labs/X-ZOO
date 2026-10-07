@@ -42,6 +42,7 @@ import {
   orderRefundStatus,
   refundableLine,
   remainingCeiling,
+  scaleParts,
   shopperLogMessage,
 } from './refund.rules';
 
@@ -231,7 +232,11 @@ export async function apply(ctx: Ctx, body: RefundApplyBody): Promise<RefundDeta
     if (!aftersaleOpen(order, afterSaleDays, ctx.clock.now())) {
       throw new DomainError('REFUND_AFTERSALE_EXPIRED');
     }
-    const priced = await priceRequest(tx, order, paidAmount, body);
+    // Named field by field: the buyer never sets an amount (REFUND-005).
+    const priced = await priceRequest(tx, order, paidAmount, {
+      lines: body.lines,
+      includeFreight: body.includeFreight,
+    });
     const refund = await openRefund(tx, ctx, {
       order,
       priced,
@@ -311,7 +316,7 @@ export async function priceRequest(
   tx: Tx,
   order: repo.OrderRefundRow,
   paidAmount: string,
-  wanted: { lines: readonly RefundLine[]; includeFreight: boolean },
+  wanted: { lines: readonly RefundLine[]; includeFreight: boolean; amount?: string | undefined },
 ): Promise<PricedRequest> {
   const orderId = order.id;
   const items = new Map(
@@ -390,7 +395,35 @@ export async function priceRequest(
     });
   }
 
-  return { lines, amount, quantity, freight };
+  if (wanted.amount === undefined) return { lines, amount, quantity, freight };
+  return settleFor(Money.parse(wanted.amount), { lines, amount, quantity, freight });
+}
+
+/**
+ * The same request for less money: the amount the shop agreed on, at most what
+ * the lines (and freight) are worth, split over them in proportion so the
+ * shares still add up to it. Only the shop's 仅退款 takes an amount.
+ */
+function settleFor(target: Money, priced: PricedRequest): PricedRequest {
+  if (!target.isPositive()) throw new DomainError('REFUND_AMOUNT_ZERO');
+  if (target.gt(priced.amount)) {
+    throw new DomainError('REFUND_AMOUNT_ABOVE_ITEMS', {
+      details: { requested: target.toString(), available: priced.amount.toString() },
+    });
+  }
+  const parts = priced.lines.map((line) => Money.parse(line.amount));
+  if (priced.freight !== null) parts.push(Money.parse(priced.freight));
+  const scaled = scaleParts(parts, target);
+  return {
+    lines: priced.lines.map((line, i) => ({
+      ...line,
+      amount: (scaled[i] ?? Money.ZERO).toString(),
+    })),
+    amount: target,
+    quantity: priced.quantity,
+    freight:
+      priced.freight === null ? null : (scaled[priced.lines.length] ?? Money.ZERO).toString(),
+  };
 }
 
 /**

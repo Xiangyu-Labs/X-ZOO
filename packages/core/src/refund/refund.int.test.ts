@@ -1209,6 +1209,46 @@ describe('商家发起售后', () => {
     await expect(open(order)).resolves.toMatchObject({ amount: '50.00' });
   });
 
+  it('settles a 仅退款 for the amount the shop agreed, and keeps the rest of those units’ money', async () => {
+    const order = await completedOrder();
+    const unit = String(order.itemIds[0]!);
+
+    await expect(open(order, { amount: '0.00' })).rejects.toMatchObject({
+      code: 'REFUND_AMOUNT_ZERO',
+    });
+    // One unit is worth 50.00; the shop cannot give more for it than that.
+    await expect(open(order, { amount: '50.01' })).rejects.toMatchObject({
+      code: 'REFUND_AMOUNT_ABOVE_ITEMS',
+    });
+
+    const opened = await open(order, { amount: '20.00' });
+    expect(opened.amount).toBe('20.00');
+    expect(opened.items.map((item) => [item.orderItemId, item.quantity, item.amount])).toEqual([
+      [unit, 1, '20.00'],
+    ]);
+
+    gateway.behaviour.refundStatus = 'SUCCESS';
+    await service.executeRefund(racer(), Number(opened.id));
+    const after = await orderRow(order.orderId);
+    expect(after.refundedAmount).toBe('20.00');
+    expect(after.refundStatus).toBe('partially_refunded');
+    expect((await lineUnits(order)).refunded).toBe(1);
+
+    // The last unit gives back its own 50.00, not the 30.00 the shop kept as well.
+    const applicable = await admin.adminApplicable(racer(adminActor(order.adminId)), {
+      id: String(order.orderId),
+    });
+    expect(applicable.items[0]).toMatchObject({ refundableQuantity: 1, refundableAmount: '50.00' });
+    await expect(open(order)).resolves.toMatchObject({ amount: '50.00' });
+  });
+
+  it('prices a 退货退款 by its goods, whatever amount comes with it', async () => {
+    await harness.ctx.config.set(refundConfig, RETURNS_TO);
+    const order = await completedOrder();
+    const opened = await open(order, { kind: 'return_and_refund', amount: '1.00' });
+    expect(opened.amount).toBe('50.00');
+  });
+
   it('is not the buyer’s to withdraw', async () => {
     const order = await completedOrder();
     const opened = await open(order);
