@@ -1096,3 +1096,234 @@ describe('REFUND-020 — a full refund takes back the gift coupons the order ear
     expect(row!.status).toBe('unused');
   });
 });
+
+// ---------------------------------------------------------------------------
+// 商家发起售后 — the shop opens after-sales on an order the buyer no longer can
+// ---------------------------------------------------------------------------
+
+describe('商家发起售后', () => {
+  const RETURNS_TO = {
+    returnName: '售后部',
+    returnPhone: '13800000000',
+    returnAddress: '浙江省杭州市西湖区文一西路 1 号',
+  };
+
+  /** A paid order that went all the way: shipped, received, past its review window. */
+  async function completedOrder(): Promise<PaidOrder> {
+    const order = await paidOrder();
+    const at = harness.clock.now();
+    await harness.ctx.db
+      .update(orderItems)
+      .set({ shippedQuantity: 2 })
+      .where(eq(orderItems.id, order.itemIds[0]!));
+    await harness.ctx.db
+      .update(orders)
+      .set({
+        status: 'completed',
+        fulfillmentStatus: 'fulfilled',
+        receivedAt: at,
+        completedAt: at,
+      })
+      .where(eq(orders.id, order.orderId));
+    return order;
+  }
+
+  const open = (order: PaidOrder, body: Partial<Parameters<typeof admin.adminCreate>[1]> = {}) =>
+    admin.adminCreate(racer(adminActor(order.adminId)), {
+      id: String(order.orderId),
+      kind: 'refund_only',
+      lines: [{ orderItemId: String(order.itemIds[0]!), quantity: 1 }],
+      reason: '质量问题',
+      includeFreight: false,
+      ...body,
+    });
+
+  it('opens a 仅退款 on a completed order already approved, as the operator’s, and pays it', async () => {
+    const order = await completedOrder();
+
+    const opened = await open(order, {
+      lines: [{ orderItemId: String(order.itemIds[0]!), quantity: 2 }],
+      remark: '电话沟通后补退',
+    });
+    expect(opened).toMatchObject({
+      status: 'approved',
+      kind: 'refund_only',
+      amount: '100.00',
+      reason: '质量问题',
+      adminRemark: '电话沟通后补退',
+      isAutomatic: false,
+      initiatedByAdminId: String(order.adminId),
+      initiatedByAdminName: expect.stringMatching(/^运营/),
+      reviewedByAdminId: String(order.adminId),
+    });
+    // The buyer reads the reason and the approval, never the staff note.
+    const seen = await service.myDetail(racer(userActor(order.userId)), { id: opened.id });
+    expect(seen.isAutomatic).toBe(true);
+    expect(seen.logs.map((log) => log.message)).toEqual([
+      '商家发起仅退款：质量问题',
+      '商家同意退款',
+    ]);
+    expect(JSON.stringify(seen)).not.toContain('电话沟通后补退');
+
+    // Queued for the gateway in the same transaction, and the buyer is told.
+    const queued = await harness.ctx.db
+      .select()
+      .from(effectsTable)
+      .where(eq(effectsTable.scopeId, opened.id));
+    expect(queued.map((row) => row.eventType)).toContain('refund.execute');
+    expect(await refundNotificationKeys()).toEqual([`refund_approved:refund:${opened.id}`]);
+
+    gateway.behaviour.refundStatus = 'SUCCESS';
+    expect((await service.executeRefund(racer(), Number(opened.id))).status).toBe('succeeded');
+    const after = await orderRow(order.orderId);
+    expect(after.refundedAmount).toBe('100.00');
+    expect(after.refundStatus).toBe('refunded');
+    expect(after.status).toBe('refunded');
+    // The goods were delivered: nothing goes back into stock.
+    expect(releases.flatMap((r) => r.lines).filter((l) => l.quantity > 0)).toEqual([]);
+
+    // A fully refunded order takes no more.
+    await expect(open(order)).rejects.toMatchObject({ code: 'REFUND_ORDER_NOT_REFUNDABLE' });
+  });
+
+  it('refunds part of a completed order and leaves it completed', async () => {
+    const order = await completedOrder();
+    const opened = await open(order);
+    expect(opened.amount).toBe('50.00');
+
+    gateway.behaviour.refundStatus = 'SUCCESS';
+    await service.executeRefund(racer(), Number(opened.id));
+    const after = await orderRow(order.orderId);
+    expect(after.status).toBe('completed');
+    expect(after.refundStatus).toBe('partially_refunded');
+    expect((await lineUnits(order)).refunded).toBe(1);
+
+    // The other unit is still there to give back.
+    await expect(open(order)).resolves.toMatchObject({ amount: '50.00' });
+  });
+
+  it('is not the buyer’s to withdraw', async () => {
+    const order = await completedOrder();
+    const opened = await open(order);
+    await expect(
+      service.cancel(racer(userActor(order.userId)), { id: opened.id }),
+    ).rejects.toMatchObject({ code: 'REFUND_NOT_ACTIONABLE' });
+    expect((await refundRow(Number(opened.id))).status).toBe('approved');
+  });
+
+  it('asks for a 退货退款 back at the configured address, and the shop can take it back before the goods move', async () => {
+    await harness.ctx.config.set(refundConfig, RETURNS_TO);
+    const order = await completedOrder();
+
+    const opened = await open(order, { kind: 'return_and_refund' });
+    expect(opened).toMatchObject({
+      status: 'approved',
+      returnStage: 'awaiting_shipment',
+      returnAddress: {
+        name: RETURNS_TO.returnName,
+        phone: RETURNS_TO.returnPhone,
+        address: RETURNS_TO.returnAddress,
+      },
+    });
+    // Nothing is sent until the goods are back.
+    expect(gateway.refunds.size).toBe(0);
+    expect((await orderRow(order.orderId)).refundStatus).toBe('requested');
+
+    const withdrawn = await admin.adminWithdraw(racer(adminActor(order.adminId)), {
+      id: opened.id,
+      reason: '已与买家协商，无需退货',
+    });
+    expect(withdrawn.status).toBe('cancelled');
+    expect(withdrawn.cancelledAt).not.toBeNull();
+    const seen = await service.myDetail(racer(userActor(order.userId)), { id: opened.id });
+    expect(seen.logs.at(-1)?.message).toBe('商家撤销售后：已与买家协商，无需退货');
+
+    // Everything it held is free again: the order, the line, the units.
+    expect((await orderRow(order.orderId)).refundStatus).toBe('none');
+    expect((await lineUnits(order)).refunded).toBe(0);
+    await expect(
+      open(order, { lines: [{ orderItemId: String(order.itemIds[0]!), quantity: 2 }] }),
+    ).resolves.toMatchObject({ amount: '100.00' });
+  });
+
+  it('withdraws only a 退货退款 the shop opened, before the goods are sent', async () => {
+    await harness.ctx.config.set(refundConfig, RETURNS_TO);
+    const order = await completedOrder();
+    const withdraw = (id: string) =>
+      admin.adminWithdraw(racer(adminActor(order.adminId)), { id, reason: '协商一致' });
+
+    // A 仅退款 is at the gateway from the moment it opens.
+    const refundOnly = await open(order);
+    await expect(withdraw(refundOnly.id)).rejects.toMatchObject({ code: 'REFUND_NOT_ACTIONABLE' });
+
+    // A buyer's own request is reviewed, not withdrawn by the shop.
+    const other = await completedOrder();
+    const buyers = await service.apply(racer(userActor(other.userId)), {
+      ...applyBody(other, 1),
+      kind: 'return_and_refund',
+    });
+    await admin.adminApprove(racer(adminActor(other.adminId)), { id: buyers.id });
+    await expect(withdraw(buyers.id)).rejects.toMatchObject({ code: 'REFUND_NOT_ACTIONABLE' });
+
+    // Once the buyer has posted the goods, it is too late.
+    const third = await completedOrder();
+    const shipped = await open(third, { kind: 'return_and_refund' });
+    await harness.ctx.db
+      .update(refunds)
+      .set({ returnStage: 'shipped_back' })
+      .where(eq(refunds.id, Number(shipped.id)));
+    await expect(withdraw(shipped.id)).rejects.toMatchObject({ code: 'REFUND_NOT_ACTIONABLE' });
+  });
+
+  it('refuses a 退货退款 when there is nowhere to send the goods', async () => {
+    await harness.ctx.config.set(refundConfig, { ...RETURNS_TO, returnPhone: '' });
+    const order = await completedOrder();
+    await expect(open(order, { kind: 'return_and_refund' })).rejects.toMatchObject({
+      code: 'REFUND_RETURN_ADDRESS_MISSING',
+    });
+    expect(await harness.ctx.db.select().from(refunds)).toEqual([]);
+  });
+
+  it('prices by the same rules as the buyer: one open request per line, never past what was paid', async () => {
+    const order = await completedOrder();
+    await service.apply(racer(userActor(order.userId)), applyBody(order, 1));
+    await expect(open(order)).rejects.toMatchObject({ code: 'REFUND_ALREADY_OPEN' });
+    await expect(
+      open(order, { lines: [{ orderItemId: String(order.itemIds[0]!), quantity: 3 }] }),
+    ).rejects.toMatchObject({ code: 'REFUND_LINE_INVALID' });
+    // Freight goes back only while nothing has shipped.
+    await expect(open(order, { includeFreight: true })).rejects.toMatchObject({
+      code: 'REFUND_FREIGHT_NOT_REFUNDABLE',
+    });
+  });
+
+  it('shows the operator what is left, whatever the after-sales window', async () => {
+    const order = await completedOrder();
+    await open(order);
+    const left = await admin.adminApplicable(racer(adminActor(order.adminId)), {
+      id: String(order.orderId),
+    });
+    expect(left.refundableAmount).toBe('50.00');
+    expect(left.items[0]).toMatchObject({
+      refundableQuantity: 0,
+      blockedReason: 'REFUND_ALREADY_OPEN',
+    });
+  });
+
+  it('refuses an order that collected nothing', async () => {
+    const order = await paidOrder();
+    await harness.ctx.db
+      .update(orders)
+      .set({
+        status: 'cancelled',
+        cancelledAt: harness.clock.now(),
+        paidAt: null,
+        paidAmount: null,
+      })
+      .where(eq(orders.id, order.orderId));
+    await expect(open(order)).rejects.toMatchObject({ code: 'REFUND_ORDER_NOT_REFUNDABLE' });
+    await expect(
+      admin.adminApplicable(racer(adminActor(order.adminId)), { id: String(order.orderId) }),
+    ).rejects.toMatchObject({ code: 'REFUND_ORDER_NOT_REFUNDABLE' });
+  });
+});

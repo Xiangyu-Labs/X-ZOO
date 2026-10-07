@@ -10,8 +10,10 @@ import {
   refundAdminReject,
   refundAdminRemark,
   refundAdminRetry,
+  refundAdminWithdraw,
 } from '@shop/contracts/refund/refund.admin.contract';
 import {
+  adminRefundWithdrawBody,
   refundApproveBody,
   refundRejectBody,
   refundRemarkBody,
@@ -65,6 +67,9 @@ import { REFUND_KIND, REFUND_RETURN_STAGE, REFUND_STATUS, optionsOf } from '../t
  *    — settled by hand, say — frees them.
  *  - **确认收货** (`refund:request:execute`) says the goods arrived, and *that*
  *    is what releases the money on a 退货退款.
+ *  - **撤销** (`refund:request:review`) takes back a 退货退款 the shop opened
+ *    itself (订单详情 → 发起售后) while the goods have not been sent. A buyer's
+ *    request is never the shop's to withdraw; it is 拒绝d.
  *  - **重试** (`refund:request:execute`) re-drives a refund that failed or came
  *    back unknown. It asks WeChat about the **frozen** `outRefundNo` and never
  *    mints a new one — a retry with a fresh number is how a buyer is refunded
@@ -134,12 +139,14 @@ export function RefundRequestsPage() {
   const approveModal = useFormModal<AdminRefundListItem>();
   const rejectModal = useFormModal<AdminRefundListItem>();
   const remarkModal = useFormModal<AdminRefundListItem>();
+  const withdrawModal = useFormModal<AdminRefundListItem>();
   const can = useCan();
   const redirectsReturn =
     approveModal.record?.kind === 'return_and_refund' && can('refund:config:write');
   const handlers: RefundActionHandlers = {
     approve: (row) => approveModal.show(row),
     reject: (row) => rejectModal.show(row),
+    withdraw: (row) => withdrawModal.show(row),
     remark: (row) => remarkModal.show(row),
   };
 
@@ -181,6 +188,11 @@ export function RefundRequestsPage() {
                 {row.isAutomatic ? (
                   <Tag color="gold" bordered={false}>
                     系统
+                  </Tag>
+                ) : null}
+                {row.initiatedByAdminId !== null ? (
+                  <Tag color="blue" bordered={false}>
+                    商家
                   </Tag>
                 ) : null}
               </Space>
@@ -357,6 +369,43 @@ export function RefundRequestsPage() {
       />
 
       <ModalForm
+        {...withdrawModal.props}
+        title={`撤销售后：${withdrawModal.record?.refundNo ?? ''}`}
+        size="small"
+        schema={adminRefundWithdrawBody}
+        fields={[
+          {
+            kind: 'textarea',
+            name: 'reason',
+            label: '撤销原因',
+            rows: 3,
+            maxLength: 255,
+            required: true,
+            help: '必填，买家会在售后详情里看到。',
+          },
+        ]}
+        route={refundAdminWithdraw}
+        toInput={(values) => ({ params: { id: withdrawModal.record?.id ?? '' }, body: values })}
+        invalidate={REFRESHES}
+        successMessage="已撤销"
+        okText="确认撤销"
+        okDanger
+        header={
+          withdrawModal.record ? (
+            <>
+              <RequestSummary record={withdrawModal.record} />
+              <Alert
+                type="warning"
+                showIcon
+                style={{ marginBottom: 16 }}
+                message="撤销后这笔售后结束，不会退款；买家无需再寄回商品。"
+              />
+            </>
+          ) : null
+        }
+      />
+
+      <ModalForm
         {...remarkModal.props}
         title={`备注：${remarkModal.record?.refundNo ?? ''}`}
         size="small"
@@ -405,7 +454,12 @@ function RequestSummary({ record }: { record: AdminRefundListItem }) {
         },
         { key: 'quantity', label: '件数', children: record.quantity },
         { key: 'freight', label: '含运费', children: record.includesFreight ? '是' : '否' },
-        { key: 'reason', label: '买家原因', span: 2, children: record.reason ?? '—' },
+        {
+          key: 'reason',
+          label: record.initiatedByAdminId === null ? '买家原因' : '售后原因',
+          span: 2,
+          children: record.reason ?? '—',
+        },
       ]}
     />
   );
@@ -414,6 +468,7 @@ function RequestSummary({ record }: { record: AdminRefundListItem }) {
 interface RefundActionHandlers {
   approve: (row: AdminRefundListItem) => void;
   reject: (row: AdminRefundListItem) => void;
+  withdraw: (row: AdminRefundListItem) => void;
   remark: (row: AdminRefundListItem) => void;
 }
 
@@ -457,6 +512,13 @@ function RefundActions({
       items.push(
         <Button key="close" {...look} danger onClick={() => handlers.reject(row)}>
           关闭
+        </Button>,
+      );
+    }
+    if (shopMayWithdraw(row)) {
+      items.push(
+        <Button key="withdraw" {...look} danger onClick={() => handlers.withdraw(row)}>
+          撤销
         </Button>,
       );
     }
@@ -528,6 +590,19 @@ export function refundRetryOutcome(detail: AdminRefundDetail): Outcome {
   }
 }
 
+/**
+ * 撤销 is for a 退货退款 the shop opened, before the goods are sent — the
+ * server's `shopMayWithdraw`.
+ */
+export function shopMayWithdraw(row: AdminRefundListItem): boolean {
+  return (
+    row.initiatedByAdminId !== null &&
+    row.status === 'approved' &&
+    row.kind === 'return_and_refund' &&
+    row.returnStage === 'awaiting_shipment'
+  );
+}
+
 /** Retrying is for a refund that tried and did not land. */
 function canRetry(status: AdminRefundListItem['status']): boolean {
   return status === 'failed' || status === 'unknown' || status === 'processing';
@@ -587,6 +662,12 @@ function RefundDrawer({
                 value: <CodeText value={row.orderNo} href={`/admin/orders/${row.orderId}`} />,
               },
               { label: '买家', value: `${row.userNickname ?? '—'} #${row.userId}` },
+              {
+                label: '发起人',
+                value: `商家发起 · ${row.initiatedByAdminName ?? `管理员 #${row.initiatedByAdminId ?? ''}`}`,
+                span: 2,
+                hidden: row.initiatedByAdminId === null,
+              },
               { label: '商户退款单号', value: <CodeText value={row.outRefundNo} />, span: 2 },
               {
                 label: '微信退款单号',

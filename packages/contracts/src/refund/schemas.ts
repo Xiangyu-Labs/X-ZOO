@@ -172,8 +172,8 @@ export const refundListItem = z.object({
   reason: z.string().nullable(),
   rejectReason: z.string().nullable(),
   /**
-   * Opened by the shop itself (a failed group buy, an expired presale), not by
-   * the shopper — who therefore cannot withdraw it.
+   * Opened by the shop itself (a failed group buy, an expired presale, an
+   * operator's 发起售后), not by the shopper — who therefore cannot withdraw it.
    */
   isAutomatic: z.boolean(),
   items: z.array(refundItem),
@@ -215,6 +215,15 @@ export type RefundDetail = z.infer<typeof refundDetail>;
  * number support quotes to WeChat.
  */
 export const adminRefundListItem = refundListItem.extend({
+  /**
+   * Opened by an automatic process (a failed group buy, an expired presale).
+   * Narrower than the shopper's flag: a refund an operator opened is
+   * `initiatedByAdminId` instead.
+   */
+  isAutomatic: z.boolean(),
+  /** The operator who opened it from the order screen (商家发起); null for a buyer's request. */
+  initiatedByAdminId: id.nullable(),
+  initiatedByAdminName: z.string().nullable(),
   userId: id,
   userNickname: z.string().nullable(),
   outRefundNo: z.string(),
@@ -319,6 +328,36 @@ export const refundRemarkBody = z.object({
 });
 export type RefundRemarkBody = z.infer<typeof refundRemarkBody>;
 
+/**
+ * `POST /admin-api/orders/:id/refunds` — 商家发起售后.
+ *
+ * The buyer's apply body without the evidence, and still without an amount:
+ * the operator picks lines and quantities and the service prices them exactly
+ * as it prices a buyer's request (REFUND-005). It opens already approved, so a
+ * 仅退款 goes to the gateway and a 退货退款 waits for the goods at the address
+ * in 售后设置.
+ */
+export const adminRefundCreateBody = z.object({
+  kind: refundKind,
+  lines: z.array(refundLine).min(1).max(100),
+  /** Shown to the buyer as the reason for the after-sales. */
+  reason: z.string().trim().min(1, '请填写售后原因').max(255),
+  /** Staff-only note, the same field as 售后备注. */
+  remark: z.string().max(255).optional(),
+  /** Only honoured while nothing has shipped and the request takes everything left. */
+  includeFreight: z.boolean().default(false),
+});
+export type AdminRefundCreateBody = z.infer<typeof adminRefundCreateBody>;
+
+/** 撤销 a refund the shop opened, before any money or goods have moved. */
+export const adminRefundWithdrawBody = z.object({
+  /** Shown to the buyer. */
+  reason: z.string().trim().min(1, '请填写撤销原因').max(255),
+});
+export type AdminRefundWithdrawBody = z.infer<typeof adminRefundWithdrawBody>;
+
+export const adminRefundOrderParams = z.object({ id });
+
 export const refundReceiveReturnBody = z.object({
   remark: z.string().max(255).optional(),
 });
@@ -384,6 +423,8 @@ export const adminRefundExample: AdminRefundListItem = {
   outRefundNo: 'R2602261300000601C4D2',
   gatewayRefundId: null,
   paymentAttemptId: '5001',
+  initiatedByAdminId: null,
+  initiatedByAdminName: null,
   adminRemark: null,
   lastError: null,
   lastErrorSummary: null,

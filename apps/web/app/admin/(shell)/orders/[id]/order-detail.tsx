@@ -30,7 +30,7 @@ import {
   type AdminOrderDetail,
 } from '@shop/contracts/order/order.fulfil.schemas';
 import type { OrderItem } from '@shop/contracts/order/schemas';
-import { refundAdminList } from '@shop/contracts/refund/refund.admin.contract';
+import { refundAdminCreate, refundAdminList } from '@shop/contracts/refund/refund.admin.contract';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { z } from 'zod';
@@ -55,6 +55,7 @@ import {
   ORDER_STATUS,
   REFUND_STATUS,
 } from '../order-enums';
+import { AftersaleModal } from './aftersale-modal';
 import { loadRegionOptions, REGION_CACHE_KEY } from './region-options';
 import { ShipPanel } from './ship-panel';
 
@@ -73,6 +74,21 @@ export function listHrefOf(list: string | null): string {
 }
 
 /**
+ * 发起售后 is offered on an order that collected money and still has some to
+ * give back — completed ones included, whatever the after-sales window says;
+ * the server checks the same (`refundableOrderPaid`).
+ */
+export function mayStartAftersale(order: AdminOrderDetail): boolean {
+  return (
+    order.deletedAt === null &&
+    order.paidAmount !== null &&
+    order.status !== 'cancelled' &&
+    order.status !== 'refunded' &&
+    order.refundStatus !== 'refunded'
+  );
+}
+
+/**
  * 订单详情 — the screen an operator spends their day on.
  *
  * Laid out as the questions they actually ask, in order: *what state is this
@@ -86,6 +102,7 @@ export function OrderDetailPage({ id }: { id: string }) {
   const remarkModal = useFormModal<AdminOrderDetail>();
   const priceModal = useFormModal<AdminOrderDetail>();
   const addressModal = useFormModal<AdminOrderDetail>();
+  const aftersaleModal = useFormModal<AdminOrderDetail>();
 
   const listHref = listHrefOf(useSearchParams().get('list'));
   const can = useCan();
@@ -150,6 +167,11 @@ export function OrderDetailPage({ id }: { id: string }) {
                 >
                   确认收货
                 </ConfirmButton>
+              </Can>
+            ) : null}
+            {mayStartAftersale(data) ? (
+              <Can permission={refundAdminCreate.permission}>
+                <Button onClick={() => aftersaleModal.show(data)}>发起售后</Button>
               </Can>
             ) : null}
           </Space>
@@ -471,6 +493,8 @@ export function OrderDetailPage({ id }: { id: string }) {
         invalidate={invalidate}
         successMessage="已修改"
       />
+
+      <AftersaleModal orderId={id} open={aftersaleModal.open} onClose={aftersaleModal.close} />
     </PageContainer>
   );
 }

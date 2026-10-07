@@ -142,6 +142,12 @@ export const refunds = pgTable(
 
     /** TRUE when the refund was opened automatically by a failed group buy. */
     isAutomatic: boolean().notNull().default(false),
+    /**
+     * The operator who opened this refund from the order screen (商家发起售后),
+     * typically on a completed order the buyer can no longer apply on. Null for
+     * a buyer's request and for an automatic one. The buyer cannot withdraw it.
+     */
+    initiatedByAdminId: fk().references((): AnyPgColumn => admins.id, { onDelete: 'set null' }),
 
     reviewedByAdminId: fk().references((): AnyPgColumn => admins.id, { onDelete: 'set null' }),
     reviewedAt: instant(),

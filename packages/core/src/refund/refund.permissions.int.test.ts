@@ -121,6 +121,8 @@ interface Scene {
   ownerId: number;
   adminId: number;
   refundId: number;
+  orderId: number;
+  itemId: number;
 }
 
 let sequence = 0;
@@ -214,6 +216,8 @@ async function scene(kind: 'refund_only' | 'return_and_refund'): Promise<Scene> 
     ownerId: owner!.id,
     adminId: operator!.id,
     refundId: Number(applied.id),
+    orderId: order!.id,
+    itemId: item!.id,
   };
 }
 
@@ -371,5 +375,68 @@ describe('review and execute are separate grants', () => {
     await admin.adminApprove(as(superAdmin(s.adminId)), { id: String(s.refundId) });
     await admin.adminReceiveReturn(executor, { id: String(s.refundId) });
     expect((await refundRow(s.refundId)).status).toBe('processing');
+  });
+});
+
+describe('商家发起售后 is a review decision', () => {
+  const allRefunds = () => harness.ctx.db.select().from(refunds);
+  const others = [
+    ...ALL_REQUEST_ATOMS.filter((a) => a !== 'refund:request:review'),
+    'refund:config:write',
+  ];
+
+  it('refuses opening, reading the lines for and withdrawing one without request:review', async () => {
+    const s = await scene('return_and_refund');
+    const opener = as(adminWith(others, s.adminId));
+    const before = await allRefunds();
+
+    for (const act of [
+      () => admin.adminApplicable(opener, { id: String(s.orderId) }),
+      () =>
+        admin.adminCreate(opener, {
+          id: String(s.orderId),
+          kind: 'refund_only',
+          lines: [{ orderItemId: String(s.itemId), quantity: 1 }],
+          reason: '质量问题',
+          includeFreight: false,
+        }),
+      () => admin.adminWithdraw(opener, { id: String(s.refundId), reason: '协商一致' }),
+    ]) {
+      const refusal = await refusalOf(act);
+      expect(refusal.code).toBe('FORBIDDEN');
+      expect(refusal.details).toEqual({ permission: 'refund:request:review' });
+    }
+    expect(await allRefunds()).toEqual(before);
+  });
+
+  it('serves it to an admin holding just request:review (and read)', async () => {
+    const s = await scene('return_and_refund');
+    const reviewer = as(adminWith(['refund:request:read', 'refund:request:review'], s.adminId));
+
+    await expect(admin.adminApplicable(reviewer, { id: String(s.orderId) })).resolves.toBeDefined();
+    const opened = await admin
+      .adminCreate(reviewer, {
+        id: String(s.orderId),
+        kind: 'return_and_refund',
+        // The buyer's own request holds one unit; the other is still free.
+        lines: [{ orderItemId: String(s.itemId), quantity: 1 }],
+        reason: '质量问题',
+        includeFreight: false,
+      })
+      .catch((error: unknown) => error);
+    // One line, one open request (REFUND-002): the buyer's holds it.
+    expect(opened).toMatchObject({ code: 'REFUND_ALREADY_OPEN' });
+
+    await admin.adminReject(reviewer, { id: String(s.refundId), rejectReason: '不符合条件' });
+    const created = await admin.adminCreate(reviewer, {
+      id: String(s.orderId),
+      kind: 'return_and_refund',
+      lines: [{ orderItemId: String(s.itemId), quantity: 1 }],
+      reason: '质量问题',
+      includeFreight: false,
+    });
+    await expect(
+      admin.adminWithdraw(reviewer, { id: created.id, reason: '协商一致' }),
+    ).resolves.toMatchObject({ status: 'cancelled' });
   });
 });

@@ -230,12 +230,15 @@ describe('REFUND-017 — a refused refund is still in flight', () => {
   });
 
   it('lets the shopper withdraw it until money can have moved, but never a refund the shop opened', () => {
+    const buyers = { isAutomatic: false, initiatedByAdminId: null };
     for (const status of ['applied', 'approved', 'failed'] as const) {
-      expect(buyerMayWithdraw({ status, isAutomatic: false })).toBe(true);
-      expect(buyerMayWithdraw({ status, isAutomatic: true })).toBe(false);
+      expect(buyerMayWithdraw({ status, ...buyers })).toBe(true);
+      expect(buyerMayWithdraw({ status, ...buyers, isAutomatic: true })).toBe(false);
+      // 商家发起售后: an operator opened it, so it is not the buyer's to take back.
+      expect(buyerMayWithdraw({ status, ...buyers, initiatedByAdminId: 1 })).toBe(false);
     }
     for (const status of ['processing', 'unknown', 'succeeded', 'rejected', 'cancelled'] as const) {
-      expect(buyerMayWithdraw({ status, isAutomatic: false })).toBe(false);
+      expect(buyerMayWithdraw({ status, ...buyers })).toBe(false);
     }
   });
 });

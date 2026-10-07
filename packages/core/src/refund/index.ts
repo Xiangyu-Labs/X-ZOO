@@ -28,8 +28,10 @@ import { registerRefundNotificationEvents } from './refund.notifications';
  * There is no "create a refund on behalf of a user" export, and there never
  * will be: `apply` needs a `ctx` whose actor is the buyer. What exists instead
  * is the other thing — a refund the **shop** owes without anybody asking, with
- * its own ceiling check and no approval step (`refund.system.service.ts`).
- * Nothing may insert a `refunds` row by reaching past this file.
+ * its own ceiling check and no approval step (`refund.system.service.ts`), and
+ * one an operator opens from the order screen (`adminCreate`), recorded as the
+ * operator's, priced by the same rules as the buyer's and approved in the same
+ * step. Nothing may insert a `refunds` row by reaching past this file.
  */
 
 // `detail` (any after-sale by id, no ownership check) is deliberately not here:
@@ -53,13 +55,16 @@ export {
 } from './refund.service';
 
 export {
+  adminApplicable,
   adminApprove,
+  adminCreate,
   adminDetail,
   adminList,
   adminReceiveReturn,
   adminReject,
   adminRemark,
   adminRetry,
+  adminWithdraw,
 } from './refund.admin';
 
 export {
