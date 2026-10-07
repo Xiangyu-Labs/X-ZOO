@@ -1135,7 +1135,9 @@ describe('browse history', () => {
     const ctx = asUser(await makeUser(harness));
     await storefront.productDetail(ctx, { id: product.id });
 
-    harness.clock.set('2027-01-01T00:00:00.000Z');
+    // The view is stamped by the database's clock (`created_at`), not the harness's: step
+    // past the 90-day window from the real now, or the test expires on a calendar date.
+    harness.clock.set(new Date(Date.now() + 91 * 86_400_000).toISOString());
     const { deleted } = await storefront.pruneBrowseHistory(harness.ctx);
     expect(deleted).toBeGreaterThan(0);
     expect((await storefront.historyList(ctx, { page: 1, pageSize: 20 })).total).toBe(0);
