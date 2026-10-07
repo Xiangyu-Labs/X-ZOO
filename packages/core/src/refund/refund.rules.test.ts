@@ -14,6 +14,7 @@ import {
   type LogLineInput,
   refundableLine,
   remainingCeiling,
+  scaleParts,
   type RefundableLineInput,
 } from './refund.rules';
 
@@ -78,6 +79,43 @@ describe('lineRefundAmount — the awkward split', () => {
 
   it('clamps rather than going negative when more was refunded than the line cost', () => {
     expect(lineRefundAmount(line({ refundedAmount: '40.00' }), 1).toString()).toBe('0.00');
+  });
+});
+
+describe('after a 仅退款 the shop settled for less', () => {
+  // One of three units went back for 5.00 instead of its 10.00.
+  const settled = line({ refundedQuantity: 1, refundedAmount: '5.00' });
+
+  it('leaves the other units their own shares, not the money the shop kept', () => {
+    expect(lineRefundAmount(settled, 2).toString()).toBe('19.99');
+    expect(lineRefundAmount(settled, 1).toString()).toBe('10.00');
+    expect(refundableLine(settled).refundableAmount.toString()).toBe('19.99');
+  });
+
+  it('changes nothing for refunds priced by units, down to the last fen', () => {
+    expect(
+      lineRefundAmount(line({ refundedQuantity: 1, refundedAmount: '10.00' }), 2).toString(),
+    ).toBe('19.99');
+    // Two single-unit refunds each took the larger share: the last unit gets what is left.
+    expect(
+      lineRefundAmount(line({ refundedQuantity: 2, refundedAmount: '20.00' }), 1).toString(),
+    ).toBe('9.99');
+  });
+});
+
+describe('scaleParts — an agreed amount over the priced parts', () => {
+  it('splits in proportion and adds up exactly', () => {
+    const parts = scaleParts(
+      [Money.parse('60.00'), Money.parse('30.00'), Money.parse('10.00')],
+      Money.parse('33.33'),
+    );
+    expect(parts.map(String)).toEqual(['20.00', '10.00', '3.33']);
+    expect(Money.sum(parts).toString()).toBe('33.33');
+  });
+
+  it('keeps the parts as they were when the amount is the whole', () => {
+    const parts = scaleParts([Money.parse('29.99'), Money.parse('8.00')], Money.parse('37.99'));
+    expect(parts.map(String)).toEqual(['29.99', '8.00']);
   });
 });
 

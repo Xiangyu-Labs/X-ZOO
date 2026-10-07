@@ -37,6 +37,8 @@ export const refundErrors = defineErrors({
   REFUND_EXCEEDS_PAID: { status: 409, message: '退款金额超过实付金额' },
   /** Nothing to refund: every chosen line computes to zero. */
   REFUND_AMOUNT_ZERO: { status: 422, message: '退款金额必须大于 0' },
+  /** The shop's 仅退款 named more than the chosen lines (and freight) are worth. */
+  REFUND_AMOUNT_ABOVE_ITEMS: { status: 422, message: '退款金额不能超过所选商品的可退金额' },
   /**
    * Freight was asked for when it is not this request's to give back: the order
    * shipped, another request already carries it, or units are left behind.

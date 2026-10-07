@@ -47,14 +47,19 @@ function stubApi(order: AdminOrderDetail | 'missing' = adminOrderDetailExample):
     on(orderAdminUpdateAddress, order === 'missing' ? adminOrderDetailExample : order),
     on(cityTreePublic, cityTreeExample),
     on(refundAdminApplicable, refundableItemsExample),
-    on(refundAdminCreate, {
-      ...adminRefundDetailExample,
-      kind: 'refund_only',
-      status: 'approved',
-      returnStage: 'not_required',
-      amount: '99.00',
-      initiatedByAdminId: '1',
-      initiatedByAdminName: '店长',
+    // What the server froze: the agreed amount for a 仅退款, the goods' worth otherwise.
+    on(refundAdminCreate, (call) => {
+      const body = call.body as { kind: 'refund_only' | 'return_and_refund'; amount?: string };
+      return {
+        ...adminRefundDetailExample,
+        kind: body.kind,
+        status: 'approved' as const,
+        returnStage:
+          body.kind === 'refund_only' ? ('not_required' as const) : ('awaiting_shipment' as const),
+        amount: body.amount ?? '99.00',
+        initiatedByAdminId: '1',
+        initiatedByAdminName: '店长',
+      };
     }),
   ]);
 }
@@ -207,13 +212,21 @@ describe('订单详情', () => {
       }
     });
 
-    it('sends the chosen lines and reason, no amount, and says what the server froze', async () => {
+    it('offers 退货退款 first and sends it without an amount', async () => {
       const calls = stubApi(completed);
       renderAdmin(<OrderDetailPage id="9001" />, { identity: reviewer });
 
       await userEvent.click(await screen.findByRole('button', { name: zhName('发起售后') }));
       const dialog = await screen.findByRole('dialog');
       expect(await within(dialog).findByText(/最多还能退/)).toBeInTheDocument();
+      const kinds = within(dialog).getAllByRole('radio');
+      expect(kinds.map((radio) => radio.closest('label')?.textContent)).toEqual([
+        '退货退款',
+        '仅退款',
+      ]);
+      expect(kinds[0]).toBeChecked();
+      // A 退货退款 is worth its goods: nothing to type in.
+      expect(within(dialog).queryByLabelText('退款金额')).not.toBeInTheDocument();
 
       // Nothing chosen yet: the form says so instead of sending an empty request.
       await userEvent.click(within(dialog).getByRole('button', { name: zhName('确认发起') }));
@@ -230,13 +243,54 @@ describe('订单详情', () => {
         const post = calls.find((call) => call.routeId === refundAdminCreate.id);
         expect(post?.params).toEqual({ id: '9001' });
         expect(post?.body).toEqual({
-          kind: 'refund_only',
+          kind: 'return_and_refund',
           lines: [{ orderItemId: '7001', quantity: 1 }],
           reason: '质量问题',
           includeFreight: false,
         });
       });
-      expect(await screen.findByText('已发起退款 ¥99.00，正在原路退回')).toBeInTheDocument();
+      expect(await screen.findByText('已发起退货退款 ¥99.00，等待买家寄回')).toBeInTheDocument();
+    });
+
+    it('asks a 仅退款 for its amount, up to what the chosen lines are worth', async () => {
+      const calls = stubApi(completed);
+      renderAdmin(<OrderDetailPage id="9001" />, { identity: reviewer });
+
+      await userEvent.click(await screen.findByRole('button', { name: zhName('发起售后') }));
+      const dialog = await screen.findByRole('dialog');
+      await within(dialog).findByText(/最多还能退/);
+      await userEvent.click(within(dialog).getByRole('radio', { name: '仅退款' }));
+
+      const quantity = within(dialog).getByRole('spinbutton', { name: /售后数量/ });
+      await userEvent.clear(quantity);
+      await userEvent.type(quantity, '1');
+      await userEvent.type(within(dialog).getByLabelText('售后原因'), '少发配件，协商退款');
+
+      await userEvent.click(within(dialog).getByRole('button', { name: zhName('确认发起') }));
+      expect(await within(dialog).findByText('请填写退款金额')).toBeInTheDocument();
+
+      const amount = within(dialog).getByLabelText('退款金额');
+      await userEvent.type(amount, '120');
+      await userEvent.click(within(dialog).getByRole('button', { name: zhName('确认发起') }));
+      expect(
+        await within(dialog).findByText('不能超过所选商品的可退金额 ¥99.00'),
+      ).toBeInTheDocument();
+
+      await userEvent.clear(amount);
+      await userEvent.type(amount, '20');
+      await userEvent.click(within(dialog).getByRole('button', { name: zhName('确认发起') }));
+
+      await waitFor(() => {
+        const post = calls.find((call) => call.routeId === refundAdminCreate.id);
+        expect(post?.body).toEqual({
+          kind: 'refund_only',
+          lines: [{ orderItemId: '7001', quantity: 1 }],
+          amount: '20.00',
+          reason: '少发配件，协商退款',
+          includeFreight: false,
+        });
+      });
+      expect(await screen.findByText('已发起退款 ¥20.00，正在原路退回')).toBeInTheDocument();
     });
   });
 });

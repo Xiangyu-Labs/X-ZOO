@@ -462,7 +462,12 @@ export async function adminCreate(
       throw new DomainError('REFUND_RETURN_ADDRESS_MISSING');
     }
 
-    const priced = await priceRequest(tx, order, paidAmount, input);
+    const priced = await priceRequest(tx, order, paidAmount, {
+      lines: input.lines,
+      includeFreight: input.includeFreight,
+      // A 退货退款 gives back what the goods are worth; only a 仅退款 settles.
+      amount: input.kind === 'refund_only' ? input.amount : undefined,
+    });
     const refund = await openRefund(tx, ctx, {
       order,
       priced,

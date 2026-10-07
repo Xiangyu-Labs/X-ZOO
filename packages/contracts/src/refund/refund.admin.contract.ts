@@ -282,6 +282,7 @@ export const refundAdminCreate = defineRoute({
     'REFUND_LINE_INVALID',
     'REFUND_ALREADY_OPEN',
     'REFUND_AMOUNT_ZERO',
+    'REFUND_AMOUNT_ABOVE_ITEMS',
     'REFUND_EXCEEDS_PAID',
     'REFUND_FREIGHT_NOT_REFUNDABLE',
     'REFUND_RETURN_ADDRESS_MISSING',
@@ -294,6 +295,7 @@ export const refundAdminCreate = defineRoute({
       body: {
         kind: 'refund_only',
         lines: [{ orderItemId: '7001', quantity: 1 }],
+        amount: '99.00',
         reason: '质量问题',
         includeFreight: false,
       },

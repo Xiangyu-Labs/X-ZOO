@@ -39,9 +39,7 @@ export interface RefundableLine extends RefundableLineInput {
  */
 export function refundableLine(line: RefundableLineInput): RefundableLine {
   const remaining = Math.max(0, line.quantity - line.refundedQuantity);
-  const total = Money.parse(line.totalAmount);
-  const alreadyRefunded = Money.parse(line.refundedAmount);
-  const left = total.sub(alreadyRefunded).clampToZero();
+  const left = remainingMoney(line);
 
   const blockedReason = line.isOpen
     ? 'REFUND_ALREADY_OPEN'
@@ -65,18 +63,50 @@ export function refundableLine(line: RefundableLineInput): RefundableLine {
  * fewer units get their allocated share of the line total.
  */
 export function lineRefundAmount(line: RefundableLineInput, quantity: number): Money {
-  const total = Money.parse(line.totalAmount);
-  const alreadyRefunded = Money.parse(line.refundedAmount);
   const remainingUnits = line.quantity - line.refundedQuantity;
-  const remainingMoney = total.sub(alreadyRefunded).clampToZero();
+  const left = remainingMoney(line);
 
-  if (quantity >= remainingUnits) return remainingMoney;
+  if (quantity >= remainingUnits) return left;
 
-  const shares = total.allocate(new Array<number>(line.quantity).fill(1));
+  const shares = unitShares(line);
   let sum = Money.ZERO;
   for (let i = 0; i < quantity; i += 1) sum = sum.add(shares[i] ?? Money.ZERO);
   // Never promise more than is actually left on the line.
-  return sum.lte(remainingMoney) ? sum : remainingMoney;
+  return sum.lte(left) ? sum : left;
+}
+
+/** The line total split over its units, the extra fen on the first ones. */
+function unitShares(line: RefundableLineInput): Money[] {
+  return Money.parse(line.totalAmount).allocate(new Array<number>(line.quantity).fill(1));
+}
+
+/**
+ * What the line's unrefunded units are still worth: what is left of its total,
+ * but never more than those units' own shares.
+ *
+ * The cap matters after a 仅退款 the shop settled for less than the units were
+ * worth (`adminCreate` with an amount): the money it did not give back is
+ * gone, and must not come back with the next request for the other units.
+ * Refunds priced by units always take the largest shares first, so for them
+ * what is left never exceeds the cap and the last units still take the last fen.
+ */
+function remainingMoney(line: RefundableLineInput): Money {
+  const left = Money.parse(line.totalAmount).sub(Money.parse(line.refundedAmount)).clampToZero();
+  const shares = unitShares(line);
+  let tail = Money.ZERO;
+  for (let i = Math.max(0, line.refundedQuantity); i < line.quantity; i += 1) {
+    tail = tail.add(shares[i] ?? Money.ZERO);
+  }
+  return Money.min(left, tail);
+}
+
+/**
+ * Splits an amount the shop agreed on over the parts a request was priced at
+ * (each line's share, then the freight), in proportion, so the parts still add
+ * up to it exactly. `target` is at most the priced total; the caller checks.
+ */
+export function scaleParts(parts: readonly Money[], target: Money): Money[] {
+  return target.allocate(parts.map((part) => part.valueOfFen()));
 }
 
 /**
