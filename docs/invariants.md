@@ -1806,7 +1806,7 @@ The shop has no 砍价, 秒杀, 抽奖, 直播, 分销, 积分, 签到, 付费�
 
 ### SEQ-001
 
-A fixed-seed sequence of real operations (create payment, gateway payment, cancel, refund — apply, approve, send, a refused send, withdraw, reject, 复核 — duplicate notification, close task) interleaved over three orders keeps every invariant after every step: a cancelled order keeps no collectible gateway payment, a paid attempt carries its trade number, money taken at the gateway is recorded locally, completed refunds never exceed the payment, each stock layer keeps every unit in stock or sold, `refunded_quantity` equals the units the line's refunds count, and a unit is never both shipped and taken by a refund approved before shipping. Four seeds run in the suite, and a failure prints the seed and the full event log for an exact replay.
+A fixed-seed sequence of real operations (create payment, gateway payment, cancel, refund — apply, approve, send, a refused send, withdraw, reject, 复核, 商家发起 and its 撤销 — duplicate notification, close task) interleaved over three orders keeps every invariant after every step: a cancelled order keeps no collectible gateway payment, a paid attempt carries its trade number, money taken at the gateway is recorded locally, completed refunds never exceed the payment, each stock layer keeps every unit in stock or sold, `refunded_quantity` equals the units the line's refunds count, and a unit is never both shipped and taken by a refund approved before shipping. Four seeds run in the suite, and a failure prints the seed and the full event log for an exact replay.
 
 - `packages/core/src/order/order.sequence.int.test.ts::SEQ-001 — a fixed-seed interleaving of real operations > holds every invariant after every step, seed <seed>`
 

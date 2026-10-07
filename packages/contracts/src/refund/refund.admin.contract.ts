@@ -1,11 +1,16 @@
 import { z } from 'zod';
 import { defineRoute } from '../_conventions/route';
 import {
+  adminRefundCreateBody,
   adminRefundDetail,
   adminRefundDetailExample,
   adminRefundExample,
   adminRefundListQuery,
+  adminRefundOrderParams,
+  adminRefundWithdrawBody,
   pagedAdminRefunds,
+  refundableItemsExample,
+  refundableItemsResult,
   refundApproveBody,
   refundIdParams,
   refundReceiveReturnBody,
@@ -21,6 +26,11 @@ import {
  * gateway's answer was lost — ask again. There is no "set the refund amount"
  * route: the amount was frozen when the shopper applied, and re-pricing it
  * afterwards is the defect REFUND-005 describes.
+ *
+ * Two more let the shop open after-sales itself (商家发起售后), on an order the
+ * buyer can no longer apply on — a completed one, typically — and take it back
+ * while nothing has moved yet. Opening one is the same decision as 同意, so it
+ * needs the same atom.
  *
  * `approve` does *not* send money for a `return_and_refund`: it moves the
  * request to `approved` and waits for `receive-return`. For a `refund_only` it
@@ -236,6 +246,107 @@ export const refundAdminRetry = defineRoute({
         returnStage: 'received',
         lastError: 'connect ETIMEDOUT api.mch.weixin.qq.com:443',
         lastErrorSummary: '没有收到微信支付的结果，系统会自动查询；也可以点「重试」立即查询',
+      },
+    },
+  ],
+});
+
+export const refundAdminApplicable = defineRoute({
+  id: 'refund.adminApplicable',
+  method: 'GET',
+  path: '/admin-api/orders/:id/refundable',
+  auth: 'admin',
+  permission: 'refund:request:review',
+  summary: '可发起售后的商品',
+  tags: ['refund'],
+  params: adminRefundOrderParams,
+  response: refundableItemsResult,
+  errors: ['REFUND_ORDER_NOT_FOUND', 'REFUND_ORDER_NOT_REFUNDABLE'],
+  examples: [{ name: 'completed-order', params: { id: '3001' }, response: refundableItemsExample }],
+});
+
+export const refundAdminCreate = defineRoute({
+  id: 'refund.adminCreate',
+  method: 'POST',
+  path: '/admin-api/orders/:id/refunds',
+  auth: 'admin',
+  permission: 'refund:request:review',
+  summary: '商家发起售后',
+  tags: ['refund'],
+  params: adminRefundOrderParams,
+  body: adminRefundCreateBody,
+  response: adminRefundDetail,
+  errors: [
+    'REFUND_ORDER_NOT_FOUND',
+    'REFUND_ORDER_NOT_REFUNDABLE',
+    'REFUND_LINE_INVALID',
+    'REFUND_ALREADY_OPEN',
+    'REFUND_AMOUNT_ZERO',
+    'REFUND_EXCEEDS_PAID',
+    'REFUND_FREIGHT_NOT_REFUNDABLE',
+    'REFUND_RETURN_ADDRESS_MISSING',
+    'REFUND_LINE_ALREADY_SHIPPED',
+  ],
+  examples: [
+    {
+      name: 'refund-only-after-completion',
+      params: { id: '3001' },
+      body: {
+        kind: 'refund_only',
+        lines: [{ orderItemId: '7001', quantity: 1 }],
+        reason: '质量问题',
+        includeFreight: false,
+      },
+      response: {
+        ...adminRefundDetailExample,
+        kind: 'refund_only',
+        status: 'approved',
+        returnStage: 'not_required',
+        reason: '质量问题',
+        explanation: null,
+        images: [],
+        initiatedByAdminId: '1',
+        initiatedByAdminName: '店长',
+        reviewedByAdminId: '1',
+        reviewedAt: '2026-02-26T14:00:00+08:00',
+        updatedAt: '2026-02-26T14:00:00+08:00',
+        logs: [
+          {
+            toStatus: 'applied',
+            message: '商家发起仅退款',
+            createdAt: '2026-02-26T14:00:00+08:00',
+          },
+          { toStatus: 'approved', message: '商家同意退款', createdAt: '2026-02-26T14:00:00+08:00' },
+        ],
+      },
+    },
+  ],
+});
+
+export const refundAdminWithdraw = defineRoute({
+  id: 'refund.adminWithdraw',
+  method: 'POST',
+  path: '/admin-api/refunds/:id/withdraw',
+  auth: 'admin',
+  permission: 'refund:request:review',
+  summary: '撤销商家发起的售后',
+  tags: ['refund'],
+  params: refundIdParams,
+  body: adminRefundWithdrawBody,
+  response: adminRefundDetail,
+  errors: ['REFUND_NOT_FOUND', 'REFUND_NOT_ACTIONABLE'],
+  examples: [
+    {
+      name: 'withdrawn-before-return',
+      params: { id: '601' },
+      body: { reason: '已与买家协商，无需退货' },
+      response: {
+        ...adminRefundDetailExample,
+        status: 'cancelled',
+        initiatedByAdminId: '1',
+        initiatedByAdminName: '店长',
+        cancelledAt: '2026-02-26T15:00:00+08:00',
+        updatedAt: '2026-02-26T15:00:00+08:00',
       },
     },
   ],

@@ -2,6 +2,8 @@ import type {
   RefundApplyBody,
   RefundDetail,
   RefundItem,
+  RefundKind,
+  RefundLine,
   RefundListItem,
   RefundReturnShipmentBody,
   RefundableItem,
@@ -35,6 +37,7 @@ import {
   coversEverything,
   freightRefundable,
   lineRefundAmount,
+  openedByShop,
   orderRefundStatus,
   refundableLine,
   remainingCeiling,
@@ -111,7 +114,19 @@ export async function applicableItems(
   if (order.paidAmount === null || order.status === 'cancelled') {
     throw new DomainError('REFUND_ORDER_NOT_REFUNDABLE');
   }
+  return refundableFor(ctx, order, order.paidAmount);
+}
 
+/**
+ * The apply screen's answer for an order already found and checked: the
+ * buyer's (`applicableItems`) and the operator's (`adminApplicable`).
+ */
+export async function refundableFor(
+  ctx: Ctx,
+  order: repo.OrderRefundRow,
+  paidAmount: string,
+): Promise<RefundableItemsResult> {
+  const orderId = order.id;
   const [items, openIds, openTotal, freightTaken] = await Promise.all([
     repo.listOrderItems(ctx.db, orderId),
     repo.listOpenItemIds(ctx.db, orderId),
@@ -148,7 +163,7 @@ export async function applicableItems(
   });
 
   const ceiling = remainingCeiling({
-    paidAmount: order.paidAmount,
+    paidAmount,
     refundedAmount: order.refundedAmount,
     openAmount: openTotal,
   });
@@ -156,7 +171,7 @@ export async function applicableItems(
   return {
     orderId: toId(order.id),
     orderNo: order.orderNo,
-    paidAmount: order.paidAmount,
+    paidAmount,
     refundedAmount: order.refundedAmount,
     refundableAmount: ceiling.toString(),
     freightAmount: order.freightAmount,
@@ -164,7 +179,7 @@ export async function applicableItems(
     // `includesFreight` and the server agree (REFUND-018).
     freightRefundable:
       freightRefundable(order.fulfillmentStatus) &&
-      Money.parse(order.paidAmount).isPositive() &&
+      Money.parse(paidAmount).isPositive() &&
       !freightTaken,
     items: lines,
   };
@@ -196,119 +211,18 @@ export async function apply(ctx: Ctx, body: RefundApplyBody): Promise<RefundDeta
     if (!order || order.deletedAt !== null || order.userId !== userId) {
       throw new DomainError('REFUND_ORDER_NOT_FOUND');
     }
-    if (order.paidAmount === null || order.status === 'cancelled' || order.status === 'refunded') {
-      throw new DomainError('REFUND_ORDER_NOT_REFUNDABLE');
-    }
-
-    const items = new Map(
-      (await repo.listOrderItems(tx, orderId)).map((item) => [item.id, item] as const),
-    );
-    // A coupon paid for all of it: every line is worth nothing, and the request
-    // gives back units, the coupon and the seat rather than money (REFUND-016).
-    const zeroPaid = !Money.parse(order.paidAmount).isPositive();
-    // Two entries for one line are one claim on that line; summing first is what
-    // stops `[{id: 7001, qty: 1}, {id: 7001, qty: 1}]` refunding two units of a
-    // one-unit line through two separate remaining-quantity checks.
-    const asked = new Map<number, number>();
-    for (const line of body.lines) {
-      const key = Number(line.orderItemId);
-      asked.set(key, (asked.get(key) ?? 0) + line.quantity);
-    }
-
-    let amount = Money.ZERO;
-    let quantity = 0;
-    const lines: repo.NewRefundItemInput[] = [];
-
-    for (const [orderItemId, units] of asked) {
-      const item = items.get(orderItemId);
-      if (!item || item.orderId !== orderId) throw new DomainError('REFUND_LINE_INVALID');
-      const remaining = item.quantity - item.refundedQuantity;
-      if (units > remaining) {
-        throw new DomainError('REFUND_LINE_INVALID', {
-          details: { orderItemId: toId(orderItemId), remaining },
-        });
-      }
-      const lineAmount = zeroPaid
-        ? Money.ZERO
-        : lineRefundAmount(
-            {
-              orderItemId: item.id,
-              quantity: item.quantity,
-              refundedQuantity: item.refundedQuantity,
-              shippedQuantity: item.shippedQuantity,
-              totalAmount: item.totalAmount,
-              refundedAmount: item.refundedAmount,
-              isOpen: false,
-            },
-            units,
-          );
-      amount = amount.add(lineAmount);
-      quantity += units;
-      lines.push({
-        refundId: 0,
-        orderItemId: item.id,
-        quantity: units,
-        amount: lineAmount.toString(),
-      });
-    }
-
-    const freight =
-      body.includeFreight && !zeroPaid
-        ? refundableFreight(order, items, asked, {
-            held: new Set(await repo.listOpenItemIds(tx, orderId)),
-            claimed: await repo.freightClaimed(tx, orderId),
-          })
-        : null;
-    if (freight !== null) amount = amount.add(Money.parse(freight));
-
-    if (!amount.isPositive() && !zeroPaid) throw new DomainError('REFUND_AMOUNT_ZERO');
-
-    // The ceiling counts what other open requests have already spoken for, so
-    // two requests on two different lines cannot together exceed what was paid.
-    const ceiling = remainingCeiling({
-      paidAmount: order.paidAmount,
-      refundedAmount: order.refundedAmount,
-      openAmount: await repo.openRefundTotal(tx, orderId),
-    });
-    if (amount.gt(ceiling)) {
-      throw new DomainError('REFUND_EXCEEDS_PAID', {
-        details: { requested: amount.toString(), remaining: ceiling.toString() },
-      });
-    }
-
-    const attempt = await findPaidPaymentAttempt(tx, orderId);
-    const refund = await repo.insertRefund(tx, {
-      refundNo: generateOrderNo(ctx.clock, { prefix: REFUND_NO_PREFIX }),
-      outRefundNo: generateOrderNo(ctx.clock, { prefix: OUT_REFUND_NO_PREFIX }),
-      orderId,
-      userId,
-      paymentAttemptId: attempt?.id ?? null,
+    const paidAmount = refundableOrderPaid(order);
+    const priced = await priceRequest(tx, order, paidAmount, body);
+    const refund = await openRefund(tx, ctx, {
+      order,
+      priced,
       kind: body.kind,
-      returnStage: body.kind === 'return_and_refund' ? 'awaiting_shipment' : 'not_required',
-      quantity,
-      amount: amount.toString(),
-      includesFreight: freight !== null,
       reason: body.reason,
       explanation: body.explanation ?? null,
       images: body.images,
-      isAutomatic: false,
+      initiatedByAdminId: null,
     });
 
-    try {
-      await repo.insertRefundItems(
-        tx,
-        lines.map((line) => ({ ...line, refundId: refund.id })),
-      );
-    } catch (error) {
-      // `refund_items_open_uq`: somebody else's request already holds one of
-      // these lines. The database decided the race; we only name it.
-      if (repo.isUniqueViolation(error, 'refund_items_open_uq')) {
-        throw new DomainError('REFUND_ALREADY_OPEN');
-      }
-      throw error;
-    }
-
-    await refreshOrderRefundStatus(tx, orderId);
     await repo.insertLog(tx, {
       refundId: refund.id,
       fromStatus: null,
@@ -326,7 +240,7 @@ export async function apply(ctx: Ctx, body: RefundApplyBody): Promise<RefundDeta
       refundId: refund.id,
       refundNo: refund.refundNo,
       orderNo: order.orderNo,
-      amount: amount.toString(),
+      amount: priced.amount.toString(),
     };
     await notify(tx, ctx, {
       event: 'refund_applied',
@@ -344,6 +258,175 @@ export async function apply(ctx: Ctx, body: RefundApplyBody): Promise<RefundDeta
   });
 
   return detail(ctx, refundId);
+}
+
+/**
+ * The money an order collected, if after-sales may still be opened on it: paid,
+ * and neither cancelled nor already refunded in full. The same rule for the
+ * buyer's request and the operator's.
+ */
+export function refundableOrderPaid(order: repo.OrderRefundRow): string {
+  if (order.paidAmount === null || order.status === 'cancelled' || order.status === 'refunded') {
+    throw new DomainError('REFUND_ORDER_NOT_REFUNDABLE');
+  }
+  return order.paidAmount;
+}
+
+export interface PricedRequest {
+  lines: repo.NewRefundItemInput[];
+  amount: Money;
+  quantity: number;
+  freight: string | null;
+}
+
+/**
+ * What a request for these lines is worth, under the order lock.
+ *
+ * The request names lines and quantities, never money: each line gives back its
+ * allocated share (`lineRefundAmount`), freight only by `refundableFreight`'s
+ * rule, and the whole must fit under what other open requests have left
+ * (REFUND-005, REFUND-007). The buyer's `apply` and the operator's
+ * `adminCreate` both price through here, so the two can never disagree.
+ */
+export async function priceRequest(
+  tx: Tx,
+  order: repo.OrderRefundRow,
+  paidAmount: string,
+  wanted: { lines: readonly RefundLine[]; includeFreight: boolean },
+): Promise<PricedRequest> {
+  const orderId = order.id;
+  const items = new Map(
+    (await repo.listOrderItems(tx, orderId)).map((item) => [item.id, item] as const),
+  );
+  // A coupon paid for all of it: every line is worth nothing, and the request
+  // gives back units, the coupon and the seat rather than money (REFUND-016).
+  const zeroPaid = !Money.parse(paidAmount).isPositive();
+  // Two entries for one line are one claim on that line; summing first is what
+  // stops `[{id: 7001, qty: 1}, {id: 7001, qty: 1}]` refunding two units of a
+  // one-unit line through two separate remaining-quantity checks.
+  const asked = new Map<number, number>();
+  for (const line of wanted.lines) {
+    const key = Number(line.orderItemId);
+    asked.set(key, (asked.get(key) ?? 0) + line.quantity);
+  }
+
+  let amount = Money.ZERO;
+  let quantity = 0;
+  const lines: repo.NewRefundItemInput[] = [];
+
+  for (const [orderItemId, units] of asked) {
+    const item = items.get(orderItemId);
+    if (!item || item.orderId !== orderId) throw new DomainError('REFUND_LINE_INVALID');
+    const remaining = item.quantity - item.refundedQuantity;
+    if (units > remaining) {
+      throw new DomainError('REFUND_LINE_INVALID', {
+        details: { orderItemId: toId(orderItemId), remaining },
+      });
+    }
+    const lineAmount = zeroPaid
+      ? Money.ZERO
+      : lineRefundAmount(
+          {
+            orderItemId: item.id,
+            quantity: item.quantity,
+            refundedQuantity: item.refundedQuantity,
+            shippedQuantity: item.shippedQuantity,
+            totalAmount: item.totalAmount,
+            refundedAmount: item.refundedAmount,
+            isOpen: false,
+          },
+          units,
+        );
+    amount = amount.add(lineAmount);
+    quantity += units;
+    lines.push({
+      refundId: 0,
+      orderItemId: item.id,
+      quantity: units,
+      amount: lineAmount.toString(),
+    });
+  }
+
+  const freight =
+    wanted.includeFreight && !zeroPaid
+      ? refundableFreight(order, items, asked, {
+          held: new Set(await repo.listOpenItemIds(tx, orderId)),
+          claimed: await repo.freightClaimed(tx, orderId),
+        })
+      : null;
+  if (freight !== null) amount = amount.add(Money.parse(freight));
+
+  if (!amount.isPositive() && !zeroPaid) throw new DomainError('REFUND_AMOUNT_ZERO');
+
+  // The ceiling counts what other open requests have already spoken for, so
+  // two requests on two different lines cannot together exceed what was paid.
+  const ceiling = remainingCeiling({
+    paidAmount,
+    refundedAmount: order.refundedAmount,
+    openAmount: await repo.openRefundTotal(tx, orderId),
+  });
+  if (amount.gt(ceiling)) {
+    throw new DomainError('REFUND_EXCEEDS_PAID', {
+      details: { requested: amount.toString(), remaining: ceiling.toString() },
+    });
+  }
+
+  return { lines, amount, quantity, freight };
+}
+
+/**
+ * Inserts a priced request as `applied`, with its lines, and rolls the order's
+ * refund status up. The caller holds the order lock and writes the log.
+ */
+export async function openRefund(
+  tx: Tx,
+  ctx: Ctx,
+  input: {
+    order: repo.OrderRefundRow;
+    priced: PricedRequest;
+    kind: RefundKind;
+    reason: string;
+    explanation: string | null;
+    images: string[];
+    initiatedByAdminId: number | null;
+  },
+): Promise<repo.RefundRow> {
+  const { order, priced } = input;
+  const attempt = await findPaidPaymentAttempt(tx, order.id);
+  const refund = await repo.insertRefund(tx, {
+    refundNo: generateOrderNo(ctx.clock, { prefix: REFUND_NO_PREFIX }),
+    outRefundNo: generateOrderNo(ctx.clock, { prefix: OUT_REFUND_NO_PREFIX }),
+    orderId: order.id,
+    userId: order.userId,
+    paymentAttemptId: attempt?.id ?? null,
+    kind: input.kind,
+    returnStage: input.kind === 'return_and_refund' ? 'awaiting_shipment' : 'not_required',
+    quantity: priced.quantity,
+    amount: priced.amount.toString(),
+    includesFreight: priced.freight !== null,
+    reason: input.reason,
+    explanation: input.explanation,
+    images: input.images,
+    isAutomatic: false,
+    initiatedByAdminId: input.initiatedByAdminId,
+  });
+
+  try {
+    await repo.insertRefundItems(
+      tx,
+      priced.lines.map((line) => ({ ...line, refundId: refund.id })),
+    );
+  } catch (error) {
+    // `refund_items_open_uq`: somebody else's request already holds one of
+    // these lines. The database decided the race; we only name it.
+    if (repo.isUniqueViolation(error, 'refund_items_open_uq')) {
+      throw new DomainError('REFUND_ALREADY_OPEN');
+    }
+    throw error;
+  }
+
+  await refreshOrderRefundStatus(tx, order.id);
+  return refund;
 }
 
 /**
@@ -1416,7 +1499,7 @@ export function toListItem(
     includesFreight: row.includesFreight,
     reason: row.reason,
     rejectReason: row.rejectReason,
-    isAutomatic: row.isAutomatic,
+    isAutomatic: openedByShop(row),
     items: items.map(toRefundItem),
     createdAt: row.createdAt.toISOString(),
     succeededAt: row.succeededAt === null ? null : row.succeededAt.toISOString(),

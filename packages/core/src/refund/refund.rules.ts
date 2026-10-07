@@ -211,9 +211,44 @@ export function countsUnits(kind: RefundKind, status: RefundStatus): boolean {
  * itself — withdrawing a failed group buy's refund would leave the shopper's
  * money on an order that can never ship.
  */
-export function buyerMayWithdraw(refund: { status: RefundStatus; isAutomatic: boolean }): boolean {
-  if (refund.isAutomatic) return false;
+export function buyerMayWithdraw(refund: {
+  status: RefundStatus;
+  isAutomatic: boolean;
+  initiatedByAdminId: number | null;
+}): boolean {
+  if (openedByShop(refund)) return false;
   return refund.status === 'applied' || refund.status === 'approved' || refund.status === 'failed';
+}
+
+/**
+ * 撤销, from the shop's side, of a refund an operator opened: only a 退货退款
+ * still waiting for the goods. Before that point nothing has moved; after it a
+ * parcel is in the post or the money is on its way.
+ */
+export function shopMayWithdraw(refund: {
+  status: RefundStatus;
+  kind: 'refund_only' | 'return_and_refund';
+  returnStage: string;
+  initiatedByAdminId: number | null;
+}): boolean {
+  return (
+    refund.initiatedByAdminId !== null &&
+    refund.status === 'approved' &&
+    refund.kind === 'return_and_refund' &&
+    refund.returnStage === 'awaiting_shipment'
+  );
+}
+
+/**
+ * Opened by the shop rather than the buyer: automatically (a failed group buy,
+ * an expired presale) or by an operator (商家发起售后). The buyer did not ask,
+ * so the buyer cannot withdraw it; what the shopper's `isAutomatic` says.
+ */
+export function openedByShop(refund: {
+  isAutomatic: boolean;
+  initiatedByAdminId: number | null;
+}): boolean {
+  return refund.isAutomatic || refund.initiatedByAdminId !== null;
 }
 
 // ---------------------------------------------------------------------------

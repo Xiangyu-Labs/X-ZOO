@@ -7,6 +7,7 @@ import {
   refundAdminList,
   refundAdminReject,
   refundAdminRetry,
+  refundAdminWithdraw,
 } from '@shop/contracts/refund/refund.admin.contract';
 import {
   adminRefundDetailExample,
@@ -42,6 +43,7 @@ function stubApi(row: AdminRefundListItem = adminRefundExample): StubCall[] {
       status: 'rejected',
       rejectReason: '已线下退款',
     }),
+    on(refundAdminWithdraw, { ...adminRefundDetailExample, ...row, status: 'cancelled' }),
   ]);
 }
 
@@ -267,5 +269,51 @@ describe('售后单', () => {
     await user.click(within(approve).getByRole('button', { name: '确认同意' }));
 
     await waitFor(() => expect(detailCalls()).toBeGreaterThan(before));
+  });
+
+  describe('商家发起的售后', () => {
+    const opened: AdminRefundListItem = {
+      ...adminRefundExample,
+      status: 'approved',
+      returnStage: 'awaiting_shipment',
+      reason: '质量问题',
+      initiatedByAdminId: '1',
+      initiatedByAdminName: '店长',
+    };
+
+    it('is tagged 商家 and offers 撤销 while the goods have not been sent', async () => {
+      const calls = stubApi(opened);
+      renderAdmin(<RefundRequestsPage />, { identity });
+      await screen.findByText(opened.refundNo);
+      expect(screen.getByText('商家')).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole('button', { name: '撤销' }));
+      const dialog = await screen.findByRole('dialog');
+      // Its reason is the shop's, not the buyer's.
+      expect(within(dialog).getByText('售后原因')).toBeInTheDocument();
+      await userEvent.click(within(dialog).getByRole('button', { name: zhName('确认撤销') }));
+      expect(await within(dialog).findByText('请填写撤销原因')).toBeInTheDocument();
+
+      await userEvent.type(within(dialog).getByLabelText('撤销原因'), '已与买家协商');
+      await userEvent.click(within(dialog).getByRole('button', { name: zhName('确认撤销') }));
+      await waitFor(() => {
+        const post = calls.find((call) => call.routeId === refundAdminWithdraw.id);
+        expect(post?.params).toEqual({ id: opened.id });
+        expect(post?.body).toEqual({ reason: '已与买家协商' });
+      });
+    });
+
+    it('offers no 撤销 on a buyer’s own request, nor once the goods are on their way', async () => {
+      for (const row of [
+        { ...opened, initiatedByAdminId: null, initiatedByAdminName: null },
+        { ...opened, returnStage: 'shipped_back' as const },
+      ]) {
+        stubApi(row);
+        const { unmount } = renderAdmin(<RefundRequestsPage />, { identity });
+        await screen.findByText(row.refundNo);
+        expect(screen.queryByRole('button', { name: '撤销' })).not.toBeInTheDocument();
+        unmount();
+      }
+    });
   });
 });

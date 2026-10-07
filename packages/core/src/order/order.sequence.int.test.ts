@@ -26,7 +26,7 @@ import { handleTransactionNotify, paymentConfig, startPayment } from '../payment
 import { sweepPresaleWindows } from '../presale';
 import * as refundAdmin from '../refund';
 import * as refundService from '../refund';
-import { countsUnits } from '../refund';
+import { countsUnits, refundConfig } from '../refund';
 import { registerShippingFreightPort } from '../shipping';
 import { wechatConfig } from '../wechat';
 import * as order from './index';
@@ -312,6 +312,13 @@ async function buildWorld(): Promise<World> {
     .insert(admins)
     .values({ account: 'seq-admin', passwordHash: 'x'.repeat(60), name: '运营', isSuper: true })
     .returning({ id: admins.id });
+
+  // 商家发起 a 退货退款 needs somewhere for the goods to go.
+  await harness.ctx.config.set(refundConfig, {
+    returnName: '售后部',
+    returnPhone: '13800000000',
+    returnAddress: '浙江省杭州市西湖区文一西路 1 号',
+  });
 
   const world: World = {
     shoppers: [],
@@ -1094,6 +1101,59 @@ async function checkInvariants(world: World): Promise<string[]> {
   return broken;
 }
 
+/**
+ * The shop's own after-sales moves (商家发起售后 and its 撤销), drawn from a
+ * second stream every few steps rather than from `STEP_WEIGHTS`. Adding them to
+ * the main draw would re-route every committed seed's walk; this way each seed
+ * replays exactly the main moves it always did, with the shop acting between
+ * them.
+ */
+const SHOP_EVERY = 4;
+const SHOP_STEPS: Record<'adminOpenRefund' | 'adminWithdrawRefund', Step> = {
+  /** 商家发起售后 — the shop opens one itself, already approved, whatever the order's age. */
+  async adminOpenRefund(world, rng) {
+    const shopper = choose(world, rng, (s) => REFUNDABLE_ORDER.includes(statusOf(s)));
+    const [item] = await harness.ctx.db
+      .select()
+      .from(orderItems)
+      .where(eq(orderItems.orderId, shopper.orderId));
+    const quantity = 1 + Math.floor(rng() * 2);
+    const kind = rng() < 0.5 ? 'refund_only' : 'return_and_refund';
+    const detail = await refundAdmin.adminCreate(asAdmin(world.adminId), {
+      id: String(shopper.orderId),
+      kind,
+      lines: [{ orderItemId: String(item!.id), quantity }],
+      reason: '质量问题',
+      includeFreight: false,
+    });
+    // Approved at birth: a 仅退款 on unshipped units holds them as `approveRefund` does.
+    if (kind === 'refund_only' && item!.shippedQuantity === 0) {
+      world.reservedUnshipped.add(Number(detail.id));
+    }
+    return `adminOpenRefund order=${shopper.orderId} refund=${detail.id} ${kind} qty=${quantity}`;
+  },
+
+  /** 撤销 — the shop's inverse of opening one, while the goods have not been sent. */
+  async adminWithdrawRefund(world, rng) {
+    const shopper = chooseWithRefund(world, rng, ['approved']);
+    // Mostly the shop's own approved returns; now and then something else, which it must refuse.
+    const approved = (await refundsOf(shopper.orderId)).filter((row) => row.status === 'approved');
+    const own = approved.filter(
+      (row) => row.initiatedByAdminId !== null && row.kind === 'return_and_refund',
+    );
+    const open = own.length > 0 && rng() < 0.8 ? own : approved;
+    if (open.length === 0) return `adminWithdrawRefund order=${shopper.orderId} (nothing approved)`;
+    const target = pick(rng, open);
+    await refundAdmin.adminWithdraw(asAdmin(world.adminId), {
+      id: String(target.id),
+      reason: '协商一致',
+    });
+    return `adminWithdrawRefund refund=${target.id}`;
+  },
+};
+
+const SHOP_STEP_NAMES = Object.keys(SHOP_STEPS) as (keyof typeof SHOP_STEPS)[];
+
 // ---------------------------------------------------------------------------
 // the driver
 // ---------------------------------------------------------------------------
@@ -1110,13 +1170,24 @@ async function runSequence(seed: number): Promise<void> {
     throw new Error(`SEQ-001 broke before the first step:\n${opening.join('\n')}\n\n${report()}`);
   }
 
+  // Its own stream, so the main walk does not depend on the shop's draws.
+  const shopRng = mulberry32(seed ^ 0x5409);
+
   for (let step = 1; step <= STEPS; step += 1) {
     const name = pick(rng, STEP_NAMES);
+    await runStep(step, name, () => STEPS_BY_NAME[name](world, rng));
+    if (step % SHOP_EVERY === 0) {
+      const shop = pick(shopRng, SHOP_STEP_NAMES);
+      await runStep(step, shop, () => SHOP_STEPS[shop](world, shopRng));
+    }
+  }
+
+  async function runStep(step: number, name: string, run: () => Promise<string>): Promise<void> {
     currentStatuses = await statuses(world);
     currentRefunds = await refundStates(world);
     let outcome: string;
     try {
-      outcome = await STEPS_BY_NAME[name](world, rng);
+      outcome = await run();
     } catch (error) {
       if (!DomainError.is(error)) {
         // Anything that is not a DomainError is a 500 on a real server. The

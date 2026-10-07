@@ -1,4 +1,5 @@
 import type { DbOrTx, Tx } from '@shop/db';
+import { admins } from '@shop/db/schema/auth';
 import { orderItems, orders, shipmentItems, shipments } from '@shop/db/schema/order';
 import {
   refundItems,
@@ -402,6 +403,8 @@ export interface NewRefundInput {
   explanation: string | null;
   images: string[];
   isAutomatic: boolean;
+  /** The operator who opened it (商家发起售后); absent for a buyer's or an automatic one. */
+  initiatedByAdminId?: number | null;
 }
 
 /**
@@ -718,6 +721,11 @@ export interface RefundListRow extends RefundRow {
   userNickname: string | null;
 }
 
+/** The admin row also names the operator who opened it, if one did. */
+export interface AdminRefundListRow extends RefundListRow {
+  initiatedByAdminName: string | null;
+}
+
 const STATE_STATUSES: Record<
   Exclude<MyListFilter['state'], 'all'>,
   readonly RefundRow['status'][]
@@ -772,10 +780,31 @@ export interface AdminListFilter {
   limit: number;
 }
 
+const adminRowColumns = {
+  refund: refunds,
+  orderNo: orders.orderNo,
+  nickname: users.nickname,
+  initiatorName: admins.name,
+};
+
+function toAdminRow(r: {
+  refund: RefundRow;
+  orderNo: string;
+  nickname: string | null;
+  initiatorName: string | null;
+}): AdminRefundListRow {
+  return {
+    ...r.refund,
+    orderNo: r.orderNo,
+    userNickname: r.nickname,
+    initiatedByAdminName: r.initiatorName,
+  };
+}
+
 export async function listAdminRefunds(
   db: DbOrTx,
   filter: AdminListFilter,
-): Promise<{ rows: RefundListRow[]; total: number }> {
+): Promise<{ rows: AdminRefundListRow[]; total: number }> {
   const keyword = filter.keyword?.trim();
   const where = allOf(
     filter.status === undefined || filter.status.length === 0
@@ -803,10 +832,11 @@ export async function listAdminRefunds(
   ];
 
   const rows = await db
-    .select({ refund: refunds, orderNo: orders.orderNo, nickname: users.nickname })
+    .select(adminRowColumns)
     .from(refunds)
     .innerJoin(orders, eq(orders.id, refunds.orderId))
     .leftJoin(users, eq(users.id, refunds.userId))
+    .leftJoin(admins, eq(admins.id, refunds.initiatedByAdminId))
     .where(where)
     .orderBy(filter.order === 'asc' ? asc(column) : desc(column))
     .offset(filter.offset)
@@ -819,22 +849,23 @@ export async function listAdminRefunds(
     .where(where);
 
   return {
-    rows: rows.map((r) => ({ ...r.refund, orderNo: r.orderNo, userNickname: r.nickname })),
+    rows: rows.map(toAdminRow),
     total: count?.total ?? 0,
   };
 }
 
-/** One row with the two joined columns the admin list carries. */
-export async function findAdminRefund(db: DbOrTx, id: number): Promise<RefundListRow | null> {
+/** One row with the joined columns the admin list carries. */
+export async function findAdminRefund(db: DbOrTx, id: number): Promise<AdminRefundListRow | null> {
   const rows = await db
-    .select({ refund: refunds, orderNo: orders.orderNo, nickname: users.nickname })
+    .select(adminRowColumns)
     .from(refunds)
     .innerJoin(orders, eq(orders.id, refunds.orderId))
     .leftJoin(users, eq(users.id, refunds.userId))
+    .leftJoin(admins, eq(admins.id, refunds.initiatedByAdminId))
     .where(eq(refunds.id, id))
     .limit(1);
   const row = rows[0];
-  return row ? { ...row.refund, orderNo: row.orderNo, userNickname: row.nickname } : null;
+  return row ? toAdminRow(row) : null;
 }
 
 export async function findExpressCompany(

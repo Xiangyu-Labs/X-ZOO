@@ -1,8 +1,11 @@
 import type { PageQuery } from '@shop/contracts/conventions';
 import type {
+  AdminRefundCreateBody,
   AdminRefundDetail,
   AdminRefundListItem,
   AdminRefundListQuery,
+  AdminRefundWithdrawBody,
+  RefundableItemsResult,
   RefundApproveBody,
   RefundReceiveReturnBody,
   RefundRejectBody,
@@ -19,10 +22,15 @@ import { approvedRefundNote, notify } from '../notification';
 import { refundPermissions } from './permissions';
 import { returnAddress, type ReturnAddress } from './refund.config';
 import * as repo from './refund.repo';
+import { shopMayWithdraw } from './refund.rules';
 import {
   executeRefund,
+  openRefund,
+  priceRequest,
   reconcileRefund,
   refreshOrderRefundStatus,
+  refundableFor,
+  refundableOrderPaid,
   returnDetail,
   toListItem,
   toLogEntry,
@@ -402,6 +410,158 @@ export async function adminRetry(ctx: Ctx, input: { id: string }): Promise<Admin
 }
 
 // ---------------------------------------------------------------------------
+// 商家发起售后
+// ---------------------------------------------------------------------------
+
+/**
+ * What the operator may still put into a new request on this order: the
+ * buyer's apply screen, without the buyer.
+ */
+export async function adminApplicable(
+  ctx: Ctx,
+  input: { id: string },
+): Promise<RefundableItemsResult> {
+  requirePermission(ctx, refundPermissions['request:review']);
+  const order = await repo.findOrder(ctx.db, Number(input.id));
+  if (!order || order.deletedAt !== null) throw new DomainError('REFUND_ORDER_NOT_FOUND');
+  return refundableFor(ctx, order, refundableOrderPaid(order));
+}
+
+/**
+ * 商家发起售后.
+ *
+ * For the order the buyer can no longer apply on — completed, its after-sales
+ * window gone — but the shop still owes something: a defect found later, a
+ * complaint settled by phone. No window applies here; the operator is the
+ * window.
+ *
+ * It is the buyer's request and the operator's 同意 in one transaction, through
+ * the same steps: priced by `priceRequest` (lines and quantities, never an
+ * amount — REFUND-005), inserted by `openRefund` (one open request per line),
+ * then `applied → approved` with the approval unit bound, exactly as
+ * `approveAs` moves it. So a 仅退款 goes to the gateway after commit, and a 退货
+ * 退款 waits for the goods at the address in 售后设置, frozen on the row. The
+ * buyer cannot withdraw it (`buyerMayWithdraw`); the shop can, while the goods
+ * have not been sent (`adminWithdraw`).
+ */
+export async function adminCreate(
+  ctx: Ctx,
+  input: { id: string } & AdminRefundCreateBody,
+): Promise<AdminRefundDetail> {
+  requirePermission(ctx, refundPermissions['request:review']);
+  const adminId = requireAdminId(ctx);
+  const orderId = Number(input.id);
+  // Read before the transaction, as `approveAs` does: it can touch Redis.
+  const address = input.kind === 'return_and_refund' ? await returnAddress(ctx) : null;
+
+  const refundId = await ctx.withTx(async (tx) => {
+    const order = await repo.lockOrder(tx, orderId);
+    if (!order || order.deletedAt !== null) throw new DomainError('REFUND_ORDER_NOT_FOUND');
+    const paidAmount = refundableOrderPaid(order);
+    if (input.kind === 'return_and_refund' && address === null) {
+      throw new DomainError('REFUND_RETURN_ADDRESS_MISSING');
+    }
+
+    const priced = await priceRequest(tx, order, paidAmount, input);
+    const refund = await openRefund(tx, ctx, {
+      order,
+      priced,
+      kind: input.kind,
+      reason: input.reason,
+      explanation: null,
+      images: [],
+      initiatedByAdminId: adminId,
+    });
+    await repo.insertLog(tx, {
+      refundId: refund.id,
+      fromStatus: null,
+      toStatus: 'applied',
+      message:
+        `商家发起${input.kind === 'return_and_refund' ? '退货退款' : '仅退款'}：${input.reason}`.slice(
+          0,
+          500,
+        ),
+      operatorAdminId: adminId,
+    });
+
+    const { won, refusedLines } = await repo.transitionRefund(
+      tx,
+      refund.id,
+      ['applied'],
+      'approved',
+      {
+        reviewedByAdminId: adminId,
+        reviewedAt: ctx.clock.now(),
+        ...(address === null ? {} : { returnAddress: address }),
+        ...(input.remark === undefined ? {} : { adminRemark: input.remark }),
+      },
+      'approval',
+    );
+    // Inserted a moment ago under the order lock: nobody else can have moved it.
+    if (!won) throw new Error('adminCreate: 新建的售后单无法转为已同意');
+    refusedShipped(refusedLines);
+
+    await repo.insertLog(tx, {
+      refundId: refund.id,
+      fromStatus: 'applied',
+      toStatus: 'approved',
+      // The staff note stays staff-only; the buyer reads this line.
+      message: approvalMessage(input.kind, undefined, address),
+      operatorAdminId: adminId,
+    });
+    if (input.kind === 'refund_only') await queueExecution(tx, ctx, refund.id);
+
+    await notifyReview(tx, ctx, refund, 'refund_approved', {
+      amount: refund.amount,
+      refundNote: approvedRefundNote(refund.amount, refund.kind),
+    });
+    return refund.id;
+  });
+
+  return detail(ctx, refundId);
+}
+
+/**
+ * 撤销 a refund the shop opened, while nothing has moved: a 退货退款 still
+ * waiting for the buyer to send the goods (`shopMayWithdraw`). It ends
+ * `cancelled` — the buyer reads 已撤销, not 商家已拒绝, because nobody asked —
+ * and hands its lines back for a new request. A 仅退款 is at the gateway from
+ * the moment it opens; one the gateway refused is closed through 驳回, as any
+ * other failed refund is.
+ */
+export async function adminWithdraw(
+  ctx: Ctx,
+  input: { id: string } & AdminRefundWithdrawBody,
+): Promise<AdminRefundDetail> {
+  requirePermission(ctx, refundPermissions['request:review']);
+  const adminId = requireAdminId(ctx);
+  const id = Number(input.id);
+
+  await ctx.withTx(async (tx) => {
+    const row = await repo.lockRefund(tx, id);
+    if (!row) throw new DomainError('REFUND_NOT_FOUND');
+    if (!shopMayWithdraw(row)) {
+      throw new DomainError('REFUND_NOT_ACTIONABLE', { details: { status: row.status } });
+    }
+    const { won } = await repo.transitionRefund(tx, id, ['approved'], 'cancelled', {
+      cancelledAt: ctx.clock.now(),
+    });
+    if (!won) throw new DomainError('REFUND_NOT_ACTIONABLE', { details: { status: row.status } });
+
+    await repo.insertLog(tx, {
+      refundId: id,
+      fromStatus: row.status,
+      toStatus: 'cancelled',
+      message: `商家撤销售后：${input.reason}`.slice(0, 500),
+      operatorAdminId: adminId,
+    });
+    await refreshOrderRefundStatus(tx, row.orderId);
+  });
+
+  return detail(ctx, id);
+}
+
+// ---------------------------------------------------------------------------
 
 /**
  * Records the "send this to WeChat" effect inside the caller's transaction.
@@ -445,11 +605,15 @@ async function detail(ctx: Ctx, id: number): Promise<AdminRefundDetail> {
 }
 
 function toAdminItem(
-  row: repo.RefundListRow,
+  row: repo.AdminRefundListRow,
   items: RefundItemWithSnapshot[],
 ): AdminRefundListItem {
   return {
     ...toListItem(row, items),
+    // Narrower than the shopper's flag, which also covers 商家发起.
+    isAutomatic: row.isAutomatic,
+    initiatedByAdminId: toIdOrNull(row.initiatedByAdminId),
+    initiatedByAdminName: row.initiatedByAdminName,
     userId: toId(row.userId),
     userNickname: row.userNickname,
     outRefundNo: row.outRefundNo,
