@@ -58,7 +58,7 @@ to it (below). The last line is the count:
 | `literals`          | every `pageSize` literal a client sends is within the contract's cap; no date cut out of a UTC `toISOString()` or an instant field; UI `toISOString()` only in files that put it on the wire (GUARD-002, GUARD-003)                                                                                                                                                                          |
 | `migrations`        | every destructive statement in `packages/db/migrations` carries `-- destructive: approved` (OPS-007)                                                                                                                                                                                                                                                                                         |
 | `pipeline`          | `ci.yml` publishes through `publish-release.sh`, never promotes, keeps its guards, soak and admin e2e gates, runs every shard the drill names, and its trigger filter never skips a file a guard reads (REL-*); `ci-gate` needs every gate job; `deploy.yml` alone ships, follows the gate by name and waits in `production`, and uploads the mini-program only from a job that needs `ship` |
-| `api-compat`        | the storefront API (`/api/v1/**` in the generated OpenAPI) only grows against `baselines/storefront-api.json`, the surface the released mini-program uses; report-only until the first release                                                                                                                                                                                               |
+| `api-compat`        | the storefront API (`/api/v1/**` in the generated OpenAPI) only grows against `baselines/storefront-api.json`, the surface the released mini-program uses; enforced since 1.0.0                                                                                                                                                                                                              |
 | `invariants`        | every rule in `docs/invariants.md` cites a test that exists, and every rule a test title names exists                                                                                                                                                                                                                                                                                        |
 
 ## The allow-lists
@@ -148,11 +148,11 @@ A union is matched branch by branch on its tag (`object(kind=product)`), so
 reordering branches changes nothing. Response limits are not compared: the
 production build does not validate responses.
 
-**Report-only.** `ENFORCED` at the top of `checks/api-compat.ts` is the
+**Enforced.** `ENFORCED` at the top of `checks/api-compat.ts` is the
 switch: `false` prints each breaking change as a note
-(`[breaking, report-only]`) and passes; `true` fails. It stays `false` through
-the first mini-program release; whether and when to flip it is decided after
-that release ([cutover.md §5](../docs/mini/cutover.md#5-商城接口兼容守卫api-compat)).
+(`[breaking, report-only]`) and passes; `true` fails. It was turned on when
+1.0.0, the first mini-program release, went to review
+([cutover.md §5](../docs/mini/cutover.md#5-商城接口兼容守卫api-compat)).
 
 **The refresh command**, run only when a mini-program version is released:
 

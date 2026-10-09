@@ -443,10 +443,9 @@ https 跳转；校验文件目录是 `deploy/compose.yml` 里 edge 的只读绑�
 - **比较什么**：`pnpm gen` 生成的 OpenAPI 里 `/api/v1/**` 那部分，与 `guards/baselines/storefront-api.json`（上一个已发布
   版本看到的接口）比较。删除路径或方法、响应字段被删除或变为可选或可为 null、响应枚举值被删除、请求字段变为必填或被收窄，
   都算破坏；新增的一律通过。
-- **开关**：`guards/src/checks/api-compat.ts` 顶部的 `export const ENFORCED = false`。`false` 时破坏性改动只作为
+- **开关**：`guards/src/checks/api-compat.ts` 顶部的 `export const ENFORCED`。`false` 时破坏性改动只作为
   note 打印（`[breaking, report-only]`），`pnpm guards` 仍通过；`true` 时让 `pnpm guards` 失败。开关打开而基线还是
-  未发布的快照（`"release": null`）时，守卫本身报错。**本次发布保持 `false`**（HANDOFF 第 6 节第 7 条）：
-  新增枚举值、删除请求字段怎么判，打不打开开关，等小程序第一次发布之后再定。
+  未发布的快照（`"release": null`）时，守卫本身报错。**1.0.0 提交审核时已打开（`true`）**，基线记录的是 release 1.0.0。
 - **刷新命令**：
 
   ```sh
