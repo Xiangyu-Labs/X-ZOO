@@ -16,18 +16,18 @@ import { apiBaselineFile, openapiFile, rel } from '../lib/paths';
  *
  *     pnpm --filter @shop/guards api-compat:refresh --release <apps/mini version>
  *
- * Before the first release nothing is in shoppers' hands, so the baseline is a
- * snapshot (`"release": null`), refreshed freely with `--unreleased`, and the
- * check is report-only.
+ * Before the first release nothing was in shoppers' hands, so the baseline was
+ * a snapshot (`"release": null`), refreshed freely with `--unreleased`, and the
+ * check was report-only. Since 1.0.0 went to review it is enforced.
  */
 
 /**
  * **The switch.** `false`: a breaking change is printed as a note and the
  * check passes (report-only). `true`: a breaking change fails `pnpm guards`.
- * It stays `false` through the first mini-program release; whether and when
- * to flip it is decided after that release (docs/mini/cutover.md §5).
+ * Turned on when 1.0.0, the first mini-program release, went to review
+ * (docs/mini/cutover.md §5).
  */
-export const ENFORCED = false;
+export const ENFORCED = true;
 
 export interface Baseline {
   $comment: string;
