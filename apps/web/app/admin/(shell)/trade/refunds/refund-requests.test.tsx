@@ -66,6 +66,29 @@ describe('售后单', () => {
     });
   }
 
+  it('shows the internal 备注 in the list, and — where there is none', async () => {
+    stubRoutes([
+      on(refundAdminList, {
+        items: [
+          { ...adminRefundExample, id: '1', refundNo: 'RF0001', adminRemark: '已电话联系买家' },
+          { ...adminRefundExample, id: '2', refundNo: 'RF0002', adminRemark: null },
+        ],
+        total: 2,
+        page: 1,
+        pageSize: 20,
+      }),
+    ]);
+    renderAdmin(<RefundRequestsPage />, { identity });
+    await screen.findByText('RF0001');
+
+    const column = screen.getAllByRole('columnheader').findIndex((th) => th.textContent === '备注');
+    expect(column).toBeGreaterThan(-1);
+    const cellOf = (refundNo: string) =>
+      screen.getByText(refundNo).closest('tr')!.querySelectorAll('td')[column];
+    expect(cellOf('RF0001')).toHaveTextContent('已电话联系买家');
+    expect(cellOf('RF0002')).toHaveTextContent('—');
+  });
+
   it('REFUND-017 — offers 关闭 on a refund WeChat refused, through the reject route', async () => {
     const failed: AdminRefundListItem = {
       ...adminRefundExample,
