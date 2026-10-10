@@ -4,6 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { renderAdmin } from '@/test/render';
 
+import { NO_BRAND, type AdminBrand } from './brand';
+import { BrandProvider } from './brand-context';
+import { BRAND_RED } from './brand-mark';
+
 /**
  * The sider: a collapsed one still opens its groups (as hover popups), and the
  * expanded one follows the page — arriving somewhere from outside the menu
@@ -77,5 +81,56 @@ describe('<AdminShell> sider', () => {
     navigation.pathname = '/admin/trade/refunds';
     act(() => rerender(<AdminShell>售后单页</AdminShell>));
     await waitFor(() => expect(isOpen('交易')).toBe(true));
+  });
+});
+
+describe('<AdminShell> brand', () => {
+  const logos: AdminBrand = {
+    logo: '/uploads/logo.png',
+    square: '/uploads/square.png',
+    favicon: null,
+  };
+
+  function renderWith(brand: AdminBrand) {
+    return renderAdmin(
+      <BrandProvider brand={brand}>
+        <AdminShell>内容</AdminShell>
+      </BrandProvider>,
+      { identity: superAdmin },
+    );
+  }
+
+  /** The link at the top of the sider, home to 首页. */
+  function brandLink(container: HTMLElement): HTMLElement {
+    const link = container.querySelector('.ant-layout-sider a[href="/admin"]');
+    if (!(link instanceof HTMLElement)) throw new Error('侧栏顶部没有品牌链接');
+    return link;
+  }
+
+  it('shows 后台 Logo instead of the mark and the name while expanded', () => {
+    const { container } = renderWith(logos);
+    const link = brandLink(container);
+    expect(link.querySelector('img')).toHaveAttribute('src', '/uploads/logo.png');
+    expect(link.querySelector(`rect[fill="${BRAND_RED}"]`)).toBeNull();
+    expect(link).not.toHaveTextContent('商城管理后台');
+  });
+
+  it('shows 方形 Logo while collapsed', () => {
+    window.localStorage.setItem('admin.sider.collapsed', '1');
+    const { container } = renderWith(logos);
+    expect(brandLink(container).querySelector('img')).toHaveAttribute('src', '/uploads/square.png');
+  });
+
+  it('falls back to the mark, with the name while expanded, for a logo that is not set', async () => {
+    const { container } = renderWith(NO_BRAND);
+    const link = brandLink(container);
+    expect(link.querySelector('img')).toBeNull();
+    expect(link.querySelector(`rect[fill="${BRAND_RED}"]`)).not.toBeNull();
+    expect(link).toHaveTextContent('商城管理后台');
+
+    await userEvent.click(screen.getByRole('button', { name: '收起菜单' }));
+    expect(brandLink(container).querySelector('img')).toBeNull();
+    expect(brandLink(container).querySelector(`rect[fill="${BRAND_RED}"]`)).not.toBeNull();
+    expect(brandLink(container)).not.toHaveTextContent('商城管理后台');
   });
 });

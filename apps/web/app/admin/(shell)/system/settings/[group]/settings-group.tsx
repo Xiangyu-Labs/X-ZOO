@@ -1,7 +1,7 @@
 'use client';
 
 import { Alert, Skeleton, Space, Typography } from 'antd';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   systemConfigGet,
   systemConfigGroupList,
@@ -31,6 +31,13 @@ const PREVIEWS: Record<string, (values: ConfigValues) => React.ReactNode> = {
 };
 
 /**
+ * Groups the server-rendered admin layout reads (`app/admin/layout.tsx`): the
+ * sidebar logo and the tab icon come from 站点设置. Saving one re-runs the
+ * layout, so they change without a reload.
+ */
+const LAYOUT_GROUPS = new Set(['site']);
+
+/**
  * One settings screen, for every config group there is.
  *
  * The 575-key `sys_config` table and its hand-built screens are replaced by
@@ -50,6 +57,7 @@ export function SettingsGroupPage({ group }: { group: string }) {
   // `payment:config:write`). A reader gets the form read-only, with no 保存 or
   // 测试 to press into a 403.
   const can = useCan();
+  const router = useRouter();
   const { data, isPending, error } = useRouteQuery(systemConfigGet, input, {
     presentError: false,
   });
@@ -124,6 +132,7 @@ export function SettingsGroupPage({ group }: { group: string }) {
           toInput={(payload) => ({ params: { group }, body: { values: payload } })}
           invalidate={[systemConfigGet, systemConfigGroupList]}
           successMessage="已保存"
+          onSuccess={LAYOUT_GROUPS.has(group) ? () => router.refresh() : undefined}
           disabled={!writable}
           testRoute={systemConfigTest}
           testInvalidate={[systemConfigGroupList]}

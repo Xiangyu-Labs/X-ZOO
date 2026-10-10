@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { callRoute } from '@/admin/api/call-route';
 import { adminLogin } from '@/admin/api/contracts';
 import { ApiError } from '@/admin/api/errors';
+import { useBrand } from '@/admin/shell/brand-context';
 import { BrandMark } from '@/admin/shell/brand-mark';
 import { useThemeMode } from '@/admin/theme/theme-provider';
 import { SITE_TITLE } from '@/admin/site-title';
@@ -45,6 +46,8 @@ export function LoginForm() {
   const params = useSearchParams();
   const queryClient = useQueryClient();
   const { palette } = useThemeMode();
+  // 站点设置 → 后台 Logo, read by the layout without a session.
+  const brand = useBrand();
 
   const [form] = Form.useForm<LoginValues>();
   const [submitting, setSubmitting] = useState(false);
@@ -90,7 +93,15 @@ export function LoginForm() {
       <Card style={{ width: '100%', maxWidth: 380 }} variant="borderless">
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
-            <BrandMark size={40} />
+            {brand.logo ? (
+              <img
+                src={brand.logo}
+                alt="商城 Logo"
+                style={{ display: 'block', height: 50, width: 'auto', maxWidth: '100%' }}
+              />
+            ) : (
+              <BrandMark size={40} />
+            )}
           </div>
           <Typography.Title level={4} style={{ marginBottom: 4 }}>
             {SITE_TITLE}

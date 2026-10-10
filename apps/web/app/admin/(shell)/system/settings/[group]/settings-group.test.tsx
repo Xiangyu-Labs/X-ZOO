@@ -1,14 +1,24 @@
-import { screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { paymentMiniTradeStatus } from '@shop/contracts/payment/payment.mini-trade.contract';
 import type { ConfigGroupValues } from '@shop/contracts/system/schemas';
-import { systemConfigGet } from '@shop/contracts/system/system.settings.contract';
+import { systemConfigGet, systemConfigSave } from '@shop/contracts/system/system.settings.contract';
 
 import { resetApiConfig } from '@/admin/api/config';
 import { on, stubRoutes } from '@/test/api';
 import { renderAdmin, testIdentity, zhName } from '@/test/render';
 
 import { SettingsGroupPage, groupWritePermission } from './settings-group';
+
+const refresh = vi.hoisted(() => vi.fn());
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn(), back: vi.fn(), refresh }),
+  usePathname: () => '/admin/system/settings/site',
+  useSearchParams: () => new URLSearchParams(),
+  redirect: vi.fn(),
+  notFound: vi.fn(),
+}));
 
 /**
  * One settings group, as the role that opens it. Reading is
@@ -46,7 +56,21 @@ const miniTrade: ConfigGroupValues = {
 const reader = { ...testIdentity, permissions: ['system:config:read'] };
 const writer = { ...testIdentity, permissions: ['system:config:read', 'system:config:write'] };
 
-afterEach(() => resetApiConfig());
+const site: ConfigGroupValues = {
+  descriptor: {
+    group: 'site',
+    title: '站点设置',
+    permission: 'system:config:read',
+    fields: [{ key: 'siteName', label: '商城名称', kind: 'text' }],
+  },
+  values: { siteName: '某某商城' },
+  updatedAt: null,
+};
+
+afterEach(() => {
+  resetApiConfig();
+  refresh.mockReset();
+});
 
 describe('配置分组', () => {
   it('offers 保存 and 测试 to a role that may write settings', async () => {
@@ -114,5 +138,40 @@ describe('配置分组', () => {
     expect(await screen.findByText('微信侧状态')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: zhName('同步') })).toBeInTheDocument();
     expect(await screen.findByText('未查询')).toBeInTheDocument();
+  });
+});
+
+describe('saving a group the admin layout reads', () => {
+  /**
+   * Saves `group` with its one text field changed, and waits until the form
+   * has the saved values back (放弃修改 goes grey): the save has answered and
+   * its `onSuccess` has run.
+   */
+  async function save(group: ConfigGroupValues, label: string) {
+    let stored = group;
+    stubRoutes([
+      on(systemConfigGet, () => stored),
+      on(systemConfigSave, (call) => {
+        const { values } = call.body as { values: Record<string, unknown> };
+        stored = { ...group, values: { ...group.values, ...values } };
+        return stored;
+      }),
+    ]);
+    renderAdmin(<SettingsGroupPage group={group.descriptor.group} />, { identity: writer });
+    await userEvent.type(await screen.findByLabelText(label), '旗舰店');
+    const discard = screen.getByRole('button', { name: /放弃修改/ });
+    expect(discard).toBeEnabled();
+    await userEvent.click(screen.getByRole('button', { name: zhName('保存') }));
+    await waitFor(() => expect(discard).toBeDisabled());
+  }
+
+  it('refreshes the page after saving 站点设置, so the sidebar logo and the tab icon change without a reload', async () => {
+    await save(site, '商城名称');
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the page alone after saving any other group', async () => {
+    await save(sms, '短信签名');
+    expect(refresh).not.toHaveBeenCalled();
   });
 });

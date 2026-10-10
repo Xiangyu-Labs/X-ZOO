@@ -121,10 +121,37 @@ export const siteConfig = defineConfigGroup({
     contactPhone: { label: '联系电话', type: 'text', section: '基础', order: 4 },
     companyAddress: { label: '公司地址', type: 'text', section: '基础', order: 5 },
 
-    logo: { label: '后台 Logo', type: 'image', section: 'Logo', help: '建议 170×50', order: 10 },
-    logoSquare: { label: '方形 Logo', type: 'image', section: 'Logo', order: 11 },
-    loginLogo: { label: '登录页 Logo', type: 'image', section: 'Logo', order: 12 },
-    favicon: { label: '浏览器图标', type: 'image', section: 'Logo', order: 13 },
+    // Each help says where the picture shows up, because the four names alone
+    // do not: an operator who uploads a 方形 Logo expecting the mini-program's
+    // home page to change needs to be told it will not.
+    logo: {
+      label: '后台 Logo',
+      type: 'image',
+      section: 'Logo',
+      help: '后台左上角（侧栏展开时）和后台登录页。建议 170×50 横版透明底。不填则显示默认图标 + 商城名称',
+      order: 10,
+    },
+    logoSquare: {
+      label: '方形 Logo',
+      type: 'image',
+      section: 'Logo',
+      help: '后台侧栏收起时的图标；小程序登录页没设置「登录页 Logo」时的替补。小程序首页顶栏不用它，首页 Logo 在 装修 → 页面设置 → 顶部导航栏',
+      order: 11,
+    },
+    loginLogo: {
+      label: '登录页 Logo',
+      type: 'image',
+      section: 'Logo',
+      help: '小程序登录页顶部（圆形裁切）',
+      order: 12,
+    },
+    favicon: {
+      label: '浏览器图标',
+      type: 'image',
+      section: 'Logo',
+      help: '后台网页标签页上的小图标，建议 32×32 或 64×64 的 PNG/ICO',
+      order: 13,
+    },
 
     icpNumber: { label: 'ICP 备案号', type: 'text', section: '备案', order: 20 },
     icpUrl: { label: 'ICP 备案链接', type: 'text', section: '备案', order: 21 },
