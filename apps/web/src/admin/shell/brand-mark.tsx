@@ -1,7 +1,10 @@
 /**
  * The shop's mark: a white shopping bag on the storefront red. `app/icon.svg` and
- * `app/favicon.ico` draw the same thing, so the browser tab, the sidebar and the
+ * `public/favicon.ico` draw the same thing, so the browser tab, the sidebar and the
  * login card agree. Change all three together.
+ *
+ * It is the default: 站点设置's 后台 Logo, 方形 Logo and 浏览器图标 replace it
+ * where they are set (`brand-context.tsx`).
  */
 export const BRAND_RED = '#E1251B';
 

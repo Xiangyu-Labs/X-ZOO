@@ -23,6 +23,7 @@ import { NotificationBell } from '../notifications/notification-bell';
 import { ForbiddenResult } from '../session/can';
 import { useCan, useSession } from '../session/session-provider';
 import { useThemeMode } from '../theme/theme-provider';
+import { useBrand } from './brand-context';
 import { BrandMark } from './brand-mark';
 import { requiredPermissions } from './route-permission';
 import { SITE_TITLE } from '@/admin/site-title';
@@ -67,6 +68,45 @@ function toMenuItems(nodes: readonly MenuNode[]): NonNullable<Parameters<typeof 
       label: node.path ? <Link href={node.path}>{node.label}</Link> : node.label,
     };
   });
+}
+
+/**
+ * The top of the sider: 站点设置's 后台 Logo when expanded (it carries the name,
+ * so no text beside it) and its 方形 Logo when collapsed; the default mark,
+ * with the console's name when expanded, for whichever is not set.
+ */
+function SiderBrand({ collapsed }: { collapsed: boolean }) {
+  const { logo, square } = useBrand();
+  if (collapsed) {
+    return square ? (
+      <img
+        src={square}
+        alt={SITE_TITLE}
+        width={24}
+        height={24}
+        style={{ flexShrink: 0, display: 'block', objectFit: 'contain' }}
+      />
+    ) : (
+      <BrandMark />
+    );
+  }
+  if (logo) {
+    return (
+      <img
+        src={logo}
+        alt={SITE_TITLE}
+        style={{ display: 'block', height: 32, width: 'auto', maxWidth: 170, objectFit: 'contain' }}
+      />
+    );
+  }
+  return (
+    <>
+      <BrandMark />
+      <Typography.Text strong style={{ fontSize: 15 }}>
+        {SITE_TITLE}
+      </Typography.Text>
+    </>
+  );
 }
 
 /**
@@ -156,12 +196,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               whiteSpace: 'nowrap',
             }}
           >
-            <BrandMark />
-            {collapsed ? null : (
-              <Typography.Text strong style={{ fontSize: 15 }}>
-                {SITE_TITLE}
-              </Typography.Text>
-            )}
+            <SiderBrand collapsed={collapsed} />
           </Link>
 
           {/* Only the menu scrolls; the brand stays put above a long menu. */}

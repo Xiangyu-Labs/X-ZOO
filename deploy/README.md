@@ -533,7 +533,8 @@ sets `+x` on directories only, so no uploaded file becomes executable.
 
 The edge proxies `/` (exactly), `/admin`, `/admin-api`, `/api`, `/scan-upload` and
 `/_next/static/` to `web`, and `/readyz` to the app's `/api/v1/readyz`. It also proxies exactly
-`/favicon.ico`, `/icon.svg` and `/robots.txt`, which `web` answers from `apps/web/app`: the icon
+`/favicon.ico`, `/icon.svg` and `/robots.txt`, which `web` answers from `apps/web/public` and
+`apps/web/app`: the icon
 every page links (the admin's too) and a `robots.txt` of `User-agent: *` / `Disallow: /`. It serves
 `/uploads/` and the verification files (next section) itself. Every other path is a `302` to `/`
 with a relative `Location: /`: an old H5 or share link lands on the landing page, which shows the

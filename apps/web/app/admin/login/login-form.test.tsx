@@ -4,6 +4,9 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { isSessionExpiry, loginUrl, resetApiConfig } from '@/admin/api/config';
+import { NO_BRAND, type AdminBrand } from '@/admin/shell/brand';
+import { BrandProvider } from '@/admin/shell/brand-context';
+import { BRAND_RED } from '@/admin/shell/brand-mark';
 import { AdminThemeProvider } from '@/admin/theme/theme-provider';
 import { on, respondWithError, stubRoutes } from '@/test/api';
 import { renderAdmin } from '@/test/render';
@@ -23,11 +26,13 @@ afterEach(() => {
   replace.mockReset();
 });
 
-function renderLogin() {
+function renderLogin(brand: AdminBrand = NO_BRAND) {
   return renderAdmin(
-    <AdminThemeProvider>
-      <LoginForm />
-    </AdminThemeProvider>,
+    <BrandProvider brand={brand}>
+      <AdminThemeProvider>
+        <LoginForm />
+      </AdminThemeProvider>
+    </BrandProvider>,
     { identity: null },
   );
 }
@@ -85,6 +90,27 @@ describe('admin login', () => {
     search = new URLSearchParams('next=%2Fadmin');
     renderLogin();
     expect(screen.queryByTestId('login-expired')).toBeNull();
+  });
+});
+
+describe('the login card’s logo', () => {
+  it('shows 站点设置’s 后台 Logo when one is set', () => {
+    const { container } = renderLogin({ ...NO_BRAND, logo: '/uploads/logo.png' });
+    expect(screen.getByRole('img', { name: '商城 Logo' })).toHaveAttribute(
+      'src',
+      '/uploads/logo.png',
+    );
+    expect(container.querySelector(`rect[fill="${BRAND_RED}"]`)).toBeNull();
+  });
+
+  it('shows the default mark when there is none, whatever the other logos are', () => {
+    const { container } = renderLogin({
+      logo: null,
+      square: '/uploads/square.png',
+      favicon: '/uploads/favicon.png',
+    });
+    expect(screen.queryByRole('img', { name: '商城 Logo' })).toBeNull();
+    expect(container.querySelector(`rect[fill="${BRAND_RED}"]`)).not.toBeNull();
   });
 });
 

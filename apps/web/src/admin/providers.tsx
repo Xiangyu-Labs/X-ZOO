@@ -7,6 +7,8 @@ import { useState, type ReactNode } from 'react';
 
 import { ApiFeedbackBridge } from './api/error-presenter';
 import { createAdminQueryClient } from './api/query-client';
+import { NO_BRAND, type AdminBrand } from './shell/brand';
+import { BrandProvider } from './shell/brand-context';
 import { AdminThemeProvider } from './theme/theme-provider';
 import type { ThemeMode } from './theme/tokens';
 
@@ -17,9 +19,12 @@ import type { ThemeMode } from './theme/tokens';
  */
 export function AdminProviders({
   initialThemeMode,
+  brand = NO_BRAND,
   children,
 }: {
   initialThemeMode?: ThemeMode | undefined;
+  /** 站点设置's logos, read by the layout on the server; absent means the default mark. */
+  brand?: AdminBrand | undefined;
   children: ReactNode;
 }) {
   // One client per browser tab; `useState` keeps it stable across re-renders
@@ -30,7 +35,7 @@ export function AdminProviders({
     <QueryClientProvider client={queryClient}>
       <AdminThemeProvider {...(initialThemeMode ? { initialMode: initialThemeMode } : {})}>
         <ApiFeedbackBridge />
-        {children}
+        <BrandProvider brand={brand}>{children}</BrandProvider>
       </AdminThemeProvider>
     </QueryClientProvider>
   );
