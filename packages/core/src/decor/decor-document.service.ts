@@ -152,6 +152,8 @@ function emptyDocument(kind: DocumentKind, name: string): StoredDocument {
       props: {
         title: [...name].slice(0, 30).join(''),
         background: '#f5f5f5',
+        navStyle: 'title',
+        navBackground: '#ffffff',
         shareEnabled: true,
         shareTitle: '',
       },

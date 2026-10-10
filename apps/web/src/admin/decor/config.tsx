@@ -12,13 +12,22 @@ import { pageRootProps } from '@shop/contracts/decor/document';
 import type { AnyBlockDefinition, BlockRegistry } from '@shop/contracts/decor/registry';
 import type { DataNeed } from '@shop/contracts/decor/sources';
 import { BLOCK_COMPONENTS } from '@shop/storefront-blocks/admin';
-import { Component, useMemo, type ComponentType, type ErrorInfo, type ReactNode } from 'react';
+import {
+  Component,
+  createContext,
+  useContext,
+  useMemo,
+  type ComponentType,
+  type ErrorInfo,
+  type ReactNode,
+} from 'react';
 
 import { useCanvasSlots } from './canvas-data';
 import { withImagePlaceholders } from './canvas-images';
 import { UNKNOWN_BLOCK, type UnknownBlockProps } from './document';
 import {
   defaultsOf,
+  GROUP_FIELD_PREFIX,
   initialPropsOf,
   zodToPuckFields,
   type CustomFieldRenderers,
@@ -118,9 +127,12 @@ const CANVAS_HOST = { canvas: true } as const;
 function BlockCanvas({
   definition,
   props,
+  note,
 }: {
   definition: AnyBlockDefinition;
   props: Record<string, unknown>;
+  /** Where the storefront really shows this block, when that is not here. */
+  note?: string | undefined;
 }) {
   // The storefront renders parsed props (defaults filled); half-edited props
   // that do not parse are drawn as they are and the boundary catches a crash.
@@ -153,8 +165,157 @@ function BlockCanvas({
   }
   return (
     <BlockBoundary label={definition.meta.label} watch={props}>
+      {note ? <CanvasTag>{note}</CanvasTag> : null}
       <Block props={drawn} data={slots} host={CANVAS_HOST} />
     </BlockBoundary>
+  );
+}
+
+/** A line above a block saying where the storefront really shows it. */
+function CanvasTag({ children }: { children: ReactNode }) {
+  return (
+    <div
+      data-decor-tag=""
+      style={{
+        margin: '4px 12px 0',
+        fontSize: 12,
+        lineHeight: 1.6,
+        color: '#1677ff',
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ─── the navigation bar (首页's 顶部导航栏) ──────────────────────────────────
+
+/** The root props only 首页's own navigation bar reads; other pages sit under WeChat's bar. */
+const NAV_ROOT_KEYS = ['navStyle', 'navLogo', 'navBackground', `${GROUP_FIELD_PREFIX}顶部导航栏`];
+
+/**
+ * What the mini home puts in its bar beside the logo or title, from the page's
+ * blocks: the 搜索框 block's placeholder when that block is set 放进顶栏, the
+ * built-in entry's when the page has no 搜索框 at all, and `null` (nothing)
+ * when the page's own 搜索框 sits further down.
+ */
+export function navBarSearch(content: readonly { type: string; props: unknown }[]): string | null {
+  const block = content.find((item) => item.type === 'searchBar');
+  if (!block) return '搜索商品';
+  const props = (block.props ?? {}) as { inNavBar?: unknown; placeholder?: unknown };
+  if (props.inNavBar !== true) return null;
+  return typeof props.placeholder === 'string' && props.placeholder
+    ? props.placeholder
+    : '搜索商品';
+}
+
+/**
+ * How the root reads `navBarSearch` of the page's current blocks, which Puck
+ * does not hand a root's render: the editor answers from Puck's store, a
+ * read-only preview from the data it draws (`editor.tsx`). This module stays
+ * free of Puck at runtime. Without a provider: nothing in the bar.
+ */
+export const NavBarSearchContext = createContext<() => string | null>(() => null);
+
+function CanvasNavSearch() {
+  const useNavBarSearch = useContext(NavBarSearchContext);
+  const placeholder = useNavBarSearch();
+  if (placeholder === null) return null;
+  return (
+    <div
+      data-decor-navbar-search=""
+      style={{
+        flex: 1,
+        minWidth: 0,
+        height: 32,
+        display: 'flex',
+        alignItems: 'center',
+        padding: '0 12px',
+        borderRadius: 16,
+        background: '#f2f3f5',
+        color: '#bfbfbf',
+        fontSize: 13,
+        fontWeight: 400,
+        overflow: 'hidden',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {placeholder}
+    </div>
+  );
+}
+
+interface NavBarProps {
+  title?: string | undefined;
+  navStyle?: string | undefined;
+  navLogo?: string | undefined;
+  navBackground?: string | undefined;
+}
+
+const NAV_BAR_FRAME = {
+  position: 'sticky',
+  top: 0,
+  zIndex: 10,
+  height: 44,
+  display: 'flex',
+  alignItems: 'center',
+  color: '#1f1f1f',
+  fontSize: 16,
+  fontWeight: 500,
+  fontFamily: 'system-ui, -apple-system, sans-serif',
+  borderBottom: '1px solid #f0f0f0',
+} as const;
+
+/**
+ * 首页's own bar, as the mini home draws it: the logo whole (height fixed,
+ * width following the picture) or the title, left-aligned, in the configured
+ * colour, then the search entry, and room on the right for WeChat's capsule.
+ */
+function HomeNavBar({ title, navStyle, navLogo, navBackground }: NavBarProps) {
+  const logo = navStyle === 'logo' && navLogo ? navLogo : null;
+  return (
+    <div
+      data-decor-navbar=""
+      style={{
+        ...NAV_BAR_FRAME,
+        gap: 10,
+        padding: '0 96px 0 12px',
+        background: navBackground || '#ffffff',
+      }}
+    >
+      {logo ? (
+        <img
+          src={logo}
+          alt={title ?? ''}
+          style={{ flex: 'none', height: 32, width: 'auto', maxWidth: 160, objectFit: 'contain' }}
+        />
+      ) : (
+        <span
+          style={{
+            flex: '0 1 auto',
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {title}
+        </span>
+      )}
+      <CanvasNavSearch />
+    </div>
+  );
+}
+
+/** WeChat's native bar over a 微页面 or 个人中心: the page title, centred. */
+function NativeNavBar({ title }: NavBarProps) {
+  return (
+    <div
+      data-decor-navbar=""
+      style={{ ...NAV_BAR_FRAME, justifyContent: 'center', background: '#ffffff' }}
+    >
+      {title}
+    </div>
   );
 }
 
@@ -210,7 +371,12 @@ export function buildDecorConfig({
       fields: zodToPuckFields(definition.props, custom),
       defaultProps: newBlockProps(definition),
       render: function DecorBlock(props: Record<string, unknown>) {
-        return <BlockCanvas definition={definition} props={ownProps(props)} />;
+        // On 首页 a 搜索框 set 放进顶栏 is drawn in the bar too; it stays here to be selected.
+        const note =
+          kind === 'home' && definition.type === 'searchBar' && props.inNavBar === true
+            ? '已放进顶栏：小程序首页里只在顶部导航栏显示，页面中不再出现'
+            : undefined;
+        return <BlockCanvas definition={definition} props={ownProps(props)} note={note} />;
       },
     };
   }
@@ -222,6 +388,9 @@ export function buildDecorConfig({
       return <UnknownBlock {...(props as Partial<UnknownBlockProps>)} />;
     },
   };
+  const rootFields = zodToPuckFields(pageRootProps, custom);
+  // Only 首页 draws its own bar; elsewhere the 顶部导航栏 settings would do nothing.
+  if (kind !== 'home') for (const key of NAV_ROOT_KEYS) delete rootFields[key];
   const allowed = registry
     .list()
     .filter((definition) => definition.meta.pages.includes(kind))
@@ -236,40 +405,17 @@ export function buildDecorConfig({
     },
     components,
     root: {
-      fields: zodToPuckFields(pageRootProps, custom),
+      fields: rootFields,
       defaultProps: defaultsOf(pageRootProps) as Record<string, unknown>,
       render: function PageRoot({
         children,
         background,
-        title,
-      }: {
-        children?: ReactNode;
-        background?: string;
-        title?: string;
-      }) {
+        ...bar
+      }: NavBarProps & { children?: ReactNode; background?: string }) {
         return (
           <div style={{ background, minHeight: '100vh' }}>
-            {/* The mini-program's navigation bar, which shows the page title. */}
-            <div
-              data-decor-navbar=""
-              style={{
-                position: 'sticky',
-                top: 0,
-                zIndex: 10,
-                height: 44,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: '#ffffff',
-                color: '#1f1f1f',
-                fontSize: 16,
-                fontWeight: 500,
-                fontFamily: 'system-ui, -apple-system, sans-serif',
-                borderBottom: '1px solid #f0f0f0',
-              }}
-            >
-              {title}
-            </div>
+            {/* The mini-program's navigation bar: 首页's own, or WeChat's with the page title. */}
+            {kind === 'home' ? <HomeNavBar {...bar} /> : <NativeNavBar {...bar} />}
             {children}
           </div>
         );

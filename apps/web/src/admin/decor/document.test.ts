@@ -24,7 +24,14 @@ import {
 /** Editor data in the shape Puck 0.23 hands to `onChange`. */
 const puckData = {
   root: {
-    props: { title: '装修试验页', background: '#f5f5f5', shareEnabled: true, shareTitle: '' },
+    props: {
+      title: '装修试验页',
+      background: '#f5f5f5',
+      navStyle: 'title',
+      navBackground: '#ffffff',
+      shareEnabled: true,
+      shareTitle: '',
+    },
   },
   content: [
     {
@@ -73,6 +80,8 @@ describe('editor data ⇄ page document', () => {
     expect(data.root.props).toEqual({
       title: '微页面',
       background: '#f5f5f5',
+      navStyle: 'title',
+      navBackground: '#ffffff',
       shareEnabled: true,
       shareTitle: '',
     });

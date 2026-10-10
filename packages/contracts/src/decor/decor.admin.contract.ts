@@ -106,7 +106,14 @@ export const decorDocumentCreate = defineRoute({
         draft: {
           schemaVersion: 2,
           root: {
-            props: { title: '国庆专题', background: '#f5f5f5', shareEnabled: true, shareTitle: '' },
+            props: {
+              title: '国庆专题',
+              background: '#f5f5f5',
+              navStyle: 'title',
+              navBackground: '#ffffff',
+              shareEnabled: true,
+              shareTitle: '',
+            },
           },
           blocks: [],
         },

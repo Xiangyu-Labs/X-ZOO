@@ -136,6 +136,7 @@ describe('the other content blocks', () => {
       hotWords: [],
       shape: 'round',
       sticky: false,
+      inNavBar: false,
     });
     expect(titleBarProps.parse({})).toMatchObject({
       title: '标题',

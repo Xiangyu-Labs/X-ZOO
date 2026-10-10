@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useAppConfigStore } from '@/app-config';
 import { startSession, useSession } from '@/session/session';
@@ -18,6 +18,24 @@ const count = (items: number) => ({
 });
 
 const visits = { 'POST /api/v1/visits': () => ({ status: 204, body: null }) };
+
+/** A 搜索框 block as the server serves it: every default filled in. */
+const searchBlock = (props: Record<string, unknown> = {}) => ({
+  id: 'b-search',
+  type: 'searchBar',
+  v: 1,
+  props: {
+    placeholder: '搜索好物',
+    hotWords: [],
+    shape: 'round',
+    sticky: false,
+    inNavBar: false,
+    style: { marginY: 'none', paddingX: 'none', radius: 'none' },
+    visibility: { audience: 'all', platforms: [] },
+    ...props,
+  },
+  data: {},
+});
 
 describe('首页', () => {
   beforeEach(() => {
@@ -78,23 +96,7 @@ describe('首页', () => {
 
   it('keeps one search entry: the bar’s, or the page’s own 搜索框 block', async () => {
     const withSearch = resolvedPageFixture();
-    withSearch.blocks = [
-      {
-        id: 'b-search',
-        type: 'searchBar',
-        v: 1,
-        props: {
-          placeholder: '搜索好物',
-          hotWords: [],
-          shape: 'round',
-          sticky: false,
-          style: { marginY: 'none', paddingX: 'none', radius: 'none' },
-          visibility: { audience: 'all', platforms: [] },
-        },
-        data: {},
-      },
-      ...withSearch.blocks,
-    ];
+    withSearch.blocks = [searchBlock(), ...withSearch.blocks];
     serveApi({ ...visits, 'GET /api/v1/pages/home': () => ({ body: withSearch }) });
 
     await renderPage(<Home />);
@@ -105,7 +107,7 @@ describe('首页', () => {
     expect(screen.getByText('示例首页')).toBeTruthy();
   });
 
-  it('puts the shop’s 方形 Logo in the bar in place of the title, when one is set', async () => {
+  it('shows the 顶部导航栏 logo whole in the bar, not the shop’s 方形 Logo', async () => {
     useAppConfigStore.setState({
       config: {
         ...appConfigFixture,
@@ -113,31 +115,79 @@ describe('首页', () => {
       },
       source: 'network',
     });
-    const withSearch = resolvedPageFixture();
-    withSearch.blocks = [
-      {
-        id: 'b-search',
-        type: 'searchBar',
-        v: 1,
-        props: {
-          placeholder: '搜索好物',
-          hotWords: [],
-          shape: 'round',
-          sticky: false,
-          style: { marginY: 'none', paddingX: 'none', radius: 'none' },
-          visibility: { audience: 'all', platforms: [] },
-        },
-        data: {},
-      },
-      ...withSearch.blocks,
-    ];
-    serveApi({ ...visits, 'GET /api/v1/pages/home': () => ({ body: withSearch }) });
+    const page = resolvedPageFixture();
+    page.root.props = { ...page.root.props, navStyle: 'logo', navLogo: '/uploads/nav-logo.png' };
+    page.blocks = [searchBlock(), ...page.blocks];
+    serveApi({ ...visits, 'GET /api/v1/pages/home': () => ({ body: page }) });
 
     await renderPage(<Home />);
 
     const logo = await screen.findByRole('img', { name: '示例首页' });
-    expect(logo.querySelector('img')?.getAttribute('src')).toContain('/uploads/logo-square');
+    const picture = logo.querySelector('img');
+    expect(picture?.getAttribute('src')).toMatch(/\/uploads\/nav-logo\.png$/);
+    // Height fixed, width following the picture: a wide wordmark is not cropped to a square.
+    expect(picture?.getAttribute('data-mode')).toBe('heightFix');
+    expect(document.querySelector('img[src*="logo-square"]')).toBeNull();
     expect(screen.queryByText('示例首页')).toBeNull();
+  });
+
+  it('keeps the title when the 顶部导航栏 is set to Logo but none is uploaded', async () => {
+    useAppConfigStore.setState({
+      config: {
+        ...appConfigFixture,
+        logo: { ...appConfigFixture.logo, square: '/uploads/logo-square.png' },
+      },
+      source: 'network',
+    });
+    const page = resolvedPageFixture();
+    page.root.props = { ...page.root.props, navStyle: 'logo' };
+    page.blocks = [searchBlock(), ...page.blocks];
+    serveApi({ ...visits, 'GET /api/v1/pages/home': () => ({ body: page }) });
+
+    await renderPage(<Home />);
+
+    expect(await screen.findByText('示例首页')).toBeTruthy();
+    expect(screen.queryByRole('img', { name: '示例首页' })).toBeNull();
+    expect(document.querySelector('img[src*="logo-square"]')).toBeNull();
+  });
+
+  it('moves a 搜索框 block set 放进顶栏 into the bar, beside the logo, and off the page', async () => {
+    const page = resolvedPageFixture();
+    page.root.props = { ...page.root.props, navStyle: 'logo', navLogo: '/uploads/nav-logo.png' };
+    page.blocks = [searchBlock({ inNavBar: true, hotWords: [{ word: '礼盒' }] }), ...page.blocks];
+    serveApi({ ...visits, 'GET /api/v1/pages/home': () => ({ body: page }) });
+
+    await renderPage(<Home />);
+
+    await screen.findByText('柔雾丝绒礼盒');
+    const bar = document.querySelector('.shop-nav-bar') as HTMLElement;
+    expect(within(bar).getByRole('img', { name: '示例首页' })).toBeTruthy();
+    const entry = within(bar).getByRole('link', { name: '搜索好物' });
+    // One search entry on the page: the block is not drawn again below the bar.
+    expect(screen.getAllByText('搜索好物')).toHaveLength(1);
+    expect(document.querySelector('[data-block="searchBar"]')).toBeNull();
+    expect(screen.queryByText('礼盒')).toBeNull();
+    fireEvent.click(entry);
+    expect(taroFake.calls).toContainEqual({
+      api: 'navigateTo',
+      args: { url: '/packages/goods/search/index' },
+    });
+  });
+
+  it('paints the bar in the 顶部导航栏 colour', async () => {
+    const page = resolvedPageFixture();
+    page.root.props = { ...page.root.props, navBackground: '#ffe600' };
+    page.blocks = [searchBlock({ inNavBar: true }), ...page.blocks];
+    serveApi({ ...visits, 'GET /api/v1/pages/home': () => ({ body: page }) });
+
+    await renderPage(<Home />);
+
+    await screen.findByText('柔雾丝绒礼盒');
+    const bar = document.querySelector('.shop-nav-bar') as HTMLElement;
+    expect(bar.style.background).toBe('#ffe600');
+    // Title style: the title, at its own width, then the block's search entry.
+    expect(within(bar).getByText('示例首页')).toBeTruthy();
+    expect(within(bar).getByRole('link', { name: '搜索好物' })).toBeTruthy();
   });
 
   it('says the home page is being set up when none is designated', async () => {

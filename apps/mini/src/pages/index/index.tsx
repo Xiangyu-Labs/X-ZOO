@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { View } from '@tarojs/components';
 import { isApiError } from '@shop/api-client';
 import { routeKey, useRouteQuery } from '@shop/api-client/react';
@@ -15,17 +15,23 @@ import { useSignedIn } from '@/session/session';
 import { Button } from '@/ui/button';
 import { Empty } from '@/ui/empty';
 import { ErrorBlock } from '@/ui/error-block';
-import { Image } from '@/ui/image';
-import { NavBar } from '@/ui/nav-bar';
+import { NavBar, NavBarLead } from '@/ui/nav-bar';
 import { PageShell } from '@/ui/page-shell';
 import { SearchBar } from '@/ui/search-bar';
 import './index.scss';
 
 /**
  * 首页 (tab `home`, custom navigation bar): the shop's designated DIY home page
- * (`GET /pages/home`) under a bar with a search entry (the shop's 方形 Logo, or the title when
- * there is none, instead when the page has its own 搜索框 block), the 开屏浮层, pull to refresh,
- * sharing to friends and the timeline.
+ * (`GET /pages/home`) under its own bar, the 开屏浮层, pull to refresh, sharing to friends and the
+ * timeline.
+ *
+ * The bar follows the page's 顶部导航栏 setting (root props): its colour, and the logo uploaded
+ * there (`navStyle: 'logo'`) or else the title. The shop's 方形 Logo is not used here. Beside it:
+ *
+ * - the page's 搜索框 block, when that block is set 放进顶栏 (`inNavBar`); it then leaves the
+ *   block list, so there is one search entry;
+ * - nothing, when the page has a 搜索框 block of its own further down;
+ * - the built-in search entry, when the page has none.
  *
  * The resolved page carries per-shopper state (`personal`, e.g. which coupons are claimed), so
  * it is fetched again when the shopper signs in or out.
@@ -37,8 +43,17 @@ export default function Home() {
   const signedIn = useSignedIn();
   const home = useRouteQuery('decor.pageHome');
   const root = home.data?.root.props;
-  // The page's own 搜索框 block is the search entry; the bar then only says where you are.
-  const ownSearch = home.data?.blocks.some((block) => block.type === 'searchBar') ?? false;
+  // The page's own 搜索框 block is the search entry: in the bar when it asks to be, else further
+  // down, and the bar then only says where you are.
+  const searchBlock = home.data?.blocks.find((block) => block.type === 'searchBar');
+  const navSearch = searchBlock?.props.inNavBar === true ? searchBlock : null;
+  const page = useMemo(
+    () =>
+      home.data && navSearch
+        ? { ...home.data, blocks: home.data.blocks.filter((block) => block !== navSearch) }
+        : home.data,
+    [home.data, navSearch],
+  );
 
   const lastSignedIn = useRef(signedIn);
   const { refetch } = home;
@@ -64,34 +79,44 @@ export default function Home() {
   );
 
   const title = ownTitle ?? shopName ?? '首页';
-  const logo = config?.logo.square ?? null;
+  const logo = root?.navStyle === 'logo' ? (root.navLogo ?? null) : null;
+  const placeholder = navSearch?.props.placeholder;
+  const openSearch = () => navigate({ route: 'search', params: {} });
   return (
     <PageShell title={title}>
-      {ownSearch ? (
-        logo ? (
-          <NavBar>
-            <View className="home__logo">
-              <Image src={logo} label={title} size="small" radius="sm" lazy={false} />
-            </View>
-          </NavBar>
+      <NavBar background={root?.navBackground}>
+        {navSearch ? (
+          <>
+            <NavBarLead logo={logo} title={title} beside />
+            <SearchBar
+              className="home__search"
+              placeholder={typeof placeholder === 'string' && placeholder ? placeholder : undefined}
+              onOpen={openSearch}
+            />
+          </>
+        ) : searchBlock ? (
+          <NavBarLead logo={logo} title={title} />
         ) : (
-          <NavBar title={title} />
-        )
-      ) : (
-        <NavBar>
-          <SearchBar
-            className="home__search"
-            onOpen={() => navigate({ route: 'search', params: {} })}
-          />
-        </NavBar>
-      )}
-      <Body query={home} />
+          <>
+            {logo ? <NavBarLead logo={logo} title={title} beside /> : null}
+            <SearchBar className="home__search" onOpen={openSearch} />
+          </>
+        )}
+      </NavBar>
+      <Body query={home} page={page} />
       <SplashOverlay />
     </PageShell>
   );
 }
 
-function Body({ query }: { query: ReturnType<typeof useRouteQuery<'decor.pageHome'>> }) {
+function Body({
+  query,
+  page,
+}: {
+  query: ReturnType<typeof useRouteQuery<'decor.pageHome'>>;
+  /** The page as `DecorPage` draws it: without the 搜索框 block the bar has taken. */
+  page: ReturnType<typeof useRouteQuery<'decor.pageHome'>>['data'];
+}) {
   if (query.isPending) return <DecorSkeleton />;
   if (query.isError) {
     if (isApiError(query.error) && query.error.code === 'DECOR_HOME_NOT_SET') {
@@ -113,7 +138,7 @@ function Body({ query }: { query: ReturnType<typeof useRouteQuery<'decor.pageHom
   }
   return (
     <DecorPage
-      page={query.data}
+      page={page ?? query.data}
       route={{ route: 'home', params: {} }}
       reload={() => query.refetch()}
     />

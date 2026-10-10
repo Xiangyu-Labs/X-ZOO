@@ -17,6 +17,8 @@ export const USER_CENTER_DEFAULT_DOCUMENT: PageDocument = {
     props: {
       title: '个人中心',
       background: '#f5f5f5',
+      navStyle: 'title',
+      navBackground: '#ffffff',
       shareEnabled: false,
       shareTitle: '',
     },

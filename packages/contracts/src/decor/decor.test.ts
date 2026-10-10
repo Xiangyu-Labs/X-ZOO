@@ -258,6 +258,30 @@ describe('checkDocument — DECOR-003', () => {
     expect(result.document.blocks[0]?.props).toEqual({ ...carousel, slides: [] });
   });
 
+  it('fills the 顶部导航栏 defaults into a root saved before it existed', () => {
+    const result = checked(doc([]), 'home');
+    expect(result.issues).toEqual([]);
+    expect(result.document.root.props).toMatchObject({
+      navStyle: 'title',
+      navBackground: '#ffffff',
+    });
+    expect(result.document.root.props).not.toHaveProperty('navLogo');
+  });
+
+  it('refuses a 顶部导航栏 background that is not a colour, and a logo that is not an image', () => {
+    const result = checked({
+      schemaVersion: 2,
+      root: {
+        props: { title: '首页', navStyle: 'logo', navLogo: 'logo.png', navBackground: 'red' },
+      },
+      blocks: [],
+    });
+    expect(result.issues).toEqual([
+      { path: 'root.props.navLogo', message: '图片地址无效' },
+      { path: 'root.props.navBackground', message: '颜色格式应为 #RRGGBB' },
+    ]);
+  });
+
   it('reports invalid root props without refusing the draft', () => {
     const result = checked(doc([], ''));
     expect(result.issues).toEqual([{ path: 'root.props.title', message: '请填写页面标题' }]);

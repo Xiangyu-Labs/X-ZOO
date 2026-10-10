@@ -20,7 +20,14 @@ function userCenter(signedIn: boolean) {
     revision: null,
     preview: false,
     root: {
-      props: { title: '个人中心', background: '#f5f5f5', shareEnabled: false, shareTitle: '' },
+      props: {
+        title: '个人中心',
+        background: '#f5f5f5',
+        navStyle: 'title',
+        navBackground: '#ffffff',
+        shareEnabled: false,
+        shareTitle: '',
+      },
     },
     blocks: [
       { id: 'userCard', type: 'userCard', v: 1, props: fixtureUserCard, data: {} },
