@@ -482,7 +482,7 @@ export async function adminCreate(
       fromStatus: null,
       toStatus: 'applied',
       message:
-        `商家发起${input.kind === 'return_and_refund' ? '退货退款' : '仅退款'}：${input.reason}`.slice(
+        `商家发起${input.kind === 'return_and_refund' ? '退货退款' : '退款（未收到货）'}：${input.reason}`.slice(
           0,
           500,
         ),

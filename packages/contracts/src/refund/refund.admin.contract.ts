@@ -315,7 +315,7 @@ export const refundAdminCreate = defineRoute({
         logs: [
           {
             toStatus: 'applied',
-            message: '商家发起仅退款',
+            message: '商家发起退款（未收到货）',
             createdAt: '2026-02-26T14:00:00+08:00',
           },
           { toStatus: 'approved', message: '商家同意退款', createdAt: '2026-02-26T14:00:00+08:00' },
