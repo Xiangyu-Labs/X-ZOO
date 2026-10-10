@@ -20,6 +20,29 @@
     @include text($font-title);
     @include ellipsis;
     color: var(--color-text);
+
+    // Beside a search entry: its own width, so the entry takes the rest.
+    &--lead {
+      flex: none;
+      max-width: 280px;
+      margin-right: $space-4;
+    }
+  }
+
+  // The logo keeps its proportions: a fixed height, the width the picture asks for, up to 5:1.
+  &__logo {
+    display: flex;
+    flex: none;
+    align-items: center;
+    max-width: 320px;
+    height: 64px;
+    margin-right: $space-4;
+    overflow: hidden;
+  }
+
+  &__logo-image {
+    max-width: 320px;
+    height: 64px;
   }
 
   &__placeholder {

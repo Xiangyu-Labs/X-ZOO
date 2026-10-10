@@ -27,7 +27,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 
-import { buildDecorConfig } from './config';
+import { buildDecorConfig, navBarSearch, NavBarSearchContext } from './config';
 import { DECOR_CUSTOM_FIELDS } from './fields';
 
 /**
@@ -112,6 +112,11 @@ export const PUCK_DICTIONARY_ZH: Dictionary = {
 };
 
 const usePuckSelector = createUsePuck();
+
+/** The canvas's navigation bar reads the page's blocks as they are being edited. */
+function useNavBarSearchInEditor(): string | null {
+  return usePuckSelector((state) => navBarSearch(state.appState.data.content));
+}
 
 function UndoRedo() {
   const history = usePuckSelector((state) => state.history);
@@ -219,17 +224,19 @@ export function DecorEditor({
   const slots = useMemo(() => ({ toolbar, banner, readOnly }), [toolbar, banner, readOnly]);
   return (
     <HeaderSlotsContext value={slots}>
-      <Puck
-        config={config}
-        data={data}
-        {...(onChange ? { onChange } : {})}
-        height="100%"
-        dictionary={PUCK_DICTIONARY_ZH}
-        {...(readOnly ? { permissions: READ_ONLY } : {})}
-        viewports={VIEWPORTS}
-        iframe={IFRAME}
-        overrides={OVERRIDES}
-      />
+      <NavBarSearchContext value={useNavBarSearchInEditor}>
+        <Puck
+          config={config}
+          data={data}
+          {...(onChange ? { onChange } : {})}
+          height="100%"
+          dictionary={PUCK_DICTIONARY_ZH}
+          {...(readOnly ? { permissions: READ_ONLY } : {})}
+          viewports={VIEWPORTS}
+          iframe={IFRAME}
+          overrides={OVERRIDES}
+        />
+      </NavBarSearchContext>
     </HeaderSlotsContext>
   );
 }
@@ -283,6 +290,10 @@ export function DecorPagePreview({
     () => buildDecorConfig({ kind, custom: DECOR_CUSTOM_FIELDS }),
     [kind],
   );
+  const useNavBarSearch = useMemo(() => {
+    const search = navBarSearch(data.content);
+    return () => search;
+  }, [data]);
   const [body, setBody] = useState<HTMLElement | null>(null);
   const [frame, setFrame] = useState<HTMLIFrameElement | null>(null);
   useEffect(() => {
@@ -316,7 +327,14 @@ export function DecorPagePreview({
         display: 'block',
       }}
     >
-      {body ? createPortal(<Render config={config} data={data} />, body) : null}
+      {body
+        ? createPortal(
+            <NavBarSearchContext value={useNavBarSearch}>
+              <Render config={config} data={data} />
+            </NavBarSearchContext>,
+            body,
+          )
+        : null}
     </iframe>
   );
 }

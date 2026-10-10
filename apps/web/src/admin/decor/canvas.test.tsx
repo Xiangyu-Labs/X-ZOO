@@ -19,6 +19,7 @@ import {
   fixtureCarousel,
   fixtureImageCube,
   fixtureProductGrid,
+  fixtureSearchBar,
   resolveFixtureProducts,
 } from '@shop/storefront-blocks/fixtures';
 import { screen } from '@testing-library/react';
@@ -33,9 +34,9 @@ import {
   previewProducts,
   type DecorCanvasData,
 } from './canvas-data';
-import { buildDecorConfig } from './config';
+import { buildDecorConfig, navBarSearch, NavBarSearchContext } from './config';
 import { UNKNOWN_BLOCK } from './document';
-import { SEMANTIC_FIELD_KINDS, type CustomFieldRenderers } from './zod-to-puck';
+import { GROUP_FIELD_PREFIX, SEMANTIC_FIELD_KINDS, type CustomFieldRenderers } from './zod-to-puck';
 
 /**
  * The editor canvas renders the storefront's own blocks — the prebuilt
@@ -148,6 +149,104 @@ describe('decor config', () => {
       duplicate: false,
       edit: false,
     });
+  });
+});
+
+describe('the canvas navigation bar — 顶部导航栏', () => {
+  const home = buildDecorConfig({ kind: 'home', custom });
+  const searchBar = (props: Record<string, unknown> = {}) => ({
+    type: 'searchBar',
+    props: { placeholder: '搜索好物', inNavBar: false, ...props },
+  });
+
+  /** The root as the editor draws it, over a page holding `content`. */
+  function renderRoot(
+    target: typeof home,
+    props: Record<string, unknown>,
+    content: { type: string; props: unknown }[] = [],
+  ) {
+    const Root = target.root!.render as (props: Record<string, unknown>) => ReactElement;
+    const search = navBarSearch(content);
+    return renderAdmin(
+      <NavBarSearchContext value={() => search}>
+        <Root puck={{ isEditing: true }} background="#f5f5f5" {...props}>
+          <div>页面内容</div>
+        </Root>
+      </NavBarSearchContext>,
+    );
+  }
+
+  it('draws 首页’s logo whole, in the bar’s colour, beside the 搜索框 set 放进顶栏', () => {
+    const { container } = renderRoot(
+      home,
+      {
+        title: '首页',
+        navStyle: 'logo',
+        navLogo: '/uploads/nav-logo.png',
+        navBackground: '#ffe600',
+      },
+      [searchBar({ inNavBar: true })],
+    );
+    const bar = container.querySelector<HTMLElement>('[data-decor-navbar]')!;
+    expect(bar.style.background).toBe('#ffe600');
+    const logo = screen.getByAltText('首页');
+    expect(logo).toHaveAttribute('src', '/uploads/nav-logo.png');
+    expect(logo.style.height).toBe('32px');
+    expect(logo.style.width).toBe('auto');
+    expect(screen.queryByText('首页')).toBeNull();
+    expect(bar.querySelector('[data-decor-navbar-search]')).toHaveTextContent('搜索好物');
+  });
+
+  it('shows the title when no logo is uploaded, and no search in the bar when the 搜索框 stays below', () => {
+    const { container } = renderRoot(home, { title: '首页', navStyle: 'logo' }, [searchBar()]);
+    const bar = container.querySelector<HTMLElement>('[data-decor-navbar]')!;
+    expect(bar).toHaveTextContent('首页');
+    expect(bar.querySelector('img')).toBeNull();
+    expect(bar.querySelector('[data-decor-navbar-search]')).toBeNull();
+    expect(bar.style.background).toBe('#ffffff');
+  });
+
+  it('decides the bar’s search entry from the page’s blocks, as the mini home does', () => {
+    expect(navBarSearch([])).toBe('搜索商品');
+    expect(navBarSearch([searchBar()])).toBeNull();
+    expect(navBarSearch([searchBar({ inNavBar: true })])).toBe('搜索好物');
+    expect(navBarSearch([searchBar({ inNavBar: true, placeholder: '' })])).toBe('搜索商品');
+  });
+
+  it('marks a 搜索框 set 放进顶栏 on 首页, where it stays to be selected', () => {
+    const Render = home.components.searchBar!.render as (
+      p: Record<string, unknown>,
+    ) => ReactElement;
+    renderAdmin(<Render id="s1" puck={{ isEditing: true }} {...fixtureSearchBar} inNavBar />);
+    expect(screen.getByText(/已放进顶栏/)).toBeInTheDocument();
+    expect(screen.getByLabelText('搜索')).toBeInTheDocument();
+  });
+
+  it('keeps WeChat’s titled bar on a 微页面, and offers the 顶部导航栏 settings only on 首页', () => {
+    const { container } = renderRoot(
+      config,
+      {
+        title: '国庆专题',
+        navStyle: 'logo',
+        navLogo: '/uploads/nav-logo.png',
+        navBackground: '#ffe600',
+      },
+      [searchBar({ inNavBar: true })],
+    );
+    const bar = container.querySelector<HTMLElement>('[data-decor-navbar]')!;
+    expect(bar).toHaveTextContent('国庆专题');
+    expect(bar.querySelector('img')).toBeNull();
+    expect(bar.querySelector('[data-decor-navbar-search]')).toBeNull();
+    expect(Object.keys(config.root!.fields!)).not.toContain('navStyle');
+    expect(Object.keys(config.root!.fields!)).not.toContain(`${GROUP_FIELD_PREFIX}顶部导航栏`);
+    expect(Object.keys(home.root!.fields!)).toEqual(
+      expect.arrayContaining(['navStyle', 'navLogo', 'navBackground']),
+    );
+    const Render = config.components.searchBar!.render as (
+      p: Record<string, unknown>,
+    ) => ReactElement;
+    renderAdmin(<Render id="s1" puck={{ isEditing: true }} {...fixtureSearchBar} inNavBar />);
+    expect(screen.queryByText(/已放进顶栏/)).toBeNull();
   });
 });
 

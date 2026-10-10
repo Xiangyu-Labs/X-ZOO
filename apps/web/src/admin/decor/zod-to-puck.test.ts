@@ -209,6 +209,10 @@ describe('zodToPuckFields — with the admin controls', () => {
     expect(Object.keys(root)).toEqual([
       'title',
       'background',
+      `${GROUP_FIELD_PREFIX}顶部导航栏`,
+      'navStyle',
+      'navLogo',
+      'navBackground',
       `${GROUP_FIELD_PREFIX}分享`,
       'shareEnabled',
       'shareTitle',

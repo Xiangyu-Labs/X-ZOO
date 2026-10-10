@@ -19,6 +19,8 @@ export function resolvedPageFixture(overrides: Partial<ResolvedPage> = {}): Reso
       props: {
         title: '示例首页',
         background: '#f5f5f5',
+        navStyle: 'title',
+        navBackground: '#ffffff',
         shareEnabled: true,
         shareTitle: '首页好物',
       },

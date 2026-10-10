@@ -7,7 +7,9 @@ import { defineBlock } from '../registry';
 /**
  * 搜索框: a tappable search field. It is not an input — a tap opens the
  * `search` route, where the shopper types; a hot word opens it with that
- * keyword. `sticky` keeps it at the top of the page while scrolling.
+ * keyword. `sticky` keeps it at the top of the page while scrolling. `inNavBar` moves it into
+ * 首页's own navigation bar instead (the mini home takes it out of the block list and draws the
+ * field beside the logo or title); elsewhere it is ignored.
  */
 export const searchBarHotWord = z.object({
   word: z
@@ -45,6 +47,16 @@ export const searchBarProps = blockProps({
     .boolean()
     .default(false)
     .meta(ui({ label: '滚动时固定在顶部', group: '展示' })),
+  inNavBar: z
+    .boolean()
+    .default(false)
+    .meta(
+      ui({
+        label: '放进顶栏',
+        group: '展示',
+        help: '仅首页生效。开启后搜索框显示在顶栏 Logo/标题右侧，「滚动时固定在顶部」和热门搜索词不再起作用',
+      }),
+    ),
 });
 export type SearchBarProps = z.infer<typeof searchBarProps>;
 

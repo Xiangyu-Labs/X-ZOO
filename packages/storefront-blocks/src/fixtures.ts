@@ -205,6 +205,7 @@ export const fixtureSearchBar: SearchBarProps = {
   hotWords: [{ word: '新品' }, { word: '礼盒' }, { word: '包邮' }],
   shape: 'round',
   sticky: false,
+  inNavBar: false,
   style: frame,
   visibility: everyone,
 };

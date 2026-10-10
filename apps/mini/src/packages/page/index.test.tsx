@@ -19,6 +19,8 @@ const microPage = (preview = false) =>
       props: {
         title: '秋季专题',
         background: '#f5f5f5',
+        navStyle: 'title',
+        navBackground: '#ffffff',
         shareEnabled: true,
         shareTitle: '秋季好物',
       },

@@ -24,10 +24,12 @@
 ```ts
 {
   schemaVersion: 2,
-  root: { props: { title, background, shareEnabled, shareTitle, shareImage? } },
+  root: { props: { title, background, navStyle, navLogo?, navBackground, shareEnabled, shareTitle, shareImage? } },
   blocks: [{ id, type, v, props }],
 }
 ```
+
+- **顶部导航栏**（`navStyle` 标题/Logo、`navLogo`、`navBackground`）只有设为首页的页面使用：小程序首页的自定义导航栏按原比例显示这张 Logo（`heightFix`），不再用站点设置的方形 Logo。微页面用微信原生标题栏，我的页固定显示「我的」，所以装修后台只在首页类页面显示这一组设置。
 
 - **块**用 `defineBlock({ type, v, props, meta, migrate?, data?, personal? })` 声明，然后登记到 `all-blocks.ts` 的 `DECOR_BLOCK_DEFINITIONS`。目前有 14 种，见第 2.3 节。
 - **基础属性**：每个块的 props 都必须用 `blockProps()` 构造，自动带上 `style`（间距、圆角、背景，只能取预设档位）和 `visibility`（`audience`: all / guest / member；`platforms`: 空数组表示所有客户端）。`defineBlock` 会拒绝不带这两项的 props。
@@ -64,7 +66,7 @@
 
 | 类型                    | 名称        | v   | 页面                      | 数据 / 个人数据                                                  | 说明                                                                                      |
 | ----------------------- | ----------- | --- | ------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `searchBar`             | 搜索框      | 1   | home、custom（每页 1 个） |                                                                  | 点击打开搜索页，热词带 `keyword`；`sticky` 吸顶                                           |
+| `searchBar`             | 搜索框      | 1   | home、custom（每页 1 个） |                                                                  | 点击打开搜索页，热词带 `keyword`；`sticky` 吸顶；`inNavBar` 放进首页顶栏（仅首页）        |
 | `carousel`              | 轮播图      | 1   | 全部                      |                                                                  |                                                                                           |
 | `navGrid`               | 导航宫格    | 1   | 全部                      |                                                                  | 每行 4 或 5 个；`paging` 时按 `columns × rows` 分页横滑                                   |
 | `notice`                | 公告        | 1   | 全部                      |                                                                  | `scroll` 逐条上滚，间隔 ≥ 4 秒（design.md 动效规则）；`static` 全部列出                   |

@@ -69,7 +69,14 @@ const productDisplay = { titleLines: 2, showMarketPrice: true, showTag: true } a
 export const HOME_MODERN: StoredDocument = {
   schemaVersion: 2,
   root: {
-    props: { title: '首页', background: WARM_WHITE, shareEnabled: true, shareTitle: '' },
+    props: {
+      title: '首页',
+      background: WARM_WHITE,
+      navStyle: 'title',
+      navBackground: '#ffffff',
+      shareEnabled: true,
+      shareTitle: '',
+    },
   },
   blocks: [
     {
@@ -81,6 +88,7 @@ export const HOME_MODERN: StoredDocument = {
         hotWords: [],
         shape: 'round',
         sticky: true,
+        inNavBar: false,
         style: style('none', 'sm', 'none'),
         visibility: everyone,
       },
@@ -207,7 +215,14 @@ export const USER_CENTER_CLEAN: StoredDocument = {
   schemaVersion: 2,
   root: {
     // Nobody shares their own account page.
-    props: { title: '我的', background: WARM_WHITE, shareEnabled: false, shareTitle: '' },
+    props: {
+      title: '我的',
+      background: WARM_WHITE,
+      navStyle: 'title',
+      navBackground: '#ffffff',
+      shareEnabled: false,
+      shareTitle: '',
+    },
   },
   blocks: [
     {
@@ -280,7 +295,14 @@ export const USER_CENTER_CLEAN: StoredDocument = {
 export const CUSTOM_CAMPAIGN: StoredDocument = {
   schemaVersion: 2,
   root: {
-    props: { title: '专题活动', background: '#ffffff', shareEnabled: true, shareTitle: '' },
+    props: {
+      title: '专题活动',
+      background: '#ffffff',
+      navStyle: 'title',
+      navBackground: '#ffffff',
+      shareEnabled: true,
+      shareTitle: '',
+    },
   },
   blocks: [
     {

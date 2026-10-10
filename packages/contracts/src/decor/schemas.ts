@@ -171,6 +171,9 @@ export type ResolvedBlock = z.infer<typeof resolvedBlock>;
 export const servedRootProps = z.object({
   title: z.string(),
   background: z.string(),
+  navStyle: z.enum(['title', 'logo']),
+  navLogo: z.string().optional(),
+  navBackground: z.string(),
   shareEnabled: z.boolean(),
   shareTitle: z.string(),
   shareImage: z.string().optional(),

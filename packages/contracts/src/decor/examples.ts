@@ -20,7 +20,14 @@ const visibility = { audience: 'all', platforms: [] } as const;
 export const decorDocumentExample: PageDocument = {
   schemaVersion: 2,
   root: {
-    props: { title: '首页', background: '#f5f5f5', shareEnabled: true, shareTitle: '' },
+    props: {
+      title: '首页',
+      background: '#f5f5f5',
+      navStyle: 'title',
+      navBackground: '#ffffff',
+      shareEnabled: true,
+      shareTitle: '',
+    },
   },
   blocks: [
     {
@@ -131,6 +138,7 @@ export const decorBlockExamples: Record<DecorBlockType, Record<string, unknown>>
     hotWords: [{ word: '新品' }, { word: '礼盒' }],
     shape: 'round',
     sticky: true,
+    inNavBar: false,
     style,
     visibility,
   },

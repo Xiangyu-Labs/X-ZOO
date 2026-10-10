@@ -36,6 +36,31 @@ export const pageRootProps = z.object({
     .default('微页面')
     .meta(ui({ label: '页面标题' })),
   background: color.default('#f5f5f5').meta(ui({ label: '页面背景色' })),
+  // 顶部导航栏: only the page designated as 首页 draws its own bar. A 微页面 sits under WeChat's
+  // native bar (the page title), and 我的 always says 我的.
+  navStyle: z
+    .enum(['title', 'logo'])
+    .default('title')
+    .meta(
+      ui({
+        label: '导航样式',
+        field: 'radio',
+        options: { title: '标题', logo: 'Logo' },
+        group: '顶部导航栏',
+        help: '只对设为首页的页面生效。微页面使用微信原生标题栏，我的页固定显示「我的」',
+      }),
+    ),
+  navLogo: imageUrl.optional().meta(
+    ui({
+      label: '导航 Logo',
+      field: 'image',
+      group: '顶部导航栏',
+      help: '仅小程序首页顶栏使用。按原比例显示，高度约 32px，建议透明底横版图，宽高比不超过 4:1',
+    }),
+  ),
+  navBackground: color
+    .default('#ffffff')
+    .meta(ui({ label: '导航背景色', field: 'color', group: '顶部导航栏' })),
   shareEnabled: z
     .boolean()
     .default(true)
