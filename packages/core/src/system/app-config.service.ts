@@ -14,6 +14,7 @@ import {
 import { deriveTheme } from '@shop/contracts/system/theme';
 
 import type { Ctx } from '../kernel/context';
+import { storageConfig, uploadsCdnOriginOf } from '../storage/index';
 import {
   authOf,
   orNull,
@@ -63,8 +64,9 @@ import { wechatMiniConfig, webviewDomainsOf } from './wechat-mini.config';
 /**
  * v2: the payload grew `subscribeScenes`, `webviewDomains`, `accentColor`, a typed splash link.
  * v3: `subscribeTemplates.orderUnpaid`.
+ * v4: `assetOrigin`.
  */
-const CACHE_KEY = 'app:config:v3';
+const CACHE_KEY = 'app:config:v4';
 const CACHE_SECONDS = 60;
 
 type SubscribeTemplatesByScene = AppPublicConfig['subscribeTemplates'];
@@ -98,9 +100,13 @@ export function resetAppConfigSources(): void {
   delete sources.wechatRequiresPhone;
 }
 
-/** The groups the payload is built from: the site's, the appearance, and every registered reader's. */
+/** The groups the payload is built from: the site's, the appearance, storage, and every registered reader's. */
 export function appConfigSourceGroups(): string[] {
-  const groups = new Set<string>([...siteConfigSourceGroups(), storefrontAppearanceConfig.group]);
+  const groups = new Set<string>([
+    ...siteConfigSourceGroups(),
+    storefrontAppearanceConfig.group,
+    storageConfig.group,
+  ]);
   for (const source of Object.values(sources)) for (const group of source.groups) groups.add(group);
   return [...groups];
 }
@@ -147,17 +153,27 @@ async function readCache(ctx: Ctx): Promise<CachedAppConfig | null> {
 }
 
 async function buildAppConfig(ctx: Ctx): Promise<CachedAppConfig> {
-  const [site, mini, appearance, payments, auth, subscribeTemplates, requiresPhone, version] =
-    await Promise.all([
-      ctx.config.get(siteConfig),
-      ctx.config.get(wechatMiniConfig),
-      ctx.config.get(storefrontAppearanceConfig),
-      paymentsOf(ctx),
-      authOf(ctx),
-      subscribeTemplatesOf(ctx),
-      wechatRequiresPhoneOf(ctx),
-      versionOf(ctx),
-    ]);
+  const [
+    site,
+    mini,
+    appearance,
+    storage,
+    payments,
+    auth,
+    subscribeTemplates,
+    requiresPhone,
+    version,
+  ] = await Promise.all([
+    ctx.config.get(siteConfig),
+    ctx.config.get(wechatMiniConfig),
+    ctx.config.get(storefrontAppearanceConfig),
+    ctx.config.get(storageConfig),
+    paymentsOf(ctx),
+    authOf(ctx),
+    subscribeTemplatesOf(ctx),
+    wechatRequiresPhoneOf(ctx),
+    versionOf(ctx),
+  ]);
 
   return {
     name: site.siteName,
@@ -186,6 +202,7 @@ async function buildAppConfig(ctx: Ctx): Promise<CachedAppConfig> {
     webviewDomains: webviewDomainsOf(mini.webviewDomains).filter(
       (domain) => webviewDomain.safeParse(domain).success,
     ),
+    assetOrigin: uploadsCdnOriginOf(storage.uploadsCdnOrigin),
     appearance: appearanceOf(appearance),
     display: {
       categorySubcategories: appearance.showCategorySubcategories,

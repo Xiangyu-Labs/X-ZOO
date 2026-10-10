@@ -24,6 +24,7 @@ export const appConfigFixture: AppConfig = {
     returnShipment: ['tpl-refund'],
   },
   webviewDomains: [],
+  assetOrigin: null,
   appearance: {
     theme: {
       primaryColor: '#1677FF',

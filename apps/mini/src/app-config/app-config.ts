@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { isApiError, type ResponseOf } from '@shop/api-client';
 import { api } from '@/data/api';
-import { assetUrl } from '@/lib/asset-url';
+import { assetUrl, setAssetOrigin } from '@/lib/asset-url';
 import { setServerTime } from '@/lib/server-clock';
 import { setShareDefaults, setSubscribeTemplates, setWebviewDomains, storage } from '@/platform';
 import { useThemeStore } from '@/theme/store';
@@ -58,6 +58,9 @@ export function useDisplay(): AppDisplay {
 
 /** Hand a config to everything that reads it. */
 export function applyAppConfig(config: AppConfig, source: 'cache' | 'network'): void {
+  // First: every picture URL built from here on, the share image below included, uses it. A copy
+  // stored by an older build has no `assetOrigin`, which is the API origin.
+  setAssetOrigin(config.assetOrigin);
   useAppConfigStore.setState({ config, source });
   useThemeStore.getState().applyAppearance(config.appearance);
   setSubscribeTemplates(config.subscribeScenes);

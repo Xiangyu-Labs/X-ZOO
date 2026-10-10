@@ -621,6 +621,30 @@ Revisit it the day either of the first two stops holding, and in particular befo
 lets SVG or HTML in. With the S3 driver the same rule applies to `s3PublicBaseUrl`: point it at a
 bucket or CDN hostname, never at this site's own origin, and give that host the same three headers.
 
+### An image CDN in front of `/uploads/`
+
+The mini-program can load `/uploads/` from a CDN that pulls from this site (存储设置 › 图片 CDN
+域名, `uploadsCdnOrigin`). Stored paths stay `/uploads/…`; the app config hands the origin to the
+mini-program (`assetOrigin`), which puts it in front of `/uploads/` paths only. Clearing the
+setting sends every picture back to this site at the next launch, with no release. The admin keeps
+loading pictures from its own origin.
+
+On the CDN (Tencent CDN 域名管理, for `img.<NEXT_HOST>`):
+
+| Setting                     | Value                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------ |
+| 源站 / 回源协议             | 自有源, `NEXT_HOST`, HTTPS                                                           |
+| 回源 HOST                   | `NEXT_HOST`: Traefik routes by host, so the CDN's own name answers 404               |
+| 回源请求头                  | `X-Shop-Via: cdn`: the edge then serves `/uploads/` and answers 404 to anything else |
+| 缓存                        | follow the origin's `Cache-Control` (a week for a file, `no-store` for an error)     |
+| HTTPS / HTTP 2.0 / 强制跳转 | a certificate for the CDN name, on; 301 to HTTPS                                     |
+
+Without the request header the CDN's name is a second copy of the whole site, the admin sign-in
+included. The origin's three headers above pass through the CDN as they are. The CDN name needs no
+ICP filing of its own under a filed domain, but it does go into the mini-program's
+`downloadFile` 合法域名 (the poster loads product pictures through it). 存储设置 › 测试读写 writes
+a probe and fetches it through the CDN, so a wrong 回源 setting shows there.
+
 ## Memory
 
 The host has 2 cores and 3.6 GB. The five long-running services are capped at 1568 MiB in total.

@@ -59,6 +59,7 @@ export const systemAppConfigGet = defineRoute({
           returnShipment: [],
         },
         webviewDomains: [],
+        assetOrigin: null,
         appearance: appAppearanceDefaults,
         display: appDisplayDefaults,
         version: '0',
