@@ -15,6 +15,7 @@ import { useSignedIn } from '@/session/session';
 import { Button } from '@/ui/button';
 import { Empty } from '@/ui/empty';
 import { ErrorBlock } from '@/ui/error-block';
+import { Image } from '@/ui/image';
 import { NavBar } from '@/ui/nav-bar';
 import { PageShell } from '@/ui/page-shell';
 import { SearchBar } from '@/ui/search-bar';
@@ -22,8 +23,9 @@ import './index.scss';
 
 /**
  * 首页 (tab `home`, custom navigation bar): the shop's designated DIY home page
- * (`GET /pages/home`) under a bar with a search entry (the title instead when the page has its
- * own 搜索框 block), the 开屏浮层, pull to refresh, sharing to friends and the timeline.
+ * (`GET /pages/home`) under a bar with a search entry (the shop's 方形 Logo, or the title when
+ * there is none, instead when the page has its own 搜索框 block), the 开屏浮层, pull to refresh,
+ * sharing to friends and the timeline.
  *
  * The resolved page carries per-shopper state (`personal`, e.g. which coupons are claimed), so
  * it is fetched again when the shopper signs in or out.
@@ -62,10 +64,19 @@ export default function Home() {
   );
 
   const title = ownTitle ?? shopName ?? '首页';
+  const logo = config?.logo.square ?? null;
   return (
     <PageShell title={title}>
       {ownSearch ? (
-        <NavBar title={title} />
+        logo ? (
+          <NavBar>
+            <View className="home__logo">
+              <Image src={logo} label={title} size="small" radius="sm" lazy={false} />
+            </View>
+          </NavBar>
+        ) : (
+          <NavBar title={title} />
+        )
       ) : (
         <NavBar>
           <SearchBar

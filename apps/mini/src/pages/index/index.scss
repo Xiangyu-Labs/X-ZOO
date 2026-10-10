@@ -7,6 +7,11 @@
     background: transparent;
   }
 
+  &__logo {
+    flex-shrink: 0;
+    width: 64px;
+  }
+
   &__empty {
     padding-top: $space-9;
   }
