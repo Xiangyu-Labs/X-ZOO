@@ -44,6 +44,7 @@ import {
   idColumn,
   instantColumn,
   moneyColumn,
+  textColumn,
 } from '@/admin/kit/table/columns';
 import { CrudTable } from '@/admin/kit/table/crud-table';
 import { useUrlDetailId } from '@/admin/kit/table/url-state';
@@ -154,7 +155,7 @@ export function RefundRequestsPage() {
     <PageContainer subTitle="买家发起的退款与退货退款；金额在申请时已冻结，这里只决定同不同意">
       <CrudTable
         route={refundAdminList}
-        scrollX={1700}
+        scrollX={1900}
         filters={[
           { kind: 'text', name: 'keyword', label: '单号', placeholder: '售后单号或订单号' },
           {
@@ -243,6 +244,12 @@ export function RefundRequestsPage() {
             summary: 'lastErrorSummary',
             detail: 'lastError',
             width: 280,
+          }),
+          textColumn<AdminRefundListItem>({
+            title: '备注',
+            dataIndex: 'adminRemark',
+            ellipsis: true,
+            width: 200,
           }),
           instantColumn<AdminRefundListItem>({
             title: '申请时间',
