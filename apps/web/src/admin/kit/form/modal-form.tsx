@@ -204,9 +204,12 @@ function useLoadedRecord<S extends AnyObjectSchema, D extends AnyRouteDef>(
 }
 
 /**
- * Counts openings, so the loader can be keyed on it: each opening mounts a
- * fresh query observer, whose `isFetchedAfterMount` then means "fetched for
- * this opening". Closing keeps the key, so the close animation plays out.
+ * Counts openings, so each opening can be keyed on it. The loader then mounts a
+ * fresh query observer, whose `isFetchedAfterMount` means "fetched for this
+ * opening"; a form filled from the row gets a fresh `FormInstance`, since the
+ * old one still holds the last record's values and antd lets them win over the
+ * new `initialValues` (opening 编辑 on row B showed row A). Closing keeps the
+ * key, so the close animation plays out.
  */
 function useOpenGeneration(open: boolean): number {
   const [state, setState] = useState({ open, generation: 0 });
@@ -420,6 +423,7 @@ export function ModalForm<
   if (props.load) return <ModalFormLoading key={generation} {...props} load={props.load} />;
   return (
     <ModalFormChrome
+      key={generation}
       {...props}
       loaded={{ ready: true, values: props.initialValues, error: null, retry: noop }}
     />
@@ -467,6 +471,7 @@ export function DrawerForm<
   if (props.load) return <DrawerFormLoading key={generation} {...props} load={props.load} />;
   return (
     <DrawerFormChrome
+      key={generation}
       {...props}
       loaded={{ ready: true, values: props.initialValues, error: null, retry: noop }}
     />

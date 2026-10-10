@@ -275,6 +275,70 @@ describe('<ModalForm> never edits a cached record', () => {
   });
 });
 
+interface WidgetRow {
+  id: string;
+  name: string;
+  note: string | null;
+}
+
+/** Filled from the row itself, no `detail`: the 备注 / 分类 dialogs. */
+function RowHarness({ rows }: { rows: WidgetRow[] }) {
+  const modal = useFormModal<WidgetRow>();
+  return (
+    <>
+      {rows.map((row) => (
+        <button key={row.id} type="button" onClick={() => modal.show(row)}>
+          {`打开${row.id}`}
+        </button>
+      ))}
+      <ModalForm
+        {...modal.props}
+        title="编辑组件"
+        schema={widgetBody}
+        fields={fields}
+        initialValues={
+          modal.record
+            ? {
+                name: modal.record.name,
+                ...(modal.record.note === null ? {} : { note: modal.record.note }),
+              }
+            : undefined
+        }
+        route={updateRoute}
+        toInput={(values) => ({ params: { id: modal.record?.id ?? '0' }, body: values })}
+      />
+    </>
+  );
+}
+
+describe('<ModalForm> filled from the row', () => {
+  it('opened on another row, shows that row, not the one opened before', async () => {
+    stubRoutes([]);
+    const user = userEvent.setup();
+    renderAdmin(
+      <RowHarness
+        rows={[
+          { id: '1', name: '第一行', note: '第一行的备注' },
+          { id: '2', name: '第二行', note: null },
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: '打开1' }));
+    expect(await screen.findByDisplayValue('第一行')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('第一行的备注')).toBeInTheDocument();
+    // Closed, but not torn down: the dialog animates out, and jsdom never
+    // finishes the animation, so the next opening comes straight after.
+    await user.click(screen.getByRole('button', { name: zhName('取消') }));
+
+    await user.click(screen.getByRole('button', { name: '打开2' }));
+    expect(await screen.findByDisplayValue('第二行')).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('第一行')).not.toBeInTheDocument();
+    // A field the second row leaves empty must not keep the first row's value.
+    expect(screen.queryByDisplayValue('第一行的备注')).not.toBeInTheDocument();
+  });
+});
+
 describe('<ModalForm> closing', () => {
   async function openTyped(user: ReturnType<typeof userEvent.setup>) {
     stubRoutes([on(detailRoute, { id: '7', name: '已加载的名称', note: '' })]);

@@ -420,11 +420,7 @@ export function RefundRequestsPage() {
             help: '只在后台可见。',
           },
         ]}
-        initialValues={
-          remarkModal.record?.adminRemark === null || remarkModal.record === undefined
-            ? undefined
-            : { adminRemark: remarkModal.record.adminRemark ?? '' }
-        }
+        initialValues={{ adminRemark: remarkModal.record?.adminRemark ?? '' }}
         route={refundAdminRemark}
         toInput={(values) => ({ params: { id: remarkModal.record?.id ?? '' }, body: values })}
         invalidate={REFRESHES}
