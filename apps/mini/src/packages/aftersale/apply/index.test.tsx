@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { setSubscribeTemplates } from '@/platform';
 import { useSession } from '@/session/session';
@@ -84,6 +84,10 @@ describe('申请售后', () => {
     expect(screen.getByRole('radio', { name: '退货退款' }).getAttribute('aria-checked')).toBe(
       'true',
     );
+    // 「（未收到货）」 sits on its own line, under 退款, rather than breaking wherever it runs out.
+    const refundOnly = screen.getByRole('radio', { name: '退款（未收到货）' });
+    expect(within(refundOnly).getByText('退款')).toBeTruthy();
+    expect(within(refundOnly).getByText('（未收到货）')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: '减少售后数量' }));
     expect(screen.getByLabelText('价格 30 元')).toBeTruthy();

@@ -283,7 +283,19 @@ function Form({
                     label={KIND_TEXT[value]}
                     checked={kind === value}
                     onChange={() => setKind(value)}
-                  />
+                  >
+                    {/* Two lines on purpose: squeezed beside 退货退款 it broke as 「退款（未收到 / 货）」. */}
+                    {value === 'refund_only' ? (
+                      <View className="refund-apply__kind">
+                        <Text className="shop-choice__label">退款</Text>
+                        <Text className="refund-apply__kind-note">（未收到货）</Text>
+                      </View>
+                    ) : (
+                      <Text className="shop-choice__label refund-apply__kind">
+                        {KIND_TEXT[value]}
+                      </Text>
+                    )}
+                  </Radio>
                 ))}
               </View>
             ) : (
