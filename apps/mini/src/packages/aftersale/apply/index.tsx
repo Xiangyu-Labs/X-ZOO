@@ -287,7 +287,7 @@ function Form({
                 ))}
               </View>
             ) : (
-              <Text>仅退款</Text>
+              <Text>{KIND_TEXT.refund_only}</Text>
             )
           }
         />

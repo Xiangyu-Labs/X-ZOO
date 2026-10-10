@@ -16,7 +16,7 @@ export function lineEstimate(item: RefundableItem, quantity: number): number {
 }
 
 export const KIND_TEXT: Record<RefundKind, string> = {
-  refund_only: '仅退款',
+  refund_only: '退款（未收到货）',
   return_and_refund: '退货退款',
 };
 

@@ -241,7 +241,7 @@ export function refundDetail(overrides: Partial<RefundDetail> = {}): RefundDetai
     logs: [
       {
         toStatus: 'applied',
-        message: '买家发起仅退款申请',
+        message: '买家发起退款（未收到货）申请',
         createdAt: '2026-02-26T13:00:00+08:00',
       },
     ],

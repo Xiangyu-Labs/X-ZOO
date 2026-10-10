@@ -251,7 +251,7 @@ export async function apply(ctx: Ctx, body: RefundApplyBody): Promise<RefundDeta
       refundId: refund.id,
       fromStatus: null,
       toStatus: 'applied',
-      message: `买家发起${body.kind === 'return_and_refund' ? '退货退款' : '仅退款'}申请`,
+      message: `买家发起${body.kind === 'return_and_refund' ? '退货退款' : '退款（未收到货）'}申请`,
       operatorUserId: userId,
     });
 

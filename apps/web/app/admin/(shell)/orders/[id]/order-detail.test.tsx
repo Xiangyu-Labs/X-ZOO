@@ -222,7 +222,7 @@ describe('订单详情', () => {
       const kinds = within(dialog).getAllByRole('radio');
       expect(kinds.map((radio) => radio.closest('label')?.textContent)).toEqual([
         '退货退款',
-        '仅退款',
+        '退款（未收到货）',
       ]);
       expect(kinds[0]).toBeChecked();
       // A 退货退款 is worth its goods: nothing to type in.
@@ -259,7 +259,7 @@ describe('订单详情', () => {
       await userEvent.click(await screen.findByRole('button', { name: zhName('发起售后') }));
       const dialog = await screen.findByRole('dialog');
       await within(dialog).findByText(/最多还能退/);
-      await userEvent.click(within(dialog).getByRole('radio', { name: '仅退款' }));
+      await userEvent.click(within(dialog).getByRole('radio', { name: '退款（未收到货）' }));
 
       const quantity = within(dialog).getByRole('spinbutton', { name: /售后数量/ });
       await userEvent.clear(quantity);

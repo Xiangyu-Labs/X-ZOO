@@ -15,7 +15,7 @@ export class RefundApplyPage {
     await expect(shown(this.page).locator('#refund-apply')).toBeVisible();
   }
 
-  kind(label: '仅退款' | '退货退款'): Locator {
+  kind(label: '退款（未收到货）' | '退货退款'): Locator {
     return shown(this.page).locator('.refund-apply__kinds').getByText(label, { exact: true });
   }
 

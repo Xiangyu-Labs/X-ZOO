@@ -177,7 +177,7 @@ test('an order goes from a new product to a refund, and the day’s figures foll
     await openFresh(page, miniRoute('packages/aftersale/apply/index', { orderId }));
     const apply = new RefundApplyPage(page);
     await apply.expectOpen();
-    await apply.kind('仅退款').click();
+    await apply.kind('退款（未收到货）').click();
     await apply.chooseReason('不想要了');
     const applied = page.waitForResponse(
       (response) =>

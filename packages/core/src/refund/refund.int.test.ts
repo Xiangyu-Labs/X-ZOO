@@ -1167,7 +1167,7 @@ describe('商家发起售后', () => {
     const seen = await service.myDetail(racer(userActor(order.userId)), { id: opened.id });
     expect(seen.isAutomatic).toBe(true);
     expect(seen.logs.map((log) => log.message)).toEqual([
-      '商家发起仅退款：质量问题',
+      '商家发起退款（未收到货）：质量问题',
       '商家同意退款',
     ]);
     expect(JSON.stringify(seen)).not.toContain('电话沟通后补退');

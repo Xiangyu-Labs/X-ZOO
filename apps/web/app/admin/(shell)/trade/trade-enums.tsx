@@ -70,7 +70,7 @@ export const CAPITAL_FLOW_DIRECTION: StatusMap<CapitalFlowDirection> = {
 };
 
 export const REFUND_KIND: StatusMap<RefundKind> = {
-  refund_only: { label: '仅退款', color: 'blue' },
+  refund_only: { label: '退款（未收到货）', color: 'blue' },
   return_and_refund: { label: '退货退款', color: 'geekblue' },
 };
 

@@ -97,7 +97,7 @@ const REFRESHES = [
 
 const KIND_OPTIONS = [
   { label: '退货退款', value: 'return_and_refund' },
-  { label: '仅退款', value: 'refund_only' },
+  { label: '退款（未收到货）', value: 'refund_only' },
 ] as const;
 
 /**
@@ -243,7 +243,7 @@ function AftersaleHeader({
       style={{ marginBottom: 16 }}
       message={
         <>
-          不受售后期限限制，提交后直接视为已同意。仅退款会立即原路退回；退货退款按「售后设置」里的退货地址等买家寄回，确认收货后才退款。
+          不受售后期限限制，提交后直接视为已同意。退款（未收到货）会立即原路退回；退货退款按「售后设置」里的退货地址等买家寄回，确认收货后才退款。
           {applicable ? (
             <>
               {' '}
