@@ -105,6 +105,41 @@ describe('首页', () => {
     expect(screen.getByText('示例首页')).toBeTruthy();
   });
 
+  it('puts the shop’s 方形 Logo in the bar in place of the title, when one is set', async () => {
+    useAppConfigStore.setState({
+      config: {
+        ...appConfigFixture,
+        logo: { ...appConfigFixture.logo, square: '/uploads/logo-square.png' },
+      },
+      source: 'network',
+    });
+    const withSearch = resolvedPageFixture();
+    withSearch.blocks = [
+      {
+        id: 'b-search',
+        type: 'searchBar',
+        v: 1,
+        props: {
+          placeholder: '搜索好物',
+          hotWords: [],
+          shape: 'round',
+          sticky: false,
+          style: { marginY: 'none', paddingX: 'none', radius: 'none' },
+          visibility: { audience: 'all', platforms: [] },
+        },
+        data: {},
+      },
+      ...withSearch.blocks,
+    ];
+    serveApi({ ...visits, 'GET /api/v1/pages/home': () => ({ body: withSearch }) });
+
+    await renderPage(<Home />);
+
+    const logo = await screen.findByRole('img', { name: '示例首页' });
+    expect(logo.querySelector('img')?.getAttribute('src')).toContain('/uploads/logo-square');
+    expect(screen.queryByText('示例首页')).toBeNull();
+  });
+
   it('says the home page is being set up when none is designated', async () => {
     serveApi({
       ...visits,
