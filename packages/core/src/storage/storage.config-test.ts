@@ -1,6 +1,6 @@
 import { registerConfigTest, testSteps } from '../kernel/config-test';
 import type { Storage } from '../kernel/storage';
-import { storageConfig } from './storage.config';
+import { storageConfig, uploadsCdnOriginOf } from './storage.config';
 import { safeFetch } from './safe-fetch';
 import { s3StorageFor } from './storage.service';
 
@@ -65,6 +65,28 @@ export function registerStorageConfigTest(): void {
             throw new Error(
               `${url} 能打开，但内容不是刚写入的文件，检查「公网访问地址」是否指向这个 Bucket`,
             );
+          }
+          return url;
+        });
+      }
+      const cdnOrigin = uploadsCdnOriginOf(config.uploadsCdnOrigin);
+      const path = key === undefined ? '' : storage.url(key);
+      if (cdnOrigin !== null && path.startsWith('/uploads/')) {
+        await t.step('通过图片 CDN 访问', async () => {
+          // What the mini-program will load: the CDN's copy of a file that did
+          // not exist a moment ago, so the CDN has to pull it from this site.
+          const url = `${cdnOrigin}${path}`;
+          const fetched = await safeFetch(url, {
+            timeoutMs: PUBLIC_FETCH_TIMEOUT_MS,
+            maxBytes: 4096,
+          }).catch((error: unknown) => {
+            ctx.logger.warn({ err: error, url }, 'storage probe via the uploads CDN failed');
+            throw new Error(
+              `${url} 打不开。检查 CDN 的回源地址和回源 HOST 是否是本站域名、回源请求头是否带 X-Shop-Via: cdn、HTTPS 证书是否已配置`,
+            );
+          });
+          if (!Buffer.from(fetched.bytes).equals(body)) {
+            throw new Error(`${url} 能打开，但内容不是刚写入的文件，检查 CDN 是否回源到本站`);
           }
           return url;
         });

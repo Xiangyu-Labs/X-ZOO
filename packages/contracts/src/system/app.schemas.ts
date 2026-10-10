@@ -200,6 +200,13 @@ export const appPublicConfig = z.object({
    * allowed and is not listed. Lower-case, deduplicated; `[]` when none.
    */
   webviewDomains: z.array(webviewDomain),
+  /**
+   * Where an uploaded file's path (`/uploads/…`) loads from: a CDN's https
+   * origin, `https://img.example.com`, lower-case, no trailing slash (存储设置 ›
+   * 图片 CDN 域名). `null` = the API origin, as before there was a setting.
+   * Absolute URLs (an S3 bucket's) are used as they are either way.
+   */
+  assetOrigin: z.string().nullable(),
   appearance: appAppearance,
   display: appDisplay,
   /** Moves whenever any source group is saved; also the weak `ETag`. */
@@ -275,6 +282,7 @@ export const appPublicConfigExample: AppPublicConfig = {
     returnShipment: ['kL9x2fP0bQ-refund-e4f1'],
   },
   webviewDomains: ['shop.example.com'],
+  assetOrigin: 'https://img.example.com',
   appearance: {
     theme: {
       primaryColor: '#1677FF',

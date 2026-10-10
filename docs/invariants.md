@@ -2297,6 +2297,15 @@ The mini-program opens a `webview` link in its web-view only when the URL is htt
 - `apps/mini/src/platform/link.test.ts::openLinkTarget > opens an allowed web page in the web-view and copies any other`
 - `e2e/storefront/specs-mini/decor.spec.ts::a web-view link opens only a 业务域名 the shop listed; any other link is copied`
 
+### CLIENT-003
+
+The mini-program loads an uploaded path (`/uploads/…`) from `app/config.assetOrigin` when it is an https origin, and from the API origin otherwise (unset, unusable, or a stored config from an older build); no other path ever goes to that origin, because the edge answers a CDN pull of anything but `/uploads/` with 404 (`docker/edge/nginx.conf`, `$cdn_refused`).
+
+- `apps/mini/src/lib/asset-url.test.ts::assetUrl > loads /uploads/ from the image CDN once one is set, thumbnails included`
+- `apps/mini/src/lib/asset-url.test.ts::assetUrl > keeps everything but /uploads/ on the API origin: the CDN serves nothing else`
+- `apps/mini/src/lib/asset-url.test.ts::assetUrl > ignores an origin it cannot use, and goes back to the API origin on null`
+- `apps/mini/src/app-config/app-config.test.ts::app config > loads pictures from the image CDN the config names, and drops it with a config that has none`
+
 ### SYS-020
 
 The mini-program's splash (`app/config.splashAd.link`) is a `LinkTarget`: the stored `site.splashLinkTarget`, else the legacy `splashLink` as a `webview` link when it is an https URL, else `null`; a legacy uni-app path is never guessed at.
@@ -2322,6 +2331,13 @@ A role given an editor's write atom is given the reads its pickers need, as ordi
 - `packages/core/src/system/system.int.test.ts::migration 0015 — 管理员 and 用户 editors, and 失败的后台任务 > SYS-022 — completes the two editors, gives effect handlers the failed-jobs page, and nothing else`
 - `packages/core/src/system/system.int.test.ts::migration 0018 — whoever hands out coupons reads the screens that do it > completes a role that may grant coupons, and nothing else`
 - `packages/core/src/system/system.int.test.ts::migration 0021 — whoever edits coupons reads the catalog its pickers show > completes a role that may edit coupons, and nothing else`
+
+### SYS-023
+
+`app/config.assetOrigin` is the `storage` group's 图片 CDN 域名 as a lower-case https origin with no trailing slash, and `null` while it is blank; a save carrying anything else (plain http, a path, a port, no scheme) is refused whole and writes nothing. Saving `storage` moves the payload's version like any other source group.
+
+- `packages/core/src/system/app-config.int.test.ts::SYS-023 — the image CDN > serves no asset origin until one is set, then the saved one, and none again once cleared`
+- `packages/core/src/system/app-config.int.test.ts::SYS-023 — the image CDN > refuses <label>, and writes nothing`
 
 ### SYSC-001
 

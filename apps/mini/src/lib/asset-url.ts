@@ -1,18 +1,33 @@
 import { imageVariantUrl, type ImageVariantWidth } from '@shop/contracts/storage/image-variants';
 import { platform } from '@/platform';
 
+/** The image CDN in front of `/uploads/` (`appConfig.assetOrigin`), or `null` for the API origin. */
+let uploadsOrigin: string | null = null;
+
+/**
+ * Load `/uploads/…` from `origin` from now on (存储设置 › 图片 CDN 域名), or from the API origin
+ * again for `null`. Anything but a bare https origin is ignored: a wrong prefix would break
+ * every picture at once, and the API origin always works.
+ */
+export function setAssetOrigin(origin: string | null | undefined): void {
+  const value = (origin ?? '').replace(/\/+$/, '');
+  uploadsOrigin = /^https:\/\/[a-z0-9.-]+$/i.test(value) ? value : null;
+}
+
 /**
  * An uploaded file's URL as the page can load it. The server hands out paths relative to the
  * shop's origin (`/uploads/…`); the mini-program has no origin of its own, so it prefixes the
- * API origin. Absolute URLs and `null` pass through.
+ * image CDN's when one is set, else the API origin. Only `/uploads/` goes to the CDN: it serves
+ * nothing else. Absolute URLs and `null` pass through.
  */
 export function assetUrl(path: string | null | undefined): string | null {
   if (!path) return null;
   if (/^(https?:)?\/\//.test(path) || path.startsWith('data:') || path.startsWith('blob:')) {
     return path;
   }
-  const base = platform.api.baseUrl.replace(/\/$/, '');
-  return `${base}${path.startsWith('/') ? '' : '/'}${path}`;
+  const relative = path.startsWith('/') ? path : `/${path}`;
+  if (uploadsOrigin !== null && relative.startsWith('/uploads/')) return uploadsOrigin + relative;
+  return platform.api.baseUrl.replace(/\/$/, '') + relative;
 }
 
 /**

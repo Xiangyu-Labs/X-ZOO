@@ -68,7 +68,7 @@ export {
   type VariantReport,
 } from './image-variants';
 export { storagePermissions } from './permissions';
-export { storageConfig } from './storage.config';
+export { storageConfig, uploadsCdnOriginOf } from './storage.config';
 export { storageDashboardContributor } from './dashboard-tiles';
 export { MULTIPART_OVERHEAD_BYTES, readFilePart } from './multipart';
 

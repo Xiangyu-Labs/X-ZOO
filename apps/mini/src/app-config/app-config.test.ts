@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { assetUrl } from '@/lib/asset-url';
 import { serverNow } from '@/lib/server-clock';
 import { isWebviewAllowed, subscribe } from '@/platform';
 import { appConfigFixture } from '@/test/app-config-fixture';
@@ -53,6 +54,27 @@ describe('app config', () => {
     await loadAppConfig();
     expect(seen[0]?.headers['If-None-Match']).toBeUndefined();
     expect(useAppConfigStore.getState().config).toBeNull();
+  });
+
+  it('loads pictures from the image CDN the config names, and drops it with a config that has none', async () => {
+    serveApi({
+      'GET /api/v1/app/config': () => ({
+        body: { ...config, assetOrigin: 'https://img.example.com' },
+      }),
+    });
+    await loadAppConfig();
+    expect(assetUrl('/uploads/a.jpg')).toBe('https://img.example.com/uploads/a.jpg');
+
+    // A copy stored by a build from before the setting has no `assetOrigin` at all.
+    const { assetOrigin: _omitted, ...older } = config;
+    useAppConfigStore.setState({ config: null, source: 'none' });
+    taroFake.storage.set(APP_CONFIG_KEY, JSON.stringify(older));
+    serveApi({
+      'GET /api/v1/app/config': () => ({ status: 502, body: '<html>502 Bad Gateway</html>' }),
+    });
+    await loadAppConfig();
+    expect(useAppConfigStore.getState()).toMatchObject({ source: 'cache' });
+    expect(assetUrl('/uploads/a.jpg')).not.toContain('img.example.com');
   });
 
   it('shares one request between launches that ask together', async () => {

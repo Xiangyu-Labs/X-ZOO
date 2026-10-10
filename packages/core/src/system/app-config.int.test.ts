@@ -218,6 +218,7 @@ describe('SYS-016 — one payload, always current', () => {
       'payment',
       'site',
       'sms',
+      'storage',
       'storefront-appearance',
       'storefront-auth',
       'wechat',
@@ -233,6 +234,7 @@ describe('SYS-016 — one payload, always current', () => {
     ['storefront-appearance', { primaryColor: '#000000' }],
     ['wechat-oa-runtime', { subscribeOrderPay: 'tmpl-pay-1' }],
     ['storefront-auth', { requirePhoneForWechat: false }],
+    ['storage', { uploadsCdnOrigin: 'https://img.example.com' }],
   ] as const)('drops the cache and moves the version when %s is saved', async (group, values) => {
     const before = await appConfigGet(anonymous());
 
@@ -418,6 +420,30 @@ describe('SYS-019 — web-view domains', () => {
   ])('refuses %s, and writes nothing', async (_label, webviewDomains) => {
     expect(
       await code(configSave(harness.ctx, { group: 'wechat-mini' }, { values: { webviewDomains } })),
+    ).toBe('VALIDATION_FAILED');
+    expect(await harness.ctx.db.select().from(configValues)).toHaveLength(0);
+  });
+});
+
+describe('SYS-023 — the image CDN', () => {
+  it('serves no asset origin until one is set, then the saved one, and none again once cleared', async () => {
+    expect((await appConfigGet(anonymous())).assetOrigin).toBeNull();
+
+    await save('storage', { uploadsCdnOrigin: ' https://IMG.Example.com/ ' });
+    expect((await appConfigGet(anonymous())).assetOrigin).toBe('https://img.example.com');
+
+    await save('storage', { uploadsCdnOrigin: '' });
+    expect((await appConfigGet(anonymous())).assetOrigin).toBeNull();
+  });
+
+  it.each([
+    ['plain http', 'http://img.example.com'],
+    ['a path', 'https://img.example.com/uploads'],
+    ['no scheme', 'img.example.com'],
+    ['a port', 'https://img.example.com:8443'],
+  ])('refuses %s, and writes nothing', async (_label, uploadsCdnOrigin) => {
+    expect(
+      await code(configSave(harness.ctx, { group: 'storage' }, { values: { uploadsCdnOrigin } })),
     ).toBe('VALIDATION_FAILED');
     expect(await harness.ctx.db.select().from(configValues)).toHaveLength(0);
   });

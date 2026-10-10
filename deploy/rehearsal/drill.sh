@@ -133,6 +133,7 @@ CASE_IDS=(
   upgrade/dry-run-changes-nothing
   edge/proxies-every-page-route
   edge/serves-verification-files
+  edge/cdn-pull-gets-uploads-only
   backup/verifies-restore
   backup/verifies-beside-live-writes
   backup/refuses-tampered-dump
@@ -170,6 +171,7 @@ CASE_FNS=(
   case_dry_run
   case_edge_proxies_every_page
   case_edge_serves_verification_files
+  case_edge_cdn_pull_gets_uploads_only
   case_backup_verifies_restore
   case_backup_beside_live_writes
   case_backup_refuses_tampered_dump
@@ -213,6 +215,7 @@ CASE_SHARDS=(
   release # upgrade/dry-run-changes-nothing
   release # edge/proxies-every-page-route
   release # edge/serves-verification-files
+  release # edge/cdn-pull-gets-uploads-only
   release # backup/verifies-restore
   release # backup/verifies-beside-live-writes
   release # backup/refuses-tampered-dump
@@ -1103,6 +1106,27 @@ case_edge_serves_verification_files() {
     note 'ok: the edge cannot write the verification directory'
   fi
   rm -f "$dir/$name.txt"
+}
+
+# The image CDN pulls with `X-Shop-Via: cdn` (存储设置 › 图片 CDN 域名) and must get
+# `/uploads/` and nothing else, or its hostname is a second copy of the admin.
+# A missing upload tells the two 404s apart: only the uploads location sends
+# the sandbox CSP.
+case_edge_cdn_pull_gets_uploads_only() {
+  ensure_deployed || return 1
+  local base="http://127.0.0.1:$edge_port" via='X-Shop-Via: cdn' missing="/uploads/drill-${RANDOM}${RANDOM}.jpg"
+  check 'without the header, /api/v1/health reaches web' \
+    [ "$(curl -sS --max-time 10 -o /dev/null -w '%{http_code}' "$base/api/v1/health")" = '200' ]
+  check 'a CDN pull of /api/v1/health is a 404' \
+    [ "$(curl -sS --max-time 10 -o /dev/null -w '%{http_code}' -H "$via" "$base/api/v1/health")" = '404' ]
+  check 'a CDN pull of /admin is a 404' \
+    [ "$(curl -sS --max-time 10 -o /dev/null -w '%{http_code}' -H "$via" "$base/admin")" = '404' ]
+  check 'a CDN pull of / is a 404, not the landing page' \
+    [ "$(curl -sS --max-time 10 -o /dev/null -w '%{http_code}' -H "$via" "$base/")" = '404' ]
+  check 'a CDN pull cannot climb out of /uploads/' \
+    [ "$(curl -sS --max-time 10 --path-as-is -o /dev/null -w '%{http_code}' -H "$via" "$base/uploads/../api/v1/health")" = '404' ]
+  check 'a CDN pull of /uploads/ reaches the uploads location (its sandbox CSP)' \
+    sh -c "curl -sS --max-time 10 -o /dev/null -D - -H '$via' '$base$missing' | grep -qi '^content-security-policy: default-src .none.; sandbox'"
 }
 
 # --- backup cases -------------------------------------------------------------------

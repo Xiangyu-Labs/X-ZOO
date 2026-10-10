@@ -6,6 +6,13 @@ const S3_ONLY: ConfigVisibleWhen = { key: 'driver', equals: 's3' };
 const LOCAL_ONLY: ConfigVisibleWhen = { key: 'driver', equals: 'local' };
 
 /**
+ * `''`, or an https origin on the default port with no path: `https://img.example.com`. One
+ * trailing slash is tolerated and dropped by `uploadsCdnOriginOf`.
+ */
+const UPLOADS_CDN_ORIGIN =
+  /^$|^https:\/\/(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}\/?$/i;
+
+/**
  * `storage` — where uploaded files go, and what is allowed through the door.
  *
  * There are two drivers: `local` and `s3`. Aliyun OSS, Tencent COS, Qiniu,
@@ -29,6 +36,21 @@ export const storageConfig = defineConfigGroup({
 
     /** Public prefix the edge serves the uploads root at. Local driver only. */
     localPublicPrefix: z.string().max(128).default('/uploads'),
+    /**
+     * A CDN in front of this site's `/uploads/` (Tencent CDN, Aliyun CDN…), as
+     * an https origin: `https://img.example.com`. The mini-program loads every
+     * `/uploads/…` path from it instead of the API origin; `''` = the API
+     * origin. Stored paths do not change, so clearing it switches back at once.
+     *
+     * The CDN pulls from this site and sends `X-Shop-Via: cdn`; the edge then
+     * serves `/uploads/` and nothing else (`docker/edge/nginx.conf`).
+     */
+    uploadsCdnOrigin: z
+      .string()
+      .max(255)
+      .trim()
+      .regex(UPLOADS_CDN_ORIGIN, '填 https:// 开头的域名，例如 https://img.example.com，不带路径')
+      .default(''),
 
     s3Bucket: z.string().max(128).default(''),
     s3Region: z.string().max(64).default(''),
@@ -103,6 +125,14 @@ export const storageConfig = defineConfigGroup({
       section: '本地',
       visibleWhen: LOCAL_ONLY,
       order: 10,
+    },
+    uploadsCdnOrigin: {
+      label: '图片 CDN 域名',
+      type: 'text',
+      section: 'CDN',
+      placeholder: 'https://img.example.com',
+      help: '小程序从这个域名加载 /uploads/ 下的图片，留空则从本站加载。CDN 要回源到本站，并带回源请求头 X-Shop-Via: cdn',
+      order: 11,
     },
 
     s3Bucket: { label: 'Bucket', type: 'text', section: 'S3', visibleWhen: S3_ONLY, order: 20 },
@@ -211,3 +241,9 @@ export const storageConfig = defineConfigGroup({
     },
   },
 });
+
+/** The stored `uploadsCdnOrigin` as an origin to prefix `/uploads/…` with, or `null` for none. */
+export function uploadsCdnOriginOf(value: string): string | null {
+  const origin = value.trim().replace(/\/+$/, '');
+  return UPLOADS_CDN_ORIGIN.test(origin) && origin !== '' ? origin.toLowerCase() : null;
+}
