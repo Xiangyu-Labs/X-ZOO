@@ -33,6 +33,10 @@ import { Can } from '../session';
 import { CreateDecorDocumentModal } from './create-document';
 import { DESIGNATION_LABELS, KIND_LABELS } from './session';
 
+function warmEditor(): void {
+  void import('./page-editor');
+}
+
 /**
  * 店铺装修 — the page documents.
  *
@@ -195,7 +199,13 @@ export function DecorDocumentList() {
             width: 300,
             render: (row) => (
               <>
-                <Link href={detailHref(`/admin/decor/${row.id}`)}>
+                <Link
+                  href={detailHref(`/admin/decor/${row.id}`)}
+                  // Start the editor's chunk (Puck and the blocks) while the pointer is still on
+                  // its way to the click.
+                  onMouseEnter={warmEditor}
+                  onFocus={warmEditor}
+                >
                   <Button type="link" size="small">
                     装修
                   </Button>

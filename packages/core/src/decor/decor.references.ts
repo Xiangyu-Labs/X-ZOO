@@ -55,13 +55,16 @@ const CHECKERS: Record<ReferenceKind, { label: string; unavailable: string; visi
   productLabel: {
     label: '商品标签',
     unavailable: '下暂无在售商品',
+    // One count per label, side by side rather than one after another: a page with a 商品选项卡
+    // per label used to wait for each in turn on every open of the editor.
     visible: async (ctx, ids) => {
-      const found = new Set<string>();
-      for (const labelId of ids) {
-        const { total } = await catalog.productList(ctx, { page: 1, pageSize: 1, labelId });
-        if (total > 0) found.add(labelId);
-      }
-      return found;
+      const totals = await Promise.all(
+        ids.map(async (labelId) => {
+          const { total } = await catalog.productList(ctx, { page: 1, pageSize: 1, labelId });
+          return [labelId, total] as const;
+        }),
+      );
+      return new Set(totals.filter(([, total]) => total > 0).map(([labelId]) => labelId));
     },
   },
   article: {

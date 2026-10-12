@@ -10,6 +10,7 @@ import {
 
 import { callRoute } from '@/admin/api/call-route';
 import { errorMessage } from '@/admin/api/errors';
+import { CopyImage } from '@/admin/kit/image-copy';
 
 const PAGE_SIZE = 10;
 
@@ -283,7 +284,7 @@ export function SkuPicker({
               render: (_: unknown, record: ProductRow) => (
                 <Space>
                   {record.imageUrl === '' ? null : (
-                    <img src={record.imageUrl} alt="" width={32} height={32} />
+                    <CopyImage src={record.imageUrl} alt="" width={32} height={32} />
                   )}
                   <span>{record.name}</span>
                 </Space>

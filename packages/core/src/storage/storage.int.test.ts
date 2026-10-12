@@ -867,6 +867,30 @@ describe('image variants', () => {
     }
   });
 
+  it('a picture the old system brought in (attach/…/<yyyymmdd>/…) gets its thumbnails from the backfill', async () => {
+    const ctx = as(adminActor(adminId));
+    const uploaded = await attachmentUpload(ctx, { directory: 'product' }, await jpeg(1200, 800));
+    // Move it where the old system kept its files, one day directory deeper.
+    const key = await storageKeyOf(uploaded.attachment.id);
+    const legacyKey = `attach/2026/09/20260915/${key.split('/').pop()}`;
+    const files = (harness.ctx.storage as unknown as { files: Map<string, Buffer> }).files;
+    files.set(legacyKey, files.get(key)!);
+    files.delete(key);
+    await harness.ctx.db
+      .update(attachments)
+      .set({ storageKey: legacyKey, url: `/uploads/${legacyKey}` })
+      .where(eq(attachments.id, Number(uploaded.attachment.id)));
+
+    expect(await backfillImageVariants(ctx, { limit: 10 })).toMatchObject({
+      written: 1,
+      failed: 0,
+    });
+    for (const width of [480, 960] as const) {
+      expect((await sharp(files.get(variantKey(legacyKey, width))!).metadata()).width).toBe(width);
+    }
+    expect(await isStoredImageUrl(ctx, `/uploads/${variantKey(legacyKey, 480)}`)).toBe(true);
+  });
+
   it('the backfill walks the library in id order, batch by batch, skipping the deleted', async () => {
     const ctx = as(adminActor(adminId));
     const ids: string[] = [];

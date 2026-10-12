@@ -1,23 +1,28 @@
 'use client';
 
 import {
+  ArrowDownOutlined,
+  ArrowUpOutlined,
   BoldOutlined,
+  DeleteOutlined,
   ItalicOutlined,
   LinkOutlined,
   OrderedListOutlined,
   PictureOutlined,
+  PlusOutlined,
   RedoOutlined,
   StrikethroughOutlined,
   UndoOutlined,
   UnorderedListOutlined,
 } from '@ant-design/icons';
 import Image from '@tiptap/extension-image';
-import { EditorContent, useEditor, type Editor } from '@tiptap/react';
+import { EditorContent, useEditor, useEditorState, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Button, Divider, Space, Tooltip } from 'antd';
 import { useEffect, type ReactNode } from 'react';
 
 import { useAssetPicker } from '../asset/asset-picker';
+import type { AssetItem } from '../asset/types';
 
 export interface RichTextEditorProps {
   value?: string | undefined;
@@ -70,12 +75,12 @@ export default function RichTextEditor({
 
   if (!editor) return null;
 
+  // One insert for the whole pick: chained `setImage` calls replace each other, because each
+  // insert leaves the picture it just added selected and the next one lands on top of it.
   const insertImage = async (): Promise<void> => {
     const picked = await picker.pick({ multiple: true });
     if (picked.length === 0) return;
-    let chain = editor.chain().focus();
-    for (const asset of picked) chain = chain.setImage({ src: asset.url, alt: asset.name });
-    chain.run();
+    editor.chain().focus().insertContent(imageNodes(picked)).run();
   };
 
   const setLink = (): void => {
@@ -160,6 +165,7 @@ export default function RichTextEditor({
               size="small"
               type="text"
               icon={<PictureOutlined />}
+              aria-label="插入图片"
               disabled={disabled}
               onClick={() => insertImage()}
             />
@@ -186,17 +192,179 @@ export default function RichTextEditor({
         </Space>
       </div>
 
-      <div style={{ padding: 12 }}>
+      <div style={{ padding: 12, position: 'relative' }}>
         <EditorContent editor={editor} />
+        {disabled ? null : (
+          <ImageTools editor={editor} pick={() => picker.pick({ multiple: true })} />
+        )}
       </div>
 
       {picker.holder}
 
       <style>{`
         .kit-rich-text { outline: none; }
-        .kit-rich-text img { max-width: 100%; }
+        .kit-rich-text img { display: block; max-width: 100%; cursor: pointer; }
+        .kit-rich-text img.ProseMirror-selectednode {
+          outline: 3px solid var(--ant-color-primary);
+          outline-offset: 2px;
+        }
         .kit-rich-text p { margin: 0 0 8px; }
       `}</style>
+    </div>
+  );
+}
+
+function imageNodes(assets: readonly AssetItem[]) {
+  return assets.map((asset) => ({ type: 'image', attrs: { src: asset.url, alt: asset.name } }));
+}
+
+interface SelectedImage {
+  pos: number;
+  size: number;
+  /** The blocks before and after it in the same parent, for 上移 / 下移. */
+  before: number | null;
+  after: number | null;
+}
+
+/** The picture the operator clicked (a node selection on an image), or null. */
+export function selectedImage(editor: Editor): SelectedImage | null {
+  const { selection } = editor.state;
+  const node = 'node' in selection ? (selection.node as typeof editor.state.doc | undefined) : null;
+  if (!node || node.type.name !== 'image') return null;
+  const $pos = editor.state.doc.resolve(selection.from);
+  const index = $pos.index();
+  const parent = $pos.parent;
+  const next = index < parent.childCount - 1 ? parent.child(index + 1) : null;
+  // The empty paragraph the editor keeps after a last picture is a place to type, not a block
+  // to move past.
+  const trailing = next !== null && index + 1 === parent.childCount - 1 && next.content.size === 0;
+  return {
+    pos: selection.from,
+    size: node.nodeSize,
+    before: index > 0 ? parent.child(index - 1).nodeSize : null,
+    after: next && !trailing ? next.nodeSize : null,
+  };
+}
+
+/**
+ * Swap the selected picture with the block above or below it, as one undoable step, and keep
+ * it selected so the button can be pressed again. False when there is nothing to swap with.
+ */
+export function moveSelectedImage(editor: Editor, direction: 'up' | 'down'): boolean {
+  const image = selectedImage(editor);
+  const neighbour = direction === 'up' ? image?.before : image?.after;
+  if (!image || neighbour == null) return false;
+  const node = editor.state.doc.nodeAt(image.pos);
+  if (!node) return false;
+  // Positions after the picture is taken out: the block below now starts where it was.
+  const to = direction === 'up' ? image.pos - neighbour : image.pos + neighbour;
+  return editor
+    .chain()
+    .focus()
+    .command(({ tr }) => {
+      tr.delete(image.pos, image.pos + image.size);
+      tr.insert(to, node);
+      return true;
+    })
+    .setNodeSelection(to)
+    .run();
+}
+
+/** Put `assets` right below the selected picture, in pick order. */
+export function insertImagesAfter(editor: Editor, assets: readonly AssetItem[]): boolean {
+  const image = selectedImage(editor);
+  if (!image) return false;
+  return editor
+    .chain()
+    .focus()
+    .insertContentAt(image.pos + image.size, imageNodes(assets))
+    .run();
+}
+
+/**
+ * The bar over a selected picture: move it up or down past its neighbour, add pictures right
+ * below it, or remove it. Every action is one undoable step and keeps the moved picture
+ * selected, so 上移 can be pressed again.
+ */
+function ImageTools({ editor, pick }: { editor: Editor; pick: () => Promise<AssetItem[]> }) {
+  // Read where the picture sits in the same pass: `transaction` fires after the view has drawn it.
+  const image = useEditorState({
+    editor,
+    selector: ({ editor: e }) => {
+      const selected = selectedImage(e);
+      if (!selected) return null;
+      const dom = e.view.nodeDOM(selected.pos);
+      const place =
+        dom instanceof HTMLElement ? { top: dom.offsetTop, left: dom.offsetLeft } : null;
+      return { ...selected, place };
+    },
+  });
+
+  if (!image) return null;
+
+  const insertBelow = async (): Promise<void> => {
+    const picked = await pick();
+    if (picked.length > 0) insertImagesAfter(editor, picked);
+  };
+
+  return (
+    <div
+      role="toolbar"
+      aria-label="图片操作"
+      style={{
+        position: 'absolute',
+        top: (image.place?.top ?? 0) + 8,
+        left: (image.place?.left ?? 0) + 8,
+        padding: 2,
+        borderRadius: 6,
+        background: 'var(--ant-color-bg-elevated)',
+        boxShadow: 'var(--ant-box-shadow-secondary)',
+        zIndex: 1,
+      }}
+      // Keep the picture selected while the bar is pressed.
+      onMouseDown={(event) => event.preventDefault()}
+    >
+      <Space size={2}>
+        <Tooltip title="上移">
+          <Button
+            size="small"
+            type="text"
+            icon={<ArrowUpOutlined />}
+            aria-label="上移图片"
+            disabled={image.before === null}
+            onClick={() => moveSelectedImage(editor, 'up')}
+          />
+        </Tooltip>
+        <Tooltip title="下移">
+          <Button
+            size="small"
+            type="text"
+            icon={<ArrowDownOutlined />}
+            aria-label="下移图片"
+            disabled={image.after === null}
+            onClick={() => moveSelectedImage(editor, 'down')}
+          />
+        </Tooltip>
+        <Tooltip title="在下方插入图片">
+          <Button
+            size="small"
+            type="text"
+            icon={<PlusOutlined />}
+            aria-label="在下方插入图片"
+            onClick={() => insertBelow()}
+          />
+        </Tooltip>
+        <Tooltip title="删除图片">
+          <Button
+            size="small"
+            type="text"
+            danger
+            icon={<DeleteOutlined />}
+            aria-label="删除图片"
+            onClick={() => editor.chain().focus().deleteSelection().run()}
+          />
+        </Tooltip>
+      </Space>
     </div>
   );
 }

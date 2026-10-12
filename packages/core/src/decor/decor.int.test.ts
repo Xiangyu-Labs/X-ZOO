@@ -369,6 +369,28 @@ describe('references — DECOR-004', () => {
     expect(published.revision.number).toBe(1);
     expect(published.warnings).toHaveLength(2);
   });
+
+  it('DECOR-004: each picked label is checked on its own; one with nothing on sale is the warning', async () => {
+    const selling = await productLabel('新品');
+    const empty = await productLabel('清仓');
+    const alsoSelling = await productLabel('爆款');
+    await product({}, { labelId: selling });
+    await product({ status: 'off_shelf' }, { labelId: empty });
+    await product({}, { labelId: alsoSelling });
+    const created = await decor.createDocument(ctx, { kind: 'custom', name: '页' });
+    const saved = await decor.saveDraft(ctx, {
+      id: created.id,
+      document: doc(
+        [selling, empty, alsoSelling].map((labelId, index) =>
+          grid(`g${index}`, { mode: 'label', labelId: String(labelId), sort: 'default', limit: 6 }),
+        ),
+      ),
+      version: created.draftVersion,
+    });
+    expect(saved.warnings).toEqual([
+      expect.objectContaining({ path: 'blocks.1.props.source.labelId' }),
+    ]);
+  });
 });
 
 // ---------------------------------------------------------------------------

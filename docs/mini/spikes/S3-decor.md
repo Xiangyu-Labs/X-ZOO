@@ -78,8 +78,9 @@ issues. Publishing would be blocked on them.
 - **Why this works.** In a 375 px iframe, 750 design px is exactly the frame width, as on a phone.
   Next needs no sass, no alias and no PostCSS scoping for the canvas.
 - **Dynamic sizes** go through CSS custom properties that hold design px, for example
-  `height: calc(var(--sb-height) * 1px)`. Both pxtransform and the vw plugin convert the `1px`, so a
-  schema value in design px means the same thing on both sides.
+  `height: calc(var(--sb-height) * 750px / 750)`. Both pxtransform and the vw plugin convert the
+  `750px`, so a schema value in design px means the same thing on both sides. (It was `* 1px` at
+  first; WeChat rounds `1rpx` up to 1px on Android, which drew these lengths twice their size.)
 
 **The editor is schema-driven.** `zodToPuckFields(schema, customRenderers)` maps:
 

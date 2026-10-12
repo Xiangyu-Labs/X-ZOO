@@ -1,5 +1,13 @@
 import { z } from 'zod';
-import { id, instant, money, pageQuery, paged, sortQuery } from '../_conventions/common';
+import {
+  id,
+  instant,
+  money,
+  pageQuery,
+  requiredMoney,
+  paged,
+  sortQuery,
+} from '../_conventions/common';
 
 /**
  * Shipping shapes: freight templates, the city tree and courier companies.
@@ -135,10 +143,10 @@ export const shippingTemplateRegion = z.object({
   isFallback: z.boolean(),
   cityIds: z.array(id),
   firstUnit: unitAmount,
-  firstPrice: money,
+  firstPrice: requiredMoney('请填写首件运费'),
   /** `0` means "no continuation rule": everything over the first unit is still charged `firstPrice`. */
   additionalUnit: unitAmount,
-  additionalPrice: money,
+  additionalPrice: requiredMoney('请填写续件运费'),
 });
 export type ShippingTemplateRegion = z.infer<typeof shippingTemplateRegion>;
 

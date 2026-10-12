@@ -6,10 +6,11 @@
  * the server stores `…/<32 hex>.w480.jpg` next to `…/<32 hex>.jpg`, and the
  * client derives one from the other. A variant is written only for a key the
  * server generated itself (`<directory>/<yyyy>/<mm>/<32 hex>.<ext>`, see
- * `buildStorageKey` in `core/src/kernel/storage.ts`), and only for the formats
- * it re-encodes as themselves: JPEG, PNG and WebP. A GIF, a BMP, a path
- * migrated from the old system or someone else's host never matches, so the
- * client never asks for a copy that cannot exist.
+ * `buildStorageKey` in `core/src/kernel/storage.ts`) or that the old system
+ * did (`attach/<yyyy>/<mm>/<yyyymmdd>/<32 hex>.<ext>`, the files it brought
+ * into the library), and only for the formats it re-encodes as themselves:
+ * JPEG, PNG and WebP. A GIF, a BMP or someone else's host never matches, so
+ * the client never asks for a copy that cannot exist.
  *
  * A variant can still be missing (an upload made before variants existed and
  * not yet backfilled, a failed generation, a job still queued), so a client
@@ -27,12 +28,17 @@ export const IMAGE_VARIANT_WIDTHS = [480, 960] as const;
 export type ImageVariantWidth = (typeof IMAGE_VARIANT_WIDTHS)[number];
 
 const EXTENSIONS = 'jpg|jpeg|png|webp';
-/** `product/2026/02/<32 hex>.jpg`: a key `buildStorageKey` wrote. */
-const STORED_KEY = new RegExp(`^([a-z0-9-]{1,32}/\\d{4}/\\d{2}/[0-9a-f]{32})\\.(${EXTENSIONS})$`);
+/**
+ * `product/2026/02/<32 hex>`: a key `buildStorageKey` wrote, or the old system's
+ * `attach/2026/09/20260915/<32 hex>`, one directory deeper — those files are in
+ * the library like any upload, and were the biggest pictures in it.
+ */
+const STEM = '[a-z0-9-]{1,32}/\\d{4}/\\d{2}(?:/\\d{8})?/[0-9a-f]{32}';
+const STORED_KEY = new RegExp(`^(${STEM})\\.(${EXTENSIONS})$`);
 /** The same key at the end of a URL (`/uploads/…`, or a bucket's public base). */
-const STORED_URL = new RegExp(`(/[a-z0-9-]{1,32}/\\d{4}/\\d{2}/[0-9a-f]{32})\\.(${EXTENSIONS})$`);
+const STORED_URL = new RegExp(`(/${STEM})\\.(${EXTENSIONS})$`);
 const VARIANT_URL = new RegExp(
-  `(/[a-z0-9-]{1,32}/\\d{4}/\\d{2}/[0-9a-f]{32})\\.w(${IMAGE_VARIANT_WIDTHS.join('|')})\\.(${EXTENSIONS})$`,
+  `(/${STEM})\\.w(${IMAGE_VARIANT_WIDTHS.join('|')})\\.(${EXTENSIONS})$`,
 );
 
 function isVariantWidth(width: number): width is ImageVariantWidth {

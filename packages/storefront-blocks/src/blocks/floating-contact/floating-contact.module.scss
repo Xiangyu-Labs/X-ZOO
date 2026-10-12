@@ -20,7 +20,7 @@
 .fixed {
   position: fixed;
   z-index: $z-bar;
-  bottom: calc(var(--sb-bottom) * 1px + env(safe-area-inset-bottom));
+  bottom: calc(var(--sb-bottom) * 750px / 750 + env(safe-area-inset-bottom));
 }
 
 .right {

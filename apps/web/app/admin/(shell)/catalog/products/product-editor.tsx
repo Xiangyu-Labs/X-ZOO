@@ -1,6 +1,7 @@
 'use client';
 
-import { Alert, Badge, Button, Form, Skeleton, Tooltip } from 'antd';
+import { Alert, Badge, Button, Col, Form, Grid, Row, Skeleton, Tooltip } from 'antd';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -48,6 +49,9 @@ import {
 import { SHIPPING_CHARGE_MODE } from '../../shipping/shipping-enums';
 import { ParamEditor, SkuMatrixEditor, SpecEditor, blankSku } from './product-sku-editor';
 
+/** Its own chunk: the storefront blocks it draws with are not needed below `xl`. */
+const ProductPreview = dynamic(() => import('./product-preview'), { ssr: false });
+
 /**
  * 新建 / 编辑商品 — one component for both, because they are one form.
  *
@@ -66,6 +70,8 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
   const router = useRouter();
   const { listHref, keepList } = useListReturn('/admin/catalog/products');
   const [form] = Form.useForm();
+  // The phone preview beside the form, where there is room for both.
+  const wide = Grid.useBreakpoint().xl === true;
   // A role that may only look at products sees the form read-only, with no 保存
   // to press into a 403 — and without the option lists it has no right to.
   const can = useCan();
@@ -187,6 +193,15 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
     [paramTemplates.data],
   );
 
+  // 合并为一个规格项 rewrites the spec items from inside the SKU table.
+  const setSpecs = useCallback(
+    (next: ProductSpecInput[]) => {
+      form.setFieldValue('specs', next);
+      setDirty(true);
+    },
+    [form],
+  );
+
   const fields = useMemo(
     () =>
       buildFields({
@@ -198,6 +213,7 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
         specMode,
         kind,
         showCost,
+        setSpecs,
       }),
     // `labelOptions`/`protectionOptions` are rebuilt every render; their data is what matters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -210,6 +226,7 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
       specMode,
       kind,
       showCost,
+      setSpecs,
     ],
   );
 
@@ -267,28 +284,37 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
           message="你的身份只能查看商品，不能在这里修改"
         />
       )}
-      <ZodForm
-        disabled={!mayWrite}
-        form={form}
-        schema={adminProductForm}
-        fields={fields}
-        columns={2}
-        initialValues={record ? formValuesOf(record) : NEW_PRODUCT}
-        submitting={saving}
-        error={create.error ?? update.error}
-        footer={false}
-        onValuesChange={() => setDirty(true)}
-        onSubmit={(values) => {
-          // `customForm` has no editor yet, so it is carried across untouched
-          // rather than dropped.
-          const body: AdminProductForm = {
-            ...values,
-            ...(record?.customForm ? { customForm: record.customForm } : {}),
-          };
-          if (record) update.mutate({ params: { id: record.id }, body });
-          else create.mutate({ body });
-        }}
-      />
+      <Row gutter={24} wrap={false} align="top">
+        {wide ? (
+          <Col flex="none" style={{ position: 'sticky', top: 72 }}>
+            <ProductPreview form={form} sales={record?.sales ?? 0} />
+          </Col>
+        ) : null}
+        <Col flex="auto" style={{ minWidth: 0 }}>
+          <ZodForm
+            disabled={!mayWrite}
+            form={form}
+            schema={adminProductForm}
+            fields={fields}
+            columns={2}
+            initialValues={record ? formValuesOf(record) : NEW_PRODUCT}
+            submitting={saving}
+            error={create.error ?? update.error}
+            footer={false}
+            onValuesChange={() => setDirty(true)}
+            onSubmit={(values) => {
+              // `customForm` has no editor yet, so it is carried across untouched
+              // rather than dropped.
+              const body: AdminProductForm = {
+                ...values,
+                ...(record?.customForm ? { customForm: record.customForm } : {}),
+              };
+              if (record) update.mutate({ params: { id: record.id }, body });
+              else create.mutate({ body });
+            }}
+          />
+        </Col>
+      </Row>
     </PageContainer>
   );
 }
@@ -324,6 +350,7 @@ function buildFields({
   specMode,
   kind,
   showCost,
+  setSpecs,
 }: {
   labelOptions: SelectOption[];
   protectionOptions: SelectOption[];
@@ -333,6 +360,7 @@ function buildFields({
   specMode: boolean;
   kind: ProductKind;
   showCost: boolean;
+  setSpecs: (next: ProductSpecInput[]) => void;
 }): FieldSpec<Extract<keyof AdminProductForm, string>>[] {
   return [
     {
@@ -489,6 +517,7 @@ function buildFields({
       section: '价格与规格',
       label: '规格项',
       span: 24,
+      help: '规格名是分类（颜色），规格值是选项（粉色、紫色）：同一规格项的每个值是一行 SKU；有多个规格项时相互组合（颜色 × 尺码）',
       visibleWhen: (values) => values.specMode === true,
       render: ({ value, onChange, disabled }) => (
         <SpecEditor
@@ -508,6 +537,7 @@ function buildFields({
         <SkuMatrixEditor
           value={value as ProductSkuInput[] | undefined}
           onChange={onChange}
+          onSpecsChange={setSpecs}
           specs={specs}
           specMode={specMode}
           kind={kind}

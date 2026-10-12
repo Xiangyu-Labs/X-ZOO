@@ -18,6 +18,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { ApiError } from '../../api/errors';
+import { CopyImage } from '../image-copy';
 import { SideTree } from '../tree/side-tree';
 import { useAssetAccess, useAssetSource } from './asset-source-context';
 import type { AssetCategory, AssetItem } from './types';
@@ -332,7 +333,7 @@ export function AssetPicker({
                           }}
                         />
                       ) : (
-                        <img
+                        <CopyImage
                           src={item.url}
                           alt={item.name}
                           style={{

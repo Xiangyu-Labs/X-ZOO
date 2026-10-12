@@ -11,6 +11,7 @@ import { imageCubeCell } from '@shop/contracts/decor/blocks/image-cube';
 import { pageRootProps } from '@shop/contracts/decor/document';
 import type { AnyBlockDefinition, BlockRegistry } from '@shop/contracts/decor/registry';
 import type { DataNeed } from '@shop/contracts/decor/sources';
+import type { ImageVariantWidth } from '@shop/contracts/storage/image-variants';
 import { BLOCK_COMPONENTS } from '@shop/storefront-blocks/admin';
 import {
   Component,
@@ -21,6 +22,8 @@ import {
   type ErrorInfo,
   type ReactNode,
 } from 'react';
+
+import { imageCopyUrl } from '@/admin/kit/image-copy';
 
 import { useCanvasSlots } from './canvas-data';
 import { withImagePlaceholders } from './canvas-images';
@@ -113,7 +116,11 @@ export function ownProps(props: Record<string, unknown>): Record<string, unknown
   return own;
 }
 
-type AnyBlockComponent = ComponentType<{ props: any; data?: any; host?: { canvas?: boolean } }>;
+type AnyBlockComponent = ComponentType<{
+  props: any;
+  data?: any;
+  host?: { canvas?: boolean; resolveImage?: (src: string, width?: ImageVariantWidth) => string };
+}>;
 
 const COMPONENTS = BLOCK_COMPONENTS as unknown as Readonly<Record<string, AnyBlockComponent>>;
 
@@ -122,7 +129,13 @@ const COMPONENTS = BLOCK_COMPONENTS as unknown as Readonly<Record<string, AnyBlo
  * shows its poster, a floating button sits in the flow where the operator can
  * select it, and a list with nothing to show says so instead of vanishing.
  */
-const CANVAS_HOST = { canvas: true } as const;
+const CANVAS_HOST = {
+  canvas: true,
+  // The 480 / 960 px copies the mini-program loads, not the originals: the canvas draws at
+  // phone size, and megabytes of PNG held up everything else the editor fetched.
+  resolveImage: (src: string, width?: ImageVariantWidth) =>
+    width === undefined ? src : imageCopyUrl(src, width),
+} as const;
 
 function BlockCanvas({
   definition,

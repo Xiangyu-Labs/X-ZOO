@@ -24,7 +24,17 @@ export const idList = z
  * Money is a decimal string with exactly two fraction digits ("12.00"), never a JS number.
  * Stored as numeric(12,2); the domain works in integer fen through `Money` in core/kernel.
  */
-export const money = z.string().regex(/^(0|[1-9]\d{0,9})\.\d{2}$/, '金额格式不正确');
+const MONEY = /^(0|[1-9]\d{0,9})\.\d{2}$/;
+export const money = z.string().regex(MONEY, '金额格式不正确');
+
+/**
+ * Money a person must fill in, where 0.00 is a real answer and so cannot stand in for "not
+ * filled": an empty box says `emptyMessage` (请填写售价) rather than 金额格式不正确. The first
+ * issue is the one a form shows.
+ */
+export function requiredMoney(emptyMessage: string) {
+  return z.string().min(1, emptyMessage).regex(MONEY, '金额格式不正确');
+}
 
 /**
  * A password being set. bcrypt reads 72 bytes and ignores the rest, so core
