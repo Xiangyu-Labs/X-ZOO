@@ -169,6 +169,13 @@
       "when": 1791360335972,
       "tag": "0023_admin_initiated_refunds",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791809716399,
+      "tag": "0024_legacy_attach_storage_keys",
+      "breakpoints": true
     }
   ]
 }
