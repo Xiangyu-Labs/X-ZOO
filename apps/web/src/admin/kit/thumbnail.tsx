@@ -4,6 +4,8 @@ import { EyeOutlined } from '@ant-design/icons';
 import { Image, Typography } from 'antd';
 import { useState, type CSSProperties } from 'react';
 
+import { imageCopyUrl } from './image-copy';
+
 export interface ThumbnailProps {
   src: string;
   /** Square edge in px. */
@@ -32,12 +34,13 @@ function frame(size: number, radius: number): CSSProperties {
 export function Thumbnail({ src, size = 44, radius = 4 }: ThumbnailProps) {
   return (
     <Image
-      src={src}
+      src={imageCopyUrl(src, 480)}
+      fallback={src}
       alt=""
       width={size}
       height={size}
       style={frame(size, radius)}
-      preview={{ cover: <EyeOutlined /> }}
+      preview={{ src, cover: <EyeOutlined /> }}
     />
   );
 }
@@ -79,12 +82,13 @@ export function ThumbnailGroup({ urls, max = 4, size = 32, radius = 3 }: Thumbna
         {shown.map((url, index) => (
           <Image
             key={`${url}-${index}`}
-            src={url}
+            src={imageCopyUrl(url, 480)}
+            fallback={url}
             alt=""
             width={size}
             height={size}
             style={frame(size, radius)}
-            preview={{ cover: <EyeOutlined /> }}
+            preview={{ src: url, cover: <EyeOutlined /> }}
           />
         ))}
         {hidden > 0 ? (

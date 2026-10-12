@@ -15,6 +15,7 @@ import {
 import { useState } from 'react';
 
 import { AssetPicker } from '@/admin/kit/asset/asset-picker';
+import { CopyImage } from '@/admin/kit/image-copy';
 import type { ChoiceOption } from '../zod-to-puck';
 import { FieldShell, metaOf, type DecorFieldProps } from './shell';
 
@@ -53,7 +54,11 @@ export function ImageField({
           }}
         >
           {value ? (
-            <img src={value} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <CopyImage
+              src={value}
+              alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
           ) : (
             <PictureOutlined style={{ fontSize: 20 }} />
           )}

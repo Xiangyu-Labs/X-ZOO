@@ -51,6 +51,13 @@ export function RouteGuard({ children }: { children: ReactNode }) {
 }
 const SIDER_COLLAPSED = 56;
 
+/**
+ * 工作台. Its links are not fetched ahead: the sidebar is on every admin page, and the
+ * dashboard's render then competed with whatever the page itself was loading (it held up 装修
+ * by seconds on a slow line).
+ */
+const DASHBOARD = '/admin';
+
 function toMenuItems(nodes: readonly MenuNode[]): NonNullable<Parameters<typeof Menu>[0]['items']> {
   return nodes.map((node) => {
     const icon = renderMenuIcon(node.icon);
@@ -65,7 +72,13 @@ function toMenuItems(nodes: readonly MenuNode[]): NonNullable<Parameters<typeof 
     return {
       key: node.key,
       ...(icon ? { icon } : {}),
-      label: node.path ? <Link href={node.path}>{node.label}</Link> : node.label,
+      label: node.path ? (
+        <Link href={node.path} {...(node.path === DASHBOARD ? { prefetch: false } : {})}>
+          {node.label}
+        </Link>
+      ) : (
+        node.label
+      ),
     };
   });
 }
@@ -184,7 +197,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
       >
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           <Link
-            href="/admin"
+            href={DASHBOARD}
+            prefetch={false}
             style={{
               display: 'flex',
               alignItems: 'center',
