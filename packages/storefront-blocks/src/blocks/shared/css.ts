@@ -6,10 +6,13 @@ export function cx(...names: (string | false | null | undefined)[]): string {
 
 /**
  * Numbers in design px travel to the stylesheet as unitless custom properties;
- * the stylesheet multiplies them by `1px` (`calc(var(--sb-height) * 1px)`), so
- * whichever px transform the target runs — rpx in the mini-program, rem in Taro
- * H5, vw in the admin canvas — scales them with everything else. An inline
- * `height: 340px` would not be transformed on any of them.
+ * the stylesheet scales them by one full width (`calc(var(--sb-height) * 750px /
+ * 750)`), so whichever px transform the target runs — rpx in the mini-program,
+ * rem in Taro H5, vw in the admin canvas — scales them with everything else. An
+ * inline `height: 340px` would not be transformed on any of them.
+ *
+ * Not `* 1px`: that becomes `1rpx`, which WeChat rounds up to a whole 1px on
+ * Android, and every such length came out twice its size there.
  */
 export function designVars(vars: Record<string, number>): CSSProperties {
   const style: Record<string, string> = {};

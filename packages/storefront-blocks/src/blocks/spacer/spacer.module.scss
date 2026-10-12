@@ -3,7 +3,7 @@
 .space {
   display: flex;
   align-items: center;
-  height: calc(var(--sb-height) * 1px);
+  height: calc(var(--sb-height) * 750px / 750);
 }
 
 // A hairline (`$hairline`): one CSS pixel on any screen.

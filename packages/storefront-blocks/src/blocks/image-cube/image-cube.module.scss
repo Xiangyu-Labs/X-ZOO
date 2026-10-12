@@ -20,7 +20,7 @@
 
 .box {
   display: flex;
-  height: calc(var(--sb-height) * 1px);
+  height: calc(var(--sb-height) * 750px / 750);
 }
 
 .column {
@@ -51,9 +51,9 @@
 
 // Gaps are margins, not `gap`: flex `gap` is not safe on every WeChat renderer.
 .gapLeft {
-  margin-left: calc(var(--sb-gap) * 1px);
+  margin-left: calc(var(--sb-gap) * 750px / 750);
 }
 
 .gapTop {
-  margin-top: calc(var(--sb-gap) * 1px);
+  margin-top: calc(var(--sb-gap) * 750px / 750);
 }
