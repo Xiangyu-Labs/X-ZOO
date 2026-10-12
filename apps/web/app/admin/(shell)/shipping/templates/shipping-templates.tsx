@@ -208,7 +208,7 @@ export function ShippingTemplatesPage() {
                     <span>运费</span>
                     <MoneyInput
                       value={item.firstPrice}
-                      onChange={(value) => update({ firstPrice: value ?? '0.00' })}
+                      onChange={(value) => update({ firstPrice: value ?? '' })}
                     />
                     <span>续</span>
                     <InputNumber
@@ -220,7 +220,7 @@ export function ShippingTemplatesPage() {
                     <span>运费</span>
                     <MoneyInput
                       value={item.additionalPrice}
-                      onChange={(value) => update({ additionalPrice: value ?? '0.00' })}
+                      onChange={(value) => update({ additionalPrice: value ?? '' })}
                     />
                   </Space>
                   <Typography.Text type="secondary">

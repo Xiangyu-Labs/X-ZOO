@@ -19,6 +19,9 @@ export interface MoneyInputProps {
   size?: 'small' | 'middle' | 'large' | undefined;
   style?: React.CSSProperties | undefined;
   id?: string | undefined;
+  /** The box's name for a control with no `<label>` of its own (a table cell). */
+  'aria-label'?: string | undefined;
+  status?: 'error' | 'warning' | undefined;
   onBlur?: (() => void) | undefined;
 }
 
@@ -41,6 +44,8 @@ export function MoneyInput({
   size,
   style,
   id,
+  'aria-label': ariaLabel,
+  status,
   onBlur,
 }: MoneyInputProps) {
   const [raw, setRaw] = useState(value ?? '');
@@ -55,7 +60,7 @@ export function MoneyInput({
 
   return (
     <Input
-      {...defined({ id, size, style })}
+      {...defined({ id, size, style, status, 'aria-label': ariaLabel })}
       value={text}
       disabled={disabled}
       prefix={symbol}

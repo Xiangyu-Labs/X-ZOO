@@ -1,11 +1,12 @@
 'use client';
 
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined, MergeCellsOutlined, PlusOutlined } from '@ant-design/icons';
 import {
   Alert,
   Button,
   Card,
   Checkbox,
+  Form,
   Input,
   InputNumber,
   Select,
@@ -14,7 +15,7 @@ import {
   Typography,
   message,
 } from 'antd';
-import { useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { catalogAdminSkuMatrix } from '@shop/contracts/catalog/catalog.product.admin.contract';
 import type {
   ProductKind,
@@ -24,7 +25,9 @@ import type {
 } from '@shop/contracts/catalog/schemas';
 
 import { useRouteMutation } from '@/admin/api/hooks';
+import { useAssetPicker } from '@/admin/kit/asset/asset-picker';
 import { MoneyInput } from '@/admin/kit/form/money-input';
+import { Thumbnail } from '@/admin/kit/thumbnail';
 
 /**
  * The spec matrix half of the product editor.
@@ -59,10 +62,11 @@ function comboKey(specValues: Record<string, string>): string {
     .join('|');
 }
 
+/** A new row has no price yet: an empty box says 请填写售价 on save rather than selling at 0.00. */
 export function blankSku(specValues: Record<string, string> = {}): ProductSkuInput {
   return {
     specValues,
-    price: '0.00',
+    price: '',
     stock: 0,
     isDefault: false,
     isVisible: true,
@@ -101,36 +105,40 @@ export function SpecEditor({ value, onChange, disabled = false }: SpecEditorProp
     <Space direction="vertical" style={{ width: '100%' }} size={8}>
       {specs.map((spec, index) => (
         <Card key={index} size="small" styles={{ body: { padding: 12 } }}>
-          <Space align="start" style={{ width: '100%' }} size={8}>
-            <Input
-              style={{ width: 160 }}
-              value={spec.name}
-              disabled={disabled}
-              maxLength={64}
-              placeholder="规格名，如 颜色"
-              aria-label={`规格名 ${index + 1}`}
-              onChange={(event) => patch(index, { ...spec, name: event.target.value })}
-            />
-            <Select
-              style={{ minWidth: 360 }}
-              mode="tags"
-              disabled={disabled}
-              value={spec.values.map((item) => item.value)}
-              placeholder="规格值，回车确认"
-              aria-label={`规格值 ${index + 1}`}
-              open={false}
-              suffixIcon={null}
-              onChange={(next: string[]) =>
-                patch(index, {
-                  ...spec,
-                  // Keep each value's picture when the value itself survives.
-                  values: next.slice(0, 50).map((item) => {
-                    const previous = spec.values.find((existing) => existing.value === item);
-                    return previous ?? { value: item };
-                  }),
-                })
-              }
-            />
+          <Space align="end" style={{ width: '100%' }} size={8}>
+            <Field label="规格名">
+              <Input
+                style={{ width: 160 }}
+                value={spec.name}
+                disabled={disabled}
+                maxLength={64}
+                placeholder="如：颜色"
+                aria-label={`规格名 ${index + 1}`}
+                onChange={(event) => patch(index, { ...spec, name: event.target.value })}
+              />
+            </Field>
+            <Field label="规格值（每个值一行 SKU）">
+              <Select
+                style={{ minWidth: 360 }}
+                mode="tags"
+                disabled={disabled}
+                value={spec.values.map((item) => item.value)}
+                placeholder="如：粉色、紫色，输入后回车"
+                aria-label={`规格值 ${index + 1}`}
+                open={false}
+                suffixIcon={null}
+                onChange={(next: string[]) =>
+                  patch(index, {
+                    ...spec,
+                    // Keep each value's picture when the value itself survives.
+                    values: next.slice(0, 50).map((item) => {
+                      const previous = spec.values.find((existing) => existing.value === item);
+                      return previous ?? { value: item };
+                    }),
+                  })
+                }
+              />
+            </Field>
             <Button
               type="text"
               danger
@@ -159,9 +167,96 @@ export function SpecEditor({ value, onChange, disabled = false }: SpecEditorProp
 // SKU matrix
 // ---------------------------------------------------------------------------
 
+/**
+ * The SKU controls sit inside one form field, and antd paints every input of a field in error
+ * red: one empty 售价 turned the whole table red. Inside this the inputs keep their own status,
+ * and `useEmptyPriceStatus` marks just the boxes that need filling.
+ */
+function OwnStatus({ children }: { children: React.ReactNode }) {
+  return (
+    <Form.Item noStyle validateStatus="">
+      {children}
+    </Form.Item>
+  );
+}
+
+/** 'error' for an empty 售价 once the field has reported an error, so the box to fill shows. */
+function useEmptyPriceStatus(): (price: string) => 'error' | undefined {
+  const { status } = Form.Item.useStatus();
+  return (price) => (status === 'error' && price === '' ? 'error' : undefined);
+}
+
+/** Every item named and holding a value: the combinations can be built. */
+function specsComplete(specs: readonly ProductSpecInput[]): boolean {
+  return (
+    specs.length > 0 && specs.every((spec) => spec.name.trim() !== '' && spec.values.length > 0)
+  );
+}
+
+/** What the combinations depend on; a change here is a change of rows. */
+function specsKeyOf(specs: readonly ProductSpecInput[]): string {
+  return JSON.stringify(specs.map((spec) => [spec.name, spec.values.map((item) => item.value)]));
+}
+
+/**
+ * The rows are already the combinations of these items: one row per combination, each naming
+ * a value of every item and nothing else. A product opened for editing, or a table just rebuilt,
+ * needs nothing done.
+ */
+export function rowsMatchSpecs(
+  rows: readonly ProductSkuInput[],
+  specs: readonly ProductSpecInput[],
+): boolean {
+  const count = specs.reduce((product, spec) => product * spec.values.length, 1);
+  if (rows.length !== count) return false;
+  const combos = new Set(rows.map((row) => comboKey(row.specValues)));
+  if (combos.size !== count) return false;
+  return rows.every(
+    (row) =>
+      Object.keys(row.specValues).length === specs.length &&
+      specs.every((spec) => spec.values.some((item) => item.value === row.specValues[spec.name])),
+  );
+}
+
+/**
+ * Two or more items with one value each: each variant was written as an item of its own
+ * (「…粉色」「…紫色」 as names, a barcode as the value). Items combine, so that is one SKU, not
+ * one per variant.
+ */
+export function singleValueSpecs(specs: readonly ProductSpecInput[]): boolean {
+  return (
+    specs.length >= 2 && specs.every((spec) => spec.name.trim() !== '' && spec.values.length === 1)
+  );
+}
+
+const MERGED_AXIS = '款式';
+const BAR_CODE = /^\d{8,14}$/;
+
+/**
+ * The items' names as the values of one 款式 item — a row per variant. A value that reads as a
+ * barcode (8–14 digits) is what the operator meant as that variant's 条码, so it seeds the row.
+ */
+export function mergeSingleValueSpecs(specs: readonly ProductSpecInput[]): {
+  specs: ProductSpecInput[];
+  seed: Map<string, Partial<ProductSkuInput>>;
+} {
+  const seed = new Map<string, Partial<ProductSkuInput>>();
+  for (const spec of specs) {
+    const only = spec.values[0]?.value.trim() ?? '';
+    if (BAR_CODE.test(only))
+      seed.set(comboKey({ [MERGED_AXIS]: spec.name.trim() }), { barCode: only });
+  }
+  return {
+    specs: [{ name: MERGED_AXIS, values: specs.map((spec) => ({ value: spec.name.trim() })) }],
+    seed,
+  };
+}
+
 export interface SkuMatrixEditorProps {
   value?: ProductSkuInput[] | undefined;
   onChange?: ((value: ProductSkuInput[]) => void) | undefined;
+  /** Replaces the spec items, for 合并为一个规格项. Without it the hint has no button. */
+  onSpecsChange?: ((specs: ProductSpecInput[]) => void) | undefined;
   specs: readonly ProductSpecInput[];
   specMode: boolean;
   kind: ProductKind;
@@ -173,6 +268,7 @@ export interface SkuMatrixEditorProps {
 export function SkuMatrixEditor({
   value,
   onChange,
+  onSpecsChange,
   specs,
   specMode,
   kind,
@@ -187,6 +283,14 @@ export function SkuMatrixEditor({
   const [fillStock, setFillStock] = useState<number | null>(null);
 
   const generate = useRouteMutation(catalogAdminSkuMatrix, { presentError: true });
+  const picker = useAssetPicker();
+  const priceStatus = useEmptyPriceStatus();
+
+  // The rows as they are when the server answers, not when the request went out.
+  const latestRows = useRef(rows);
+  useEffect(() => {
+    latestRows.current = rows;
+  });
 
   const patch = (index: number, changes: Partial<ProductSkuInput>): void => {
     onChange?.(rows.map((row, i) => (i === index ? { ...row, ...changes } : row)));
@@ -195,30 +299,60 @@ export function SkuMatrixEditor({
   /**
    * Regenerate the combinations, carrying every existing row's numbers across
    * by its spec combination. Adding 蓝 to 颜色 must not reset the price of 红.
+   * `seed` fills in a new row (the 条码 a merge carried over).
    */
-  const regenerate = (): void => {
-    if (axes.length === 0 || specs.some((spec) => spec.values.length === 0)) {
-      void message.warning('请先填写完整的规格项和规格值');
+  const regenerate = (
+    target: readonly ProductSpecInput[] = specs,
+    { quiet = false, seed }: { quiet?: boolean; seed?: Map<string, Partial<ProductSkuInput>> } = {},
+  ): void => {
+    if (!specsComplete(target)) {
+      if (!quiet) void message.warning('请先填写完整的规格项和规格值');
       return;
     }
     generate.mutate(
-      { body: { specs: specs.map((spec) => ({ name: spec.name, values: spec.values })) } },
+      { body: { specs: target.map((spec) => ({ name: spec.name, values: spec.values })) } },
       {
         onSuccess: (result) => {
-          const existing = new Map(rows.map((row) => [comboKey(row.specValues), row]));
+          const existing = new Map(
+            latestRows.current.map((row) => [comboKey(row.specValues), row]),
+          );
           const next = result.rows.map((row, index) => {
-            const previous = existing.get(comboKey(row.specValues));
+            const key = comboKey(row.specValues);
+            const previous = existing.get(key);
             return previous
               ? { ...previous, specValues: row.specValues }
-              : { ...blankSku(row.specValues), sortOrder: index };
+              : { ...blankSku(row.specValues), ...seed?.get(key), sortOrder: index };
           });
           if (!next.some((row) => row.isDefault) && next[0])
             next[0] = { ...next[0], isDefault: true };
           onChange?.(next);
-          void message.success(`已生成 ${next.length} 条规格`);
+          if (!quiet) void message.success(`已生成 ${next.length} 条规格`);
         },
       },
     );
+  };
+
+  // The rows follow the spec items a moment after the last keystroke; a product opened for
+  // editing keeps the rows it was saved with.
+  const specsKey = specsKeyOf(specs);
+  const followSpecs = useEffectEvent(() => {
+    if (!rowsMatchSpecs(latestRows.current, specs)) regenerate(specs, { quiet: true });
+  });
+  useEffect(() => {
+    if (!specMode || disabled) return;
+    const timer = setTimeout(followSpecs, 400);
+    return () => clearTimeout(timer);
+  }, [specMode, disabled, specsKey]);
+
+  const mergeSpecs = (): void => {
+    const merged = mergeSingleValueSpecs(specs);
+    onSpecsChange?.(merged.specs);
+    regenerate(merged.specs, { seed: merged.seed });
+  };
+
+  const pickImage = async (index: number): Promise<void> => {
+    const [asset] = await picker.pick({ multiple: false });
+    if (asset) patch(index, { imageUrl: asset.url });
   };
 
   const applyFill = (): void => {
@@ -235,244 +369,297 @@ export function SkuMatrixEditor({
   if (!specMode) {
     const row = rows[0] ?? blankSku();
     return (
-      <Card size="small" styles={{ body: { padding: 12 } }}>
-        <SingleSkuFields
-          row={row}
-          disabled={disabled}
-          cardStock={cardStock}
-          showCost={showCost}
-          onChange={(changes) =>
-            onChange?.([{ ...row, ...changes, specValues: {}, isDefault: true }])
-          }
-        />
-      </Card>
+      <OwnStatus>
+        <Card size="small" styles={{ body: { padding: 12 } }}>
+          <SingleSkuFields
+            row={row}
+            disabled={disabled}
+            cardStock={cardStock}
+            showCost={showCost}
+            priceStatus={priceStatus(row.price)}
+            onChange={(changes) =>
+              onChange?.([{ ...row, ...changes, specValues: {}, isDefault: true }])
+            }
+          />
+        </Card>
+      </OwnStatus>
     );
   }
 
   return (
-    <Space direction="vertical" style={{ width: '100%' }} size={8}>
-      <Space wrap>
-        <Button onClick={regenerate} loading={generate.isPending} disabled={disabled}>
-          生成规格组合
-        </Button>
-        <Typography.Text type="secondary">批量填充：</Typography.Text>
-        <MoneyInput
-          value={fillPrice}
-          onChange={setFillPrice}
-          placeholder="售价"
-          size="small"
-          style={{ width: 120 }}
-        />
-        {cardStock ? null : (
-          <InputNumber
-            value={fillStock}
-            onChange={setFillStock}
-            placeholder="库存"
+    <OwnStatus>
+      <Space direction="vertical" style={{ width: '100%' }} size={8}>
+        <Space wrap>
+          <Button onClick={() => regenerate()} loading={generate.isPending} disabled={disabled}>
+            重新生成
+          </Button>
+          <Typography.Text type="secondary">批量填充：</Typography.Text>
+          <MoneyInput
+            value={fillPrice}
+            onChange={setFillPrice}
+            placeholder="售价"
             size="small"
-            min={0}
-            aria-label="批量库存"
+            style={{ width: 120 }}
           />
-        )}
-        <Button size="small" onClick={applyFill} disabled={disabled}>
-          应用
-        </Button>
-      </Space>
+          {cardStock ? null : (
+            <InputNumber
+              value={fillStock}
+              onChange={setFillStock}
+              placeholder="库存"
+              size="small"
+              min={0}
+              aria-label="批量库存"
+            />
+          )}
+          <Button size="small" onClick={applyFill} disabled={disabled}>
+            应用
+          </Button>
+        </Space>
 
-      {cardStock ? (
-        <Alert
-          type="info"
-          showIcon
-          message="卡密商品的库存等于已导入卡密的数量，保存时不会写入这里填的数字。"
+        {singleValueSpecs(specs) ? (
+          <Alert
+            type="warning"
+            showIcon
+            message={`现在只会生成 1 个 SKU：${specs.length} 个规格项各只有一个值，规格项之间是相互组合的`}
+            description={`如果「${specs.map((spec) => spec.name.trim()).join('」「')}」是同一商品的不同款式，应写成同一个规格项的 ${specs.length} 个值，每个值一行，各自填图片和售价。合并后，像条码的规格值会填进对应行的「条码」。`}
+            action={
+              onSpecsChange && !disabled ? (
+                <Button size="small" icon={<MergeCellsOutlined />} onClick={mergeSpecs}>
+                  合并为一个规格项
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : null}
+
+        {cardStock ? (
+          <Alert
+            type="info"
+            showIcon
+            message="卡密商品的库存等于已导入卡密的数量，保存时不会写入这里填的数字。"
+          />
+        ) : null}
+
+        <Table<ProductSkuInput>
+          size="small"
+          rowKey={(row) => specTextOf(row.specValues, axes) || 'single'}
+          dataSource={rows}
+          pagination={false}
+          scroll={{ x: 1200 }}
+          locale={{ emptyText: '填好上面的规格名和规格值，这里会列出每个组合' }}
+          columns={[
+            ...axes.map((axis) => ({
+              title: axis,
+              key: `axis:${axis}`,
+              width: 100,
+              render: (_value: unknown, row: ProductSkuInput) => row.specValues[axis] ?? '—',
+            })),
+            {
+              title: '图片',
+              key: 'imageUrl',
+              width: 160,
+              render: (_value: unknown, row: ProductSkuInput, index: number) =>
+                row.imageUrl ? (
+                  <Space size={4}>
+                    <Thumbnail src={row.imageUrl} size={40} />
+                    <Space direction="vertical" size={0}>
+                      <Button
+                        type="link"
+                        size="small"
+                        disabled={disabled}
+                        aria-label={`更换规格图片 ${index + 1}`}
+                        onClick={() => pickImage(index)}
+                      >
+                        更换
+                      </Button>
+                      <Button
+                        type="link"
+                        size="small"
+                        danger
+                        disabled={disabled}
+                        aria-label={`清除规格图片 ${index + 1}`}
+                        onClick={() => patch(index, { imageUrl: undefined })}
+                      >
+                        清除
+                      </Button>
+                    </Space>
+                  </Space>
+                ) : (
+                  <Button
+                    size="small"
+                    type="dashed"
+                    icon={<PlusOutlined />}
+                    disabled={disabled}
+                    aria-label={`选择规格图片 ${index + 1}`}
+                    onClick={() => pickImage(index)}
+                  >
+                    选图
+                  </Button>
+                ),
+            },
+            {
+              title: '售价',
+              key: 'price',
+              width: 120,
+              render: (_value: unknown, row: ProductSkuInput, index: number) => (
+                <MoneyInput
+                  size="small"
+                  value={row.price}
+                  disabled={disabled}
+                  aria-label={`售价 ${index + 1}`}
+                  status={priceStatus(row.price)}
+                  placeholder="请填写"
+                  onChange={(next) => patch(index, { price: next ?? '' })}
+                />
+              ),
+            },
+            {
+              title: '原价',
+              key: 'originalPrice',
+              width: 120,
+              render: (_value: unknown, row: ProductSkuInput, index: number) => (
+                <MoneyInput
+                  size="small"
+                  value={row.originalPrice}
+                  disabled={disabled}
+                  onChange={(next) => patch(index, { originalPrice: next })}
+                />
+              ),
+            },
+            ...(showCost
+              ? [
+                  {
+                    title: '成本价',
+                    key: 'cost',
+                    width: 120,
+                    render: (_value: unknown, row: ProductSkuInput, index: number) => (
+                      <MoneyInput
+                        size="small"
+                        value={row.cost}
+                        disabled={disabled}
+                        onChange={(next) => patch(index, { cost: next })}
+                      />
+                    ),
+                  },
+                ]
+              : []),
+            {
+              title: '库存',
+              key: 'stock',
+              width: 100,
+              render: (_value: unknown, row: ProductSkuInput, index: number) => (
+                <InputNumber
+                  size="small"
+                  min={0}
+                  value={row.stock}
+                  disabled={disabled || cardStock}
+                  aria-label={`库存 ${index + 1}`}
+                  onChange={(next) => patch(index, { stock: next ?? 0 })}
+                />
+              ),
+            },
+            {
+              title: '规格编码',
+              key: 'skuCode',
+              width: 140,
+              render: (_value: unknown, row: ProductSkuInput, index: number) => (
+                <Input
+                  size="small"
+                  value={row.skuCode ?? ''}
+                  // A saved SKU keeps its code (orders and exports refer to it);
+                  // only a new combination takes one.
+                  disabled={disabled || isSavedSku(row)}
+                  title={isSavedSku(row) ? SAVED_CODE_HINT : undefined}
+                  placeholder="留空自动生成"
+                  aria-label={`规格编码 ${index + 1}`}
+                  onChange={(event) => patch(index, { skuCode: event.target.value || undefined })}
+                />
+              ),
+            },
+            {
+              title: '条码',
+              key: 'barCode',
+              width: 140,
+              render: (_value: unknown, row: ProductSkuInput, index: number) => (
+                <Input
+                  size="small"
+                  value={row.barCode ?? ''}
+                  disabled={disabled}
+                  aria-label={`条码 ${index + 1}`}
+                  onChange={(event) => patch(index, { barCode: event.target.value || undefined })}
+                />
+              ),
+            },
+            {
+              title: '重量(kg)',
+              key: 'weight',
+              width: 110,
+              render: (_value: unknown, row: ProductSkuInput, index: number) => (
+                <Input
+                  size="small"
+                  value={row.weight ?? ''}
+                  disabled={disabled}
+                  inputMode="decimal"
+                  aria-label={`重量 ${index + 1}`}
+                  onChange={(event) => patch(index, { weight: event.target.value || undefined })}
+                />
+              ),
+            },
+            {
+              title: '体积(m³)',
+              key: 'volume',
+              width: 110,
+              render: (_value: unknown, row: ProductSkuInput, index: number) => (
+                <Input
+                  size="small"
+                  value={row.volume ?? ''}
+                  disabled={disabled}
+                  inputMode="decimal"
+                  aria-label={`体积 ${index + 1}`}
+                  onChange={(event) => patch(index, { volume: event.target.value || undefined })}
+                />
+              ),
+            },
+            {
+              title: '默认',
+              key: 'isDefault',
+              width: 70,
+              render: (_value: unknown, row: ProductSkuInput, index: number) => (
+                <Checkbox
+                  checked={row.isDefault}
+                  disabled={disabled}
+                  aria-label={`默认规格 ${index + 1}`}
+                  // Exactly one default, enforced here rather than left to the
+                  // contract's 422: clicking a second one moves it.
+                  onChange={(event) =>
+                    onChange?.(
+                      rows.map((item, i) => ({
+                        ...item,
+                        isDefault: event.target.checked && i === index,
+                      })),
+                    )
+                  }
+                />
+              ),
+            },
+            {
+              title: '显示',
+              key: 'isVisible',
+              width: 70,
+              render: (_value: unknown, row: ProductSkuInput, index: number) => (
+                <Checkbox
+                  checked={row.isVisible}
+                  disabled={disabled}
+                  aria-label={`显示规格 ${index + 1}`}
+                  onChange={(event) => patch(index, { isVisible: event.target.checked })}
+                />
+              ),
+            },
+          ]}
         />
-      ) : null}
-
-      <Table<ProductSkuInput>
-        size="small"
-        rowKey={(row) => specTextOf(row.specValues, axes) || 'single'}
-        dataSource={rows}
-        pagination={false}
-        scroll={{ x: 1200 }}
-        locale={{ emptyText: '还没有规格组合，点「生成规格组合」' }}
-        columns={[
-          ...axes.map((axis) => ({
-            title: axis,
-            key: `axis:${axis}`,
-            width: 100,
-            render: (_value: unknown, row: ProductSkuInput) => row.specValues[axis] ?? '—',
-          })),
-          {
-            title: '图片',
-            key: 'imageUrl',
-            width: 160,
-            render: (_value: unknown, row: ProductSkuInput, index: number) => (
-              <Input
-                size="small"
-                value={row.imageUrl ?? ''}
-                disabled={disabled}
-                placeholder="图片地址"
-                aria-label={`规格图片 ${index + 1}`}
-                onChange={(event) => patch(index, { imageUrl: event.target.value || undefined })}
-              />
-            ),
-          },
-          {
-            title: '售价',
-            key: 'price',
-            width: 120,
-            render: (_value: unknown, row: ProductSkuInput, index: number) => (
-              <MoneyInput
-                size="small"
-                value={row.price}
-                disabled={disabled}
-                onChange={(next) => patch(index, { price: next ?? '0.00' })}
-              />
-            ),
-          },
-          {
-            title: '原价',
-            key: 'originalPrice',
-            width: 120,
-            render: (_value: unknown, row: ProductSkuInput, index: number) => (
-              <MoneyInput
-                size="small"
-                value={row.originalPrice}
-                disabled={disabled}
-                onChange={(next) => patch(index, { originalPrice: next })}
-              />
-            ),
-          },
-          ...(showCost
-            ? [
-                {
-                  title: '成本价',
-                  key: 'cost',
-                  width: 120,
-                  render: (_value: unknown, row: ProductSkuInput, index: number) => (
-                    <MoneyInput
-                      size="small"
-                      value={row.cost}
-                      disabled={disabled}
-                      onChange={(next) => patch(index, { cost: next })}
-                    />
-                  ),
-                },
-              ]
-            : []),
-          {
-            title: '库存',
-            key: 'stock',
-            width: 100,
-            render: (_value: unknown, row: ProductSkuInput, index: number) => (
-              <InputNumber
-                size="small"
-                min={0}
-                value={row.stock}
-                disabled={disabled || cardStock}
-                aria-label={`库存 ${index + 1}`}
-                onChange={(next) => patch(index, { stock: next ?? 0 })}
-              />
-            ),
-          },
-          {
-            title: '规格编码',
-            key: 'skuCode',
-            width: 140,
-            render: (_value: unknown, row: ProductSkuInput, index: number) => (
-              <Input
-                size="small"
-                value={row.skuCode ?? ''}
-                // A saved SKU keeps its code (orders and exports refer to it);
-                // only a new combination takes one.
-                disabled={disabled || isSavedSku(row)}
-                title={isSavedSku(row) ? SAVED_CODE_HINT : undefined}
-                placeholder="留空自动生成"
-                aria-label={`规格编码 ${index + 1}`}
-                onChange={(event) => patch(index, { skuCode: event.target.value || undefined })}
-              />
-            ),
-          },
-          {
-            title: '条码',
-            key: 'barCode',
-            width: 140,
-            render: (_value: unknown, row: ProductSkuInput, index: number) => (
-              <Input
-                size="small"
-                value={row.barCode ?? ''}
-                disabled={disabled}
-                aria-label={`条码 ${index + 1}`}
-                onChange={(event) => patch(index, { barCode: event.target.value || undefined })}
-              />
-            ),
-          },
-          {
-            title: '重量(kg)',
-            key: 'weight',
-            width: 110,
-            render: (_value: unknown, row: ProductSkuInput, index: number) => (
-              <Input
-                size="small"
-                value={row.weight ?? ''}
-                disabled={disabled}
-                inputMode="decimal"
-                aria-label={`重量 ${index + 1}`}
-                onChange={(event) => patch(index, { weight: event.target.value || undefined })}
-              />
-            ),
-          },
-          {
-            title: '体积(m³)',
-            key: 'volume',
-            width: 110,
-            render: (_value: unknown, row: ProductSkuInput, index: number) => (
-              <Input
-                size="small"
-                value={row.volume ?? ''}
-                disabled={disabled}
-                inputMode="decimal"
-                aria-label={`体积 ${index + 1}`}
-                onChange={(event) => patch(index, { volume: event.target.value || undefined })}
-              />
-            ),
-          },
-          {
-            title: '默认',
-            key: 'isDefault',
-            width: 70,
-            render: (_value: unknown, row: ProductSkuInput, index: number) => (
-              <Checkbox
-                checked={row.isDefault}
-                disabled={disabled}
-                aria-label={`默认规格 ${index + 1}`}
-                // Exactly one default, enforced here rather than left to the
-                // contract's 422: clicking a second one moves it.
-                onChange={(event) =>
-                  onChange?.(
-                    rows.map((item, i) => ({
-                      ...item,
-                      isDefault: event.target.checked && i === index,
-                    })),
-                  )
-                }
-              />
-            ),
-          },
-          {
-            title: '显示',
-            key: 'isVisible',
-            width: 70,
-            render: (_value: unknown, row: ProductSkuInput, index: number) => (
-              <Checkbox
-                checked={row.isVisible}
-                disabled={disabled}
-                aria-label={`显示规格 ${index + 1}`}
-                onChange={(event) => patch(index, { isVisible: event.target.checked })}
-              />
-            ),
-          },
-        ]}
-      />
-    </Space>
+        {picker.holder}
+      </Space>
+    </OwnStatus>
   );
 }
 
@@ -482,12 +669,14 @@ function SingleSkuFields({
   disabled,
   cardStock,
   showCost,
+  priceStatus,
 }: {
   row: ProductSkuInput;
   onChange: (changes: Partial<ProductSkuInput>) => void;
   disabled: boolean;
   cardStock: boolean;
   showCost: boolean;
+  priceStatus: 'error' | undefined;
 }) {
   return (
     <Space wrap size={12}>
@@ -496,7 +685,10 @@ function SingleSkuFields({
           value={row.price}
           disabled={disabled}
           style={{ width: 120 }}
-          onChange={(next) => onChange({ price: next ?? '0.00' })}
+          aria-label="售价"
+          status={priceStatus}
+          placeholder="请填写"
+          onChange={(next) => onChange({ price: next ?? '' })}
         />
       </Field>
       <Field label="原价">

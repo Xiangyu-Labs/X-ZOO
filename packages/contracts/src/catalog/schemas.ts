@@ -1,5 +1,14 @@
 import { z } from 'zod';
-import { id, idList, instant, money, pageQuery, paged, sortQuery } from '../_conventions/common';
+import {
+  id,
+  idList,
+  instant,
+  money,
+  pageQuery,
+  requiredMoney,
+  paged,
+  sortQuery,
+} from '../_conventions/common';
 
 /**
  * Shapes shared by the catalog routes.
@@ -394,7 +403,7 @@ export const productSkuInput = z.object({
   specValues: z.record(z.string(), z.string()),
   skuCode: z.string().trim().max(32).optional(),
   imageUrl: z.string().max(512).optional(),
-  price: money,
+  price: requiredMoney('请填写售价'),
   originalPrice: money.optional(),
   cost: money.optional(),
   stock: z.number().int().min(0).max(1_000_000_000),

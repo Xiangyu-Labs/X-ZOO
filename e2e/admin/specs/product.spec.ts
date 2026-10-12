@@ -52,6 +52,8 @@ test('create a product in the admin and the storefront API returns it', async ({
 
   // The single-SKU card. Its controls are captions with aria-labels, not
   // Form.Item labels.
+  // A new product has no price until one is typed.
+  await adminPage.getByLabel('售价', { exact: true }).first().fill('9.90');
   await adminPage.getByLabel('库存', { exact: true }).first().fill('7');
 
   await adminPage.getByRole('button', { name: cjk('保存') }).click();
@@ -94,6 +96,7 @@ test('a draft product is not on the storefront', async ({ adminPage, request }) 
   // `check()` refuses to act on; the label beside it is what an operator
   // clicks and what actually toggles the group.
   await adminPage.getByText('包邮', { exact: true }).click();
+  await adminPage.getByLabel('售价', { exact: true }).first().fill('9.90');
   await adminPage.getByRole('button', { name: cjk('保存') }).click();
 
   await expect(adminPage).toHaveURL(/\/admin\/catalog\/products\/\d+$/);

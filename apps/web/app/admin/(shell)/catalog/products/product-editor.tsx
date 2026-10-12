@@ -187,6 +187,15 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
     [paramTemplates.data],
   );
 
+  // 合并为一个规格项 rewrites the spec items from inside the SKU table.
+  const setSpecs = useCallback(
+    (next: ProductSpecInput[]) => {
+      form.setFieldValue('specs', next);
+      setDirty(true);
+    },
+    [form],
+  );
+
   const fields = useMemo(
     () =>
       buildFields({
@@ -198,6 +207,7 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
         specMode,
         kind,
         showCost,
+        setSpecs,
       }),
     // `labelOptions`/`protectionOptions` are rebuilt every render; their data is what matters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -210,6 +220,7 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
       specMode,
       kind,
       showCost,
+      setSpecs,
     ],
   );
 
@@ -324,6 +335,7 @@ function buildFields({
   specMode,
   kind,
   showCost,
+  setSpecs,
 }: {
   labelOptions: SelectOption[];
   protectionOptions: SelectOption[];
@@ -333,6 +345,7 @@ function buildFields({
   specMode: boolean;
   kind: ProductKind;
   showCost: boolean;
+  setSpecs: (next: ProductSpecInput[]) => void;
 }): FieldSpec<Extract<keyof AdminProductForm, string>>[] {
   return [
     {
@@ -489,6 +502,7 @@ function buildFields({
       section: '价格与规格',
       label: '规格项',
       span: 24,
+      help: '规格名是分类（颜色），规格值是选项（粉色、紫色）：同一规格项的每个值是一行 SKU；有多个规格项时相互组合（颜色 × 尺码）',
       visibleWhen: (values) => values.specMode === true,
       render: ({ value, onChange, disabled }) => (
         <SpecEditor
@@ -508,6 +522,7 @@ function buildFields({
         <SkuMatrixEditor
           value={value as ProductSkuInput[] | undefined}
           onChange={onChange}
+          onSpecsChange={setSpecs}
           specs={specs}
           specMode={specMode}
           kind={kind}
