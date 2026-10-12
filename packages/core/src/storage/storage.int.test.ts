@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import sharp from 'sharp';
@@ -867,28 +869,54 @@ describe('image variants', () => {
     }
   });
 
-  it('a picture the old system brought in (attach/…/<yyyymmdd>/…) gets its thumbnails from the backfill', async () => {
+  it('a picture the old system brought in gets its thumbnails once migration 0024 corrects its key', async () => {
+    const MIGRATION = fileURLToPath(
+      new URL('../../../db/migrations/0024_legacy_attach_storage_keys.sql', import.meta.url),
+    );
+    const runMigration = () => harness.db.handle.pool.query(readFileSync(MIGRATION, 'utf8'));
     const ctx = as(adminActor(adminId));
-    const uploaded = await attachmentUpload(ctx, { directory: 'product' }, await jpeg(1200, 800));
-    // Move it where the old system kept its files, one day directory deeper.
-    const key = await storageKeyOf(uploaded.attachment.id);
-    const legacyKey = `attach/2026/09/20260915/${key.split('/').pop()}`;
     const files = (harness.ctx.storage as unknown as { files: Map<string, Buffer> }).files;
-    files.set(legacyKey, files.get(key)!);
-    files.delete(key);
-    await harness.ctx.db
-      .update(attachments)
-      .set({ storageKey: legacyKey, url: `/uploads/${legacyKey}` })
-      .where(eq(attachments.id, Number(uploaded.attachment.id)));
+
+    /** Recorded as the old system's import did: the file under `attach/…`, the key under `uploads/attach/…`. */
+    async function legacy(salt: number, url?: string): Promise<{ id: string; key: string }> {
+      const uploaded = await attachmentUpload(
+        ctx,
+        { directory: 'product' },
+        await jpeg(1200, 800, salt),
+      );
+      const stored = await storageKeyOf(uploaded.attachment.id);
+      const key = `attach/2026/09/20260915/${stored.split('/').pop()}`;
+      files.set(key, files.get(stored)!);
+      files.delete(stored);
+      await harness.ctx.db
+        .update(attachments)
+        .set({ storageKey: `uploads/${key}`, url: url ?? `/uploads/${key}` })
+        .where(eq(attachments.id, Number(uploaded.attachment.id)));
+      return { id: uploaded.attachment.id, key };
+    }
+    const moved = await legacy(1);
+    // A URL that does not agree with the corrected key is left for a person to look at.
+    const odd = await legacy(2, '/uploads/elsewhere/odd.jpg');
+
+    // Before: the driver looks under `uploads/attach/…`, where nothing is.
+    expect(await generateImageVariants(ctx, { attachmentId: moved.id })).toMatchObject({
+      written: [],
+      skipped: 'no-variants',
+    });
+
+    await runMigration();
+    await runMigration();
+    expect(await storageKeyOf(moved.id)).toBe(moved.key);
+    expect(await storageKeyOf(odd.id)).toBe(`uploads/${odd.key}`);
 
     expect(await backfillImageVariants(ctx, { limit: 10 })).toMatchObject({
       written: 1,
       failed: 0,
     });
     for (const width of [480, 960] as const) {
-      expect((await sharp(files.get(variantKey(legacyKey, width))!).metadata()).width).toBe(width);
+      expect((await sharp(files.get(variantKey(moved.key, width))!).metadata()).width).toBe(width);
     }
-    expect(await isStoredImageUrl(ctx, `/uploads/${variantKey(legacyKey, 480)}`)).toBe(true);
+    expect(await isStoredImageUrl(ctx, `/uploads/${variantKey(moved.key, 480)}`)).toBe(true);
   });
 
   it('the backfill walks the library in id order, batch by batch, skipping the deleted', async () => {
