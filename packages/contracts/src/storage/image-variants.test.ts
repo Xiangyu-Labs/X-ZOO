@@ -19,12 +19,25 @@ describe('image variant naming', () => {
     expect(hasImageVariants(`attachment/2026/09/${HEX}.webp`)).toBe(true);
   });
 
-  it('has no variant for a GIF, a BMP, a non-image or a legacy path', () => {
+  it('derives one for the old system’s files too, a day directory deeper', () => {
+    expect(imageVariantKey(`attach/2022/08/20220815/${HEX}.jpg`, 960)).toBe(
+      `attach/2022/08/20220815/${HEX}.w960.jpg`,
+    );
+    expect(imageVariantUrl(`/uploads/attach/2026/09/20260915/${HEX}.jpg`, 480)).toBe(
+      `/uploads/attach/2026/09/20260915/${HEX}.w480.jpg`,
+    );
+    expect(originalImageUrl(`/uploads/attach/2026/09/20260915/${HEX}.w480.jpg`)).toBe(
+      `/uploads/attach/2026/09/20260915/${HEX}.jpg`,
+    );
+  });
+
+  it('has no variant for a GIF, a BMP, a non-image or a path of another shape', () => {
     for (const key of [
       `product/2026/02/${HEX}.gif`,
       `product/2026/02/${HEX}.bmp`,
       `product/2026/02/${HEX}.pdf`,
-      `attach/2022/08/20220815/${HEX}.jpg`,
+      `attach/2022/08/2022081/${HEX}.jpg`,
+      `attach/2022/08/20220815/extra/${HEX}.jpg`,
       `product/2026/02/not-a-hash.jpg`,
       `product/2026/02/${HEX}.w480.jpg`,
     ]) {
@@ -53,7 +66,7 @@ describe('image variant naming', () => {
   it('leaves alone a URL that is not ours, or is signed or processed', () => {
     for (const url of [
       'https://thirdwx.qlogo.cn/mmopen/abc/132',
-      `https://example.com/uploads/attach/2022/08/20220815/${HEX}.jpg`,
+      `https://example.com/uploads/attach/2022/08/20220815/${HEX}.gif`,
       `/uploads/product/2026/02/${HEX}.gif`,
       `/uploads/product/2026/02/${HEX}.jpg?x-oss-process=image/resize,w_100`,
       `/uploads/product/2026/02/${HEX}.jpg#top`,
