@@ -237,6 +237,34 @@ describe('RichText', () => {
     // The blank one between 图 and 结尾 is the operator's spacing and stays.
     expect(paragraphs.map((p) => p.textContent)).toEqual(['正文', '', '', '结尾']);
   });
+
+  it('stacks pictures in a row without a gap, and keeps one above text', () => {
+    const { container } = render(
+      <RichText
+        props={{
+          ...fixtureRichText,
+          html:
+            '<img src="/uploads/a/1.jpg"><img src="/uploads/a/2.jpg">' +
+            '<p><img src="/uploads/a/3.jpg"></p><p><img src="/uploads/a/4.jpg"><br>&nbsp;</p>' +
+            '<p>文字</p><img src="/uploads/a/5.jpg"><p></p>',
+        }}
+      />,
+    );
+    const root = container.querySelector('.sbd-rich-text') as HTMLElement;
+    const [one, two, three, four, five] = Array.from(root.querySelectorAll('img'));
+    const [p3, p4] = Array.from(root.querySelectorAll('p'));
+    expect([one, two, three, four, five].map((img) => img?.style.marginBottom)).toEqual([
+      '0px',
+      '0px',
+      '0px',
+      '0px',
+      '0px',
+    ]);
+    expect(p3?.style.marginBottom).toBe('0px');
+    expect(p4?.style.marginBottom).toBe('0.6em');
+    expect(p4?.querySelector('br')).toBeNull();
+    expect(p4?.textContent).toBe('');
+  });
 });
 
 describe('ProductGrid layouts', () => {

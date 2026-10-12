@@ -31,27 +31,55 @@ const BASE_STYLE: Readonly<Record<string, string>> = {
   pre: 'margin:0 0 0.6em;padding:0.6em;background:#f7f7f7;white-space:pre-wrap;word-break:break-all;font-size:0.86em;',
   code: 'font-family:Menlo,Consolas,monospace;font-size:0.93em;',
   hr: 'margin:0.8em 0;border:0;border-top:1px solid #e5e5e5;',
-  img: 'margin:0 0 0.6em;',
+  img: 'margin:0;',
 };
+
+/** Below a picture that text follows; pictures in a row touch, as a sliced long poster must. */
+const PICTURE_GAP = 'margin-bottom:0.6em;';
+
+/**
+ * A picture, or a paragraph holding nothing but pictures and blank space (`<p><img></p>`, the
+ * old editor's way of inserting one).
+ */
+function picture(node: RichTextNode): boolean {
+  if ('type' in node) return false;
+  if (node.name === 'img') return true;
+  if (node.name !== 'p' && node.name !== 'div') return false;
+  const children = node.children ?? [];
+  return (
+    children.some((child) => !('type' in child) && child.name === 'img') &&
+    children.every((child) => blank(child) || (!('type' in child) && child.name === 'img'))
+  );
+}
 
 /**
  * Styles each node, and loads each picture through the host's resolver: the admin editor
  * stores a site-relative `/uploads/…` path, which loads nothing in the mini-program until it
  * is put against the shop's origin. The original, never a smaller copy: `<rich-text>` has no
  * fallback when a copy is missing.
+ *
+ * Pictures in a row have no gap between them; one that text follows keeps a gap below. A
+ * picture paragraph keeps only its pictures: a `<br>` or `&nbsp;` beside a block picture is a
+ * blank line of its own.
  */
 function styled(nodes: readonly RichTextNode[], resolve?: ImageResolver): RichTextNode[] {
-  return nodes.map((node) => {
+  return nodes.map((node, index) => {
     if ('type' in node) return node;
-    const base = BASE_STYLE[node.name] ?? '';
+    const isPicture = picture(node);
+    const next = nodes.slice(index + 1).find((sibling) => !('type' in sibling) || !blank(sibling));
+    let base = BASE_STYLE[node.name] ?? '';
+    if (isPicture) base = 'margin:0;' + (next && !picture(next) ? PICTURE_GAP : '');
     const own = node.attrs?.style ?? '';
     const attrs = { ...node.attrs };
     if (base || own) attrs.style = base + own;
     if (node.name === 'img' && attrs.src && resolve) attrs.src = resolve(attrs.src);
+    const children = isPicture
+      ? node.children?.filter((child) => !('type' in child) && child.name === 'img')
+      : node.children;
     return {
       name: node.name,
       attrs,
-      ...(node.children ? { children: styled(node.children, resolve) } : {}),
+      ...(children ? { children: styled(children, resolve) } : {}),
     };
   });
 }
