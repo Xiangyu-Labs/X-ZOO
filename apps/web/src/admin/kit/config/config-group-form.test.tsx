@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 import { resetApiConfig } from '@/admin/api/config';
 import { on, respondWithError, stubRoutes } from '@/test/api';
+import { withStubAssets } from '@/test/asset-source';
 import { renderAdmin, zhName } from '@/test/render';
 
 import { ConfigGroupForm } from './config-group-form';
@@ -92,6 +93,17 @@ describe('buildConfigPayload', () => {
     );
     expect(payload).not.toHaveProperty('threshold');
   });
+
+  it('sends a cleared field as null, so the server does not keep the old value', () => {
+    const payload = buildConfigPayload(descriptor, { ...values, mode: undefined }, {});
+    expect(payload).toHaveProperty('mode', null);
+  });
+
+  it('sends nothing for a field the form does not hold', () => {
+    const { mode: _mode, ...rest } = values;
+    const payload = buildConfigPayload(descriptor, rest, {});
+    expect(payload).not.toHaveProperty('mode');
+  });
 });
 
 describe('isConfigFieldVisible', () => {
@@ -160,6 +172,32 @@ describe('<ConfigGroupForm> secrets', () => {
     await user.click(screen.getByRole('button', { name: zhName('保存') }));
 
     await waitFor(() => expect(screen.getByTestId('secret-input-apiSecret')).toHaveValue(''));
+  });
+
+  it('sends a removed picture as null, so saving puts the default back', async () => {
+    const user = userEvent.setup();
+    const { bodies } = stubSave();
+    const withIcon: ConfigGroupDescriptor = {
+      ...descriptor,
+      fields: [...descriptor.fields, { key: 'icon', label: '图标', kind: 'asset' }],
+    };
+    renderAdmin(
+      withStubAssets(
+        <ConfigGroupForm
+          descriptor={withIcon}
+          values={{ ...values, icon: '/uploads/icon.png' }}
+          route={saveRoute}
+        />,
+      ),
+    );
+
+    await user.click(screen.getByRole('button', { name: '移除' }));
+    await user.click(screen.getByRole('button', { name: zhName('保存') }));
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    const sent = (bodies[0] as { values: Record<string, unknown> }).values;
+    expect(sent).toHaveProperty('icon', null);
+    expect(sent['siteName']).toBe('示例商城');
   });
 
   it('sends the group as a path param', async () => {
@@ -620,7 +658,8 @@ describe('<ConfigGroupForm> 测试', () => {
     await user.click(screen.getByRole('button', { name: zhName('确定，开始测试') }));
     await waitFor(() => expect(bodies).toHaveLength(1));
     expect(bodies[0]).toEqual({
-      values: { siteName: '示例商城2', smsSecret: 'typed-key', mode: 'express' },
+      // 门槛 was never filled in: blank, which the server reads as its default.
+      values: { siteName: '示例商城2', smsSecret: 'typed-key', mode: 'express', threshold: null },
       input: { phone: '13800138000' },
     });
     expect(await screen.findByText('测试未通过')).toBeInTheDocument();

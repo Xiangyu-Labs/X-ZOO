@@ -608,6 +608,31 @@ describe('config', () => {
     );
   });
 
+  it('puts a cleared field back to its default instead of keeping the old value', async () => {
+    // The admin sends `null` for a picture removed or a number emptied.
+    const ctx = as(superId);
+    await configSave(
+      ctx,
+      { group: 'storefront-appearance' },
+      { values: { tabHomeIcon: '/uploads/a/2026/10/home.png', tabHomeLabel: '主页' } },
+    );
+    await configSave(ctx, { group: 'order' }, { values: { payWindowMinutes: 45 } });
+
+    await configSave(ctx, { group: 'storefront-appearance' }, { values: { tabHomeIcon: null } });
+    await configSave(ctx, { group: 'order' }, { values: { payWindowMinutes: null } });
+
+    const appearance = await configGet(ctx, { group: 'storefront-appearance' });
+    expect(appearance.values['tabHomeIcon']).toBe('');
+    expect(appearance.values['tabHomeLabel']).toBe('主页');
+    expect((await configGet(ctx, { group: 'order' })).values['payWindowMinutes']).toBe(30);
+  });
+
+  it('keeps null for a field whose value can be null', async () => {
+    const ctx = as(superId);
+    await configSave(ctx, { group: 'site' }, { values: { splashLinkTarget: null } });
+    expect((await configGet(ctx, { group: 'site' })).values['splashLinkTarget']).toBeNull();
+  });
+
   it('refuses a key the group does not declare', async () => {
     expect(
       await code(configSave(as(superId), { group: 'site' }, { values: { evil: 'yes' } })),

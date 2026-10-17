@@ -466,6 +466,10 @@ export const configGroupList = z.object({ groups: z.array(configGroupSummary) })
  * **Secrets never travel.** A `secret` field's value here is `true`/`false`
  * ("is set"), never the stored string. The same rule applies to the save
  * payload: a secret key absent from `values` leaves the stored value untouched.
+ *
+ * In the save payload, any key absent from `values` is left as stored, and
+ * `null` is a field the operator cleared: it goes back to the field's default
+ * (a field that may itself be `null` stays `null`).
  */
 export const configGroupValues = z.object({
   descriptor: configGroupDescriptor,
