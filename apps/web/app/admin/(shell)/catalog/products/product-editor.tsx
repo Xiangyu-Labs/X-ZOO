@@ -456,7 +456,7 @@ function buildFields({
       allowClear: true,
     },
 
-    { kind: 'asset', name: 'imageUrl', section: '图片与视频', label: '商品主图', span: 12 },
+    { kind: 'asset', name: 'imageUrl', section: '图片与视频', label: '商品缩略图', span: 12 },
     {
       kind: 'asset',
       name: 'cardImageUrl',
@@ -469,7 +469,7 @@ function buildFields({
       kind: 'asset',
       name: 'sliderImages',
       section: '图片与视频',
-      label: '轮播图',
+      label: '商品轮播图',
       span: 24,
       multiple: true,
       max: 10,

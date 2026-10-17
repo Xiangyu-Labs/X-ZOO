@@ -26,7 +26,7 @@ test('create a product in the admin and the storefront API returns it', async ({
   await adminPage.getByLabel('状态', { exact: true }).click();
   await adminPage.getByTitle('出售中', { exact: true }).click();
 
-  // 商品主图 is required and has no text input — it is an AssetField, which
+  // 商品缩略图 is required and has no text input — it is an AssetField, which
   // opens the picker. Upload into the picker, so this spec does not depend on
   // the library already containing anything.
   await adminPage.getByTestId('asset-field-add').first().click();

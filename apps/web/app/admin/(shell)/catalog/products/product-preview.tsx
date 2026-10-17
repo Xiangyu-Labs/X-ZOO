@@ -171,7 +171,7 @@ export function ProductPreview({ form, sales = 0 }: { form: FormInstance; sales?
         {pictures.length > 0 ? (
           <CopyImage src={pictures[current]!} copy={960} alt="" />
         ) : (
-          <div className="pp-gallery-empty">还没有商品主图</div>
+          <div className="pp-gallery-empty">还没有商品缩略图</div>
         )}
         {pictures.length > 1 ? (
           <span className="pp-counter">
