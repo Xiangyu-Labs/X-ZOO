@@ -115,6 +115,7 @@ export function productDetailFixture(overrides: Partial<Detail> = {}): Detail {
     ...cardFixture(),
     sliderImages: ['/uploads/p12.jpg', '/uploads/p12-b.jpg'],
     videoUrl: null,
+    videoPosterUrl: null,
     specMode: true,
     minPurchaseQuantity: 1,
     purchaseLimitMode: 'none',

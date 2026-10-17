@@ -953,6 +953,8 @@ function productValues(body: AdminProductForm): repo.NewProductValues {
     cardImageUrl: orNull(body.cardImageUrl),
     sliderImages: body.sliderImages,
     videoUrl: orNull(body.videoUrl),
+    // A cover belongs to its video: removing the video drops it too.
+    videoPosterUrl: body.videoUrl ? orNull(body.videoPosterUrl) : null,
     unitName: orNull(body.unitName),
     originalPrice: orNull(body.originalPrice),
     displaySalesBoost: body.displaySalesBoost,
@@ -1373,6 +1375,7 @@ async function buildProductDetail(
     cardImageUrl: row.cardImageUrl,
     sliderImages: row.sliderImages,
     videoUrl: row.videoUrl,
+    videoPosterUrl: row.videoPosterUrl,
     unitName: row.unitName,
     freightMode: row.freightMode,
     fixedFreight: row.fixedFreight,

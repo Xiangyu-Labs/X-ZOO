@@ -23,6 +23,8 @@ import { isMoney, moneyToFen } from '@/admin/kit/money';
  * its 750-wide design px.
  */
 
+type Slide = { video: string; poster: string | undefined } | { image: string };
+
 const WIDTH = 375;
 const HEIGHT = 720;
 
@@ -40,7 +42,7 @@ body {
 *, *::before, *::after { box-sizing: border-box; }
 .pp-nav { position: sticky; top: 0; z-index: 2; height: 44px; display: flex; align-items: center; justify-content: center; background: #fff; font-size: 16px; font-weight: 600; }
 .pp-gallery { position: relative; width: 375px; height: 375px; background: #fff; cursor: pointer; }
-.pp-gallery img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.pp-gallery img, .pp-gallery video { display: block; width: 100%; height: 100%; object-fit: cover; }
 .pp-gallery-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: #bbb; font-size: 13px; }
 .pp-counter { position: absolute; right: 12px; bottom: 12px; padding: 1px 8px; border-radius: 999px; background: rgba(0,0,0,.45); color: #fff; font-size: 11px; line-height: 15px; }
 .pp-summary { display: flex; flex-direction: column; gap: 6px; padding: 12px; background: #fff; }
@@ -145,6 +147,8 @@ export function ProductPreview({ form, sales = 0 }: { form: FormInstance; sales?
   const subtitle = Form.useWatch<string | undefined>('subtitle', form);
   const imageUrl = Form.useWatch<string | undefined>('imageUrl', form);
   const sliderImages = Form.useWatch<string[] | undefined>('sliderImages', form);
+  const videoUrl = Form.useWatch<string | undefined>('videoUrl', form);
+  const videoPosterUrl = Form.useWatch<string | undefined>('videoPosterUrl', form);
   const originalPrice = Form.useWatch<string | undefined>('originalPrice', form);
   const boost = Form.useWatch<number | undefined>('displaySalesBoost', form);
   const skus = Form.useWatch<ProductSkuInput[] | undefined>('skus', form);
@@ -152,9 +156,15 @@ export function ProductPreview({ form, sales = 0 }: { form: FormInstance; sales?
   const html = Form.useWatch<string | undefined>('descriptionHtml', form);
   const [slide, setSlide] = useState(0);
 
-  const pictures =
+  const images =
     (sliderImages ?? []).length > 0 ? (sliderImages ?? []) : imageUrl ? [imageUrl] : [];
-  const current = pictures.length > 0 ? slide % pictures.length : 0;
+  // The main video is the first slide, as on the phone.
+  const slides: Slide[] = [
+    ...(videoUrl ? [{ video: videoUrl, poster: videoPosterUrl || imageUrl || undefined }] : []),
+    ...images.map((image) => ({ image })),
+  ];
+  const current = slides.length > 0 ? slide % slides.length : 0;
+  const shown = slides[current];
   const price = shownPrice(skus ?? []);
   const strike = strikeOf(price, originalPrice);
   const shownSales = sales + (boost ?? 0);
@@ -165,17 +175,29 @@ export function ProductPreview({ form, sales = 0 }: { form: FormInstance; sales?
       <div className="pp-nav">商品详情</div>
       <div
         className="pp-gallery"
-        title={pictures.length > 1 ? '点击看下一张' : undefined}
+        title={slides.length > 1 ? '点击看下一张' : undefined}
         onClick={() => setSlide(current + 1)}
       >
-        {pictures.length > 0 ? (
-          <CopyImage src={pictures[current]!} copy={960} alt="" />
-        ) : (
+        {shown === undefined ? (
           <div className="pp-gallery-empty">还没有商品缩略图</div>
+        ) : 'video' in shown ? (
+          // Its own controls play and seek; a click on it does not turn the page.
+          <video
+            key={shown.video}
+            src={shown.video}
+            {...(shown.poster ? { poster: shown.poster } : {})}
+            controls
+            playsInline
+            preload="metadata"
+            data-testid="preview-video"
+            onClick={(event) => event.stopPropagation()}
+          />
+        ) : (
+          <CopyImage src={shown.image} copy={960} alt="" />
         )}
-        {pictures.length > 1 ? (
+        {slides.length > 1 ? (
           <span className="pp-counter">
-            {current + 1}/{pictures.length}
+            {current + 1}/{slides.length}
           </span>
         ) : null}
       </div>

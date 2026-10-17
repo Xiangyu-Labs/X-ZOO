@@ -480,6 +480,8 @@ export const adminProductDetail = adminProductListItem.extend({
   cardImageUrl: z.string().nullable(),
   sliderImages: z.array(z.string()),
   videoUrl: z.string().nullable(),
+  /** Cover over the main video until it plays; `null` uses `imageUrl`. */
+  videoPosterUrl: z.string().nullable(),
   unitName: z.string().nullable(),
   freightMode: productFreightMode,
   fixedFreight: money.nullable(),
@@ -521,6 +523,8 @@ export const adminProductForm = z
     cardImageUrl: z.string().max(512).optional(),
     sliderImages: z.array(z.string().max(512)).max(10).default([]),
     videoUrl: z.string().max(512).optional(),
+    /** Only with `videoUrl`; absent shows `imageUrl` over the video. */
+    videoPosterUrl: z.string().max(512).optional(),
     unitName: z.string().trim().max(32).optional(),
     originalPrice: money.optional(),
     displaySalesBoost: z.number().int().min(0).max(1_000_000).default(0),
@@ -1000,6 +1004,8 @@ export const storefrontSpec = z.object({
 export const storefrontProduct = productCard.extend({
   sliderImages: z.array(z.string()),
   videoUrl: z.string().nullable(),
+  /** Cover over `videoUrl` until it plays; `null` means show `imageUrl`. */
+  videoPosterUrl: z.string().nullable(),
   specMode: z.boolean(),
   minPurchaseQuantity: z.number().int().min(1),
   purchaseLimitMode: productPurchaseLimitMode,
@@ -1348,6 +1354,7 @@ export const adminProductDetailExample: AdminProductDetail = {
   cardImageUrl: null,
   sliderImages: ['https://cdn.example.com/p/1.png', 'https://cdn.example.com/p/1-back.png'],
   videoUrl: null,
+  videoPosterUrl: null,
   unitName: '件',
   freightMode: 'template',
   fixedFreight: null,
@@ -1459,6 +1466,7 @@ export const storefrontProductExample: StorefrontProduct = {
   ...productCardExample,
   sliderImages: ['https://cdn.example.com/p/1.png', 'https://cdn.example.com/p/1-back.png'],
   videoUrl: null,
+  videoPosterUrl: null,
   specMode: true,
   minPurchaseQuantity: 1,
   purchaseLimitMode: 'per_order',

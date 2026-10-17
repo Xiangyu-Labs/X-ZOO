@@ -207,6 +207,7 @@ export async function productDetail(ctx: Ctx, input: { id: string }): Promise<St
     views: row.views,
     sliderImages: row.sliderImages,
     videoUrl: row.videoUrl,
+    videoPosterUrl: row.videoPosterUrl,
     specMode: row.specMode,
     minPurchaseQuantity: row.minPurchaseQuantity,
     purchaseLimitMode: row.purchaseLimitMode,

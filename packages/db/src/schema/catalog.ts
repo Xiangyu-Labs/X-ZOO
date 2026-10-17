@@ -121,6 +121,8 @@ export const products = pgTable(
     cardImageUrl: varchar({ length: 512 }),
     sliderImages: jsonb().$type<string[]>().notNull().default(emptyJsonArray),
     videoUrl: varchar({ length: 512 }),
+    /** Cover shown before the main video plays; without one, `imageUrl`. */
+    videoPosterUrl: varchar({ length: 512 }),
     unitName: varchar({ length: 32 }),
     /** Cheapest live SKU price, denormalised for list sorting and filtering. */
     price: money().notNull().default('0.00'),

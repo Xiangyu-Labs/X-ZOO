@@ -10,6 +10,7 @@ import { holdRequests, serveApi, type FakeReply } from '@/test/fake-api';
 import { renderPage } from '@/test/render';
 import { routeQueryKey } from '@shop/api-client/react';
 import { taroFake } from '@/test/taro-fake/taro';
+import { useOverlayStore } from '@/ui/overlay-store';
 import ProductPage from './index';
 
 const empty = { items: [], total: 0, page: 1, pageSize: 100 };
@@ -120,6 +121,29 @@ describe('商品详情', () => {
       api: 'navigateTo',
       args: { url: '/packages/goods/reviews/index?productId=12' },
     });
+  });
+
+  it('shows the main video first, as its cover, and plays it on a tap until a sheet opens', async () => {
+    serve({
+      'GET /api/v1/catalog/products/12': () => ({
+        body: productDetailFixture({ videoUrl: '/uploads/clip.mp4', videoPosterUrl: null }),
+      }),
+    });
+    await renderPage(<ProductPage />);
+
+    const play = await screen.findByRole('button', { name: '播放商品视频' });
+    // No cover picked: the 商品缩略图 stands in, and the video is one of three slides.
+    expect(screen.getByText('1/3')).toBeTruthy();
+    expect(screen.queryByTestId('native-video')).toBeNull();
+
+    fireEvent.click(play);
+    const player = await screen.findByTestId('native-video');
+    expect(player.getAttribute('data-src')).toMatch(/\/uploads\/clip\.mp4$/);
+
+    // A native video draws above sheets: it goes while one is open.
+    act(() => useOverlayStore.setState({ open: 1 }));
+    expect(screen.queryByTestId('native-video')).toBeNull();
+    act(() => useOverlayStore.setState({ open: 0 }));
   });
 
   it('asks for this product’s activities and coupons, and shows them', async () => {
