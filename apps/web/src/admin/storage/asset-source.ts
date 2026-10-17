@@ -1,4 +1,5 @@
 import {
+  storageCategoryCreate,
   storageAttachmentDeleteMany,
   storageAttachmentList,
   storageAttachmentUpload,
@@ -29,12 +30,20 @@ export function createStorageAssetSource(): AssetSource {
       list: storageAttachmentList.permission,
       upload: storageAttachmentUpload.permission,
       categories: storageCategoryTree.permission,
+      createCategory: storageCategoryCreate.permission,
       remove: storageAttachmentDeleteMany.permission,
     },
 
     async listCategories(): Promise<AssetCategory[]> {
       const { items } = await callRoute(storageCategoryTree);
       return nestCategories(items);
+    },
+
+    async createCategory({ name, parentId }): Promise<AssetCategory> {
+      const created = await callRoute(storageCategoryCreate, {
+        body: { name, parentId: parentId ?? null, sortOrder: 0 },
+      });
+      return { id: created.id, name: created.name };
     },
 
     async listAssets(query): Promise<AssetListResult> {

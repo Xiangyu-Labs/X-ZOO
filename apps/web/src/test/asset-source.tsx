@@ -50,9 +50,28 @@ export function createStubAssetSource(seed = 24): AssetSource {
     items.map((item, index) => [item.id, ['11', '12', '2', '3'][index % 4] ?? '3']),
   );
 
+  const categories = structuredClone(CATEGORIES);
+  let nextCategoryId = 100;
+  const findCategory = (list: AssetCategory[], id: string): AssetCategory | undefined => {
+    for (const category of list) {
+      if (category.id === id) return category;
+      const inner = findCategory(category.children ?? [], id);
+      if (inner) return inner;
+    }
+    return undefined;
+  };
+
   return {
     async listCategories() {
-      return structuredClone(CATEGORIES);
+      return structuredClone(categories);
+    },
+
+    async createCategory({ name, parentId }) {
+      const created: AssetCategory = { id: String(nextCategoryId++), name };
+      const parent = parentId === undefined ? undefined : findCategory(categories, parentId);
+      if (parent) parent.children = [...(parent.children ?? []), created];
+      else categories.push(created);
+      return { ...created };
     },
 
     async listAssets(query: AssetListQuery): Promise<AssetListResult> {

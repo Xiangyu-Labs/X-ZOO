@@ -1,4 +1,4 @@
-import { fireEvent, renderHook, screen, waitFor } from '@testing-library/react';
+import { fireEvent, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createStubAssetSource } from '@/test/asset-source';
@@ -179,5 +179,53 @@ describe('selectRange', () => {
     const result = selectRange([], items, 'a', 4, 3);
     expect(ids(result.next)).toEqual(['a', 'b', 'c']);
     expect(result.capped).toBe(true);
+  });
+});
+
+describe('AssetPicker — 新建分类', () => {
+  it('files a new folder under the one being browsed, and opens it', async () => {
+    const stub = createStubAssetSource(4);
+    const source: AssetSource = { ...stub, createCategory: vi.fn(stub.createCategory) };
+    renderAdmin(
+      <AssetSourceProvider source={source}>
+        <AssetPicker open onClose={() => {}} onSelect={() => {}} />
+      </AssetSourceProvider>,
+    );
+
+    fireEvent.click(await screen.findByText('商品图'));
+    fireEvent.click(screen.getByRole('button', { name: /新建分类/ }));
+    const dialog = (await screen.findByLabelText('分类名称')).closest<HTMLElement>('.ant-modal')!;
+
+    // An empty name says what is missing.
+    fireEvent.click(within(dialog).getByRole('button', { name: /确\s*定/ }));
+    expect(await within(dialog).findByText('请填写分类名称')).toBeInTheDocument();
+
+    fireEvent.change(within(dialog).getByLabelText('分类名称'), { target: { value: '视频' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: /确\s*定/ }));
+
+    await waitFor(() =>
+      expect(source.createCategory).toHaveBeenCalledWith({ name: '视频', parentId: '1' }),
+    );
+    // The tree shows it, selected.
+    const created = await screen.findByText('视频');
+    expect(created.closest('.ant-tree-treenode')).toHaveClass('ant-tree-treenode-selected');
+  });
+
+  it('is not offered to an admin who may not file folders', async () => {
+    const source: AssetSource = {
+      ...createStubAssetSource(2),
+      permissions: {
+        categories: 'storage:category:read',
+        createCategory: 'storage:category:write',
+      },
+    };
+    renderAdmin(
+      <AssetSourceProvider source={source}>
+        <AssetPicker open onClose={() => {}} onSelect={() => {}} />
+      </AssetSourceProvider>,
+      { identity: { ...testIdentity, permissions: ['storage:category:read'] } },
+    );
+    expect(await screen.findByText('商品图')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /新建分类/ })).not.toBeInTheDocument();
   });
 });

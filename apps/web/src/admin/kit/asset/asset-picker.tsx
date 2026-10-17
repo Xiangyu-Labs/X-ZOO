@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckOutlined, InboxOutlined, ReloadOutlined } from '@ant-design/icons';
+import { CheckOutlined, InboxOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import {
   App,
@@ -21,6 +21,7 @@ import { ApiError } from '../../api/errors';
 import { CopyImage } from '../image-copy';
 import { SideTree } from '../tree/side-tree';
 import { useAssetAccess, useAssetSource } from './asset-source-context';
+import { NewCategoryDialog } from './new-category-dialog';
 import type { AssetCategory, AssetItem } from './types';
 
 const PAGE_SIZE = 24;
@@ -55,6 +56,14 @@ function toTreeData(
       ...(category.children?.length ? { children: map(category.children) } : {}),
     }));
   return [{ key: ALL_KEY, title: '全部素材', children: map(categories) }];
+}
+
+/** Every folder's key, for a tree that opens fully expanded. */
+function allKeys(categories: readonly AssetCategory[]): string[] {
+  return [ALL_KEY, ...categories.flatMap((category) => walkKeys(category))];
+}
+function walkKeys(category: AssetCategory): string[] {
+  return [category.id, ...(category.children ?? []).flatMap(walkKeys)];
 }
 
 /**
@@ -116,6 +125,11 @@ export function AssetPicker({
   const [keyword, setKeyword] = useState('');
   const [selected, setSelected] = useState<AssetItem[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [creatingCategory, setCreatingCategory] = useState(false);
+  // `null` until the operator folds something: every folder open, including
+  // ones that arrive after the first render (antd's `defaultExpandAll` only
+  // looks once) and one just filed under a folder that had no children.
+  const [expanded, setExpanded] = useState<string[] | null>(null);
   // Where a Shift+click range starts: the last tile clicked on, only while it is
   // still picked and still on the page being looked at.
   const anchor = useRef<string | null>(null);
@@ -191,6 +205,7 @@ export function AssetPicker({
   );
 
   const reset = useCallback(() => {
+    setExpanded(null);
     setSelected([]);
     setKeyword('');
     setPage(1);
@@ -227,10 +242,22 @@ export function AssetPicker({
           md={6}
           style={{ minWidth: 0, borderRight: '1px solid var(--ant-color-border-secondary)' }}
         >
+          {access.createCategory ? (
+            <Button
+              size="small"
+              type="link"
+              icon={<PlusOutlined />}
+              style={{ paddingInline: 0, marginBottom: 4 }}
+              onClick={() => setCreatingCategory(true)}
+            >
+              新建分类
+            </Button>
+          ) : null}
           <Spin spinning={access.categories && categories.isPending}>
             <SideTree
               treeData={treeData as never}
-              defaultExpandAll
+              expandedKeys={expanded ?? allKeys(categories.data ?? [])}
+              onExpand={(keys) => setExpanded(keys.map(String))}
               selectedKeys={[categoryId ?? ALL_KEY]}
               onSelect={(keys) => {
                 const key = String(keys[0] ?? ALL_KEY);
@@ -409,6 +436,25 @@ export function AssetPicker({
           </div>
         </Col>
       </Row>
+      {access.createCategory ? (
+        <NewCategoryDialog
+          open={creatingCategory}
+          categories={categories.data ?? []}
+          defaultParentId={categoryId}
+          onClose={() => setCreatingCategory(false)}
+          onCreate={async (input) => {
+            const created = await source.createCategory!(input);
+            const parentKey = input.parentId ?? ALL_KEY;
+            setExpanded((prev) =>
+              prev === null || prev.includes(parentKey) ? prev : [...prev, parentKey],
+            );
+            await categories.refetch();
+            // Straight into the new folder, so an upload lands there.
+            setCategoryId(created.id);
+            setPage(1);
+          }}
+        />
+      ) : null}
     </Modal>
   );
 }

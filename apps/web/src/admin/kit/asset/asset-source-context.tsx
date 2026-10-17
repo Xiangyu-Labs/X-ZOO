@@ -38,6 +38,8 @@ export interface AssetAccess {
   list: boolean;
   upload: boolean;
   categories: boolean;
+  /** The source can file a new folder, and the admin may. */
+  createCategory: boolean;
 }
 
 /**
@@ -53,5 +55,9 @@ export function useAssetAccess(): AssetAccess {
     list: may(source.permissions?.list),
     upload: may(source.permissions?.upload),
     categories: may(source.permissions?.categories),
+    createCategory:
+      source.createCategory !== undefined &&
+      may(source.permissions?.categories) &&
+      may(source.permissions?.createCategory),
   };
 }
