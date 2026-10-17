@@ -1285,9 +1285,11 @@ A shopper's after-sale evidence photos must each be a live image our own storage
 
 ### REFUND-016
 
-An order a coupon paid for in full (`paid = 0`) can still be refunded: the request is worth ¥0, settles without the gateway and without a capital-flow row, and releases the units, the coupon and the group-buy seat like any full refund. A failed group buy on such an order settles the same way. The order's roll-up is decided by units when no money was collected.
+An order a coupon paid for in full (`paid = 0`) can still be refunded: the request is worth ¥0, settles without the gateway and without a capital-flow row, and releases the units, the coupon and the group-buy seat like any full refund. A failed group buy on such an order settles the same way. The shop's own 发起售后 may also be worth ¥0 on an order that did collect money (goods back without money), and settles the same way. The order's roll-up counts money and units: it is `refunded` once the whole payment is back or every unit has been given back, and `partially_refunded` while some money or some unit is.
 
 - `packages/core/src/refund/refund.rules.test.ts::REFUND-016 — an order a coupon paid for in full has a way out > rolls up by units when no money was collected`
+- `packages/core/src/refund/refund.rules.test.ts::REFUND-016 — an order a coupon paid for in full has a way out > counts the units of an order that collected money too, so a ¥0 refund is not lost`
+- `packages/core/src/refund/refund.int.test.ts::REFUND-016 — settles a 仅退款 of ¥0 on an order that collected money, without the gateway`
 - `packages/core/src/refund/refund.system.int.test.ts::REFUND-016 — a failed group buy on a ¥0 order settles without the gateway and releases stock`
 - `packages/core/src/refund/refund.system.int.test.ts::REFUND-016 — a shopper can ask for a ¥0 order back, and the approval settles it`
 

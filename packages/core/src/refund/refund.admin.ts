@@ -467,6 +467,9 @@ export async function adminCreate(
       includeFreight: input.includeFreight,
       // A 退货退款 gives back what the goods are worth; only a 仅退款 settles.
       amount: input.kind === 'refund_only' ? input.amount : undefined,
+      // The shop may settle for ¥0 — a coupon covered the goods, or the buyer
+      // and the shop agreed on goods back without money (REFUND-016).
+      allowZero: true,
     });
     const refund = await openRefund(tx, ctx, {
       order,

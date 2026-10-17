@@ -316,7 +316,16 @@ export async function priceRequest(
   tx: Tx,
   order: repo.OrderRefundRow,
   paidAmount: string,
-  wanted: { lines: readonly RefundLine[]; includeFreight: boolean; amount?: string | undefined },
+  wanted: {
+    lines: readonly RefundLine[];
+    includeFreight: boolean;
+    amount?: string | undefined;
+    /**
+     * The shop's own request may be worth ¥0 on an order that collected money:
+     * lines a coupon covered, or a 仅退款 the shop settles for nothing.
+     */
+    allowZero?: boolean | undefined;
+  },
 ): Promise<PricedRequest> {
   const orderId = order.id;
   const items = new Map(
@@ -380,7 +389,9 @@ export async function priceRequest(
       : null;
   if (freight !== null) amount = amount.add(Money.parse(freight));
 
-  if (!amount.isPositive() && !zeroPaid) throw new DomainError('REFUND_AMOUNT_ZERO');
+  if (!amount.isPositive() && !zeroPaid && wanted.allowZero !== true) {
+    throw new DomainError('REFUND_AMOUNT_ZERO');
+  }
 
   // The ceiling counts what other open requests have already spoken for, so
   // two requests on two different lines cannot together exceed what was paid.
@@ -405,7 +416,7 @@ export async function priceRequest(
  * shares still add up to it. Only the shop's 仅退款 takes an amount.
  */
 function settleFor(target: Money, priced: PricedRequest): PricedRequest {
-  if (!target.isPositive()) throw new DomainError('REFUND_AMOUNT_ZERO');
+  if (target.isNegative()) throw new DomainError('REFUND_AMOUNT_ZERO');
   if (target.gt(priced.amount)) {
     throw new DomainError('REFUND_AMOUNT_ABOVE_ITEMS', {
       details: { requested: target.toString(), available: priced.amount.toString() },
@@ -413,7 +424,8 @@ function settleFor(target: Money, priced: PricedRequest): PricedRequest {
   }
   const parts = priced.lines.map((line) => Money.parse(line.amount));
   if (priced.freight !== null) parts.push(Money.parse(priced.freight));
-  const scaled = scaleParts(parts, target);
+  // ¥0 takes nothing from any part; `allocate` cannot split by all-zero shares.
+  const scaled = target.isZero() ? parts.map(() => Money.ZERO) : scaleParts(parts, target);
   return {
     lines: priced.lines.map((line, i) => ({
       ...line,
@@ -1063,8 +1075,8 @@ export async function refreshOrderRefundStatus(tx: Tx, orderId: number): Promise
 }
 
 /**
- * The roll-up from the order's money, what is still in flight, and — for an
- * order that collected nothing — its settled units (REFUND-016).
+ * The roll-up from the order's money, what is still in flight, and its settled
+ * units (REFUND-016).
  */
 async function currentRollup(
   tx: Tx,
@@ -1073,10 +1085,7 @@ async function currentRollup(
 ): Promise<ReturnType<typeof orderRefundStatus>> {
   const paid = money.paidAmount === null ? Money.ZERO : Money.parse(money.paidAmount);
   const stillOpen = (await repo.listOpenItemIds(tx, orderId)).length > 0;
-  const units =
-    money.paidAmount !== null && !paid.isPositive()
-      ? await repo.orderUnits(tx, orderId)
-      : undefined;
+  const units = money.paidAmount !== null ? await repo.orderUnits(tx, orderId) : undefined;
   return orderRefundStatus(money.refundedAmount, paid, stillOpen, units);
 }
 

@@ -45,8 +45,8 @@ const aftersaleFields = z.object({
 type AftersaleForm = z.output<typeof aftersaleFields>;
 
 /**
- * The form with its cross-field check: a 仅退款 names an amount, and not more
- * than the chosen lines (and freight) are estimated at. The server prices it
+ * The form with its cross-field check: a 仅退款 names an amount — ¥0 included —
+ * and not more than the chosen lines (and freight) are estimated at. The server prices it
  * again and has the last word (`REFUND_AMOUNT_ABOVE_ITEMS`).
  */
 export function aftersaleForm(applicable: RefundableItemsResult | undefined) {
@@ -60,11 +60,9 @@ export function aftersaleForm(applicable: RefundableItemsResult | undefined) {
       ctx.addIssue({ code: 'custom', path: ['amount'], message: '请填写正确的金额，例如 12.50' });
       return;
     }
+    // ¥0 is a real answer: a coupon covered the goods, or the shop takes them
+    // back without money.
     const fen = moneyToFen(values.amount);
-    if (fen <= 0n) {
-      ctx.addIssue({ code: 'custom', path: ['amount'], message: '退款金额必须大于 0' });
-      return;
-    }
     if (applicable === undefined) return;
     const ceiling = ceilingFen(applicable, values);
     if (fen > ceiling) {
@@ -380,7 +378,13 @@ export function aftersaleBody(values: AftersaleForm) {
 
 /** The toast says what the server actually did, with the amount it froze. */
 export function aftersaleOutcome(detail: AdminRefundDetail): Outcome {
-  return detail.kind === 'return_and_refund'
-    ? { level: 'success', text: `已发起退货退款 ¥${detail.amount}，等待买家寄回` }
+  const free = moneyToFen(detail.amount) === 0n;
+  if (detail.kind === 'return_and_refund') {
+    return free
+      ? { level: 'success', text: '已发起退货（不退款），等待买家寄回' }
+      : { level: 'success', text: `已发起退货退款 ¥${detail.amount}，等待买家寄回` };
+  }
+  return free
+    ? { level: 'success', text: '已发起售后，本次不退款（¥0.00），无需原路退回' }
     : { level: 'success', text: `已发起退款 ¥${detail.amount}，正在原路退回` };
 }

@@ -237,9 +237,19 @@ describe('REFUND-016 — an order a coupon paid for in full has a way out', () =
     expect(orderRefundStatus(none, none, false, { ordered: 2, settled: 0 })).toBe('none');
   });
 
-  it('lets money decide for an order that collected money, whatever the units say', () => {
+  it('counts the units of an order that collected money too, so a ¥0 refund is not lost', () => {
     const paid = Money.parse('100.00');
-    expect(orderRefundStatus(Money.ZERO, paid, false, { ordered: 2, settled: 2 })).toBe('none');
+    // The shop took every unit back for less than the goods, ¥0 included: nothing is left.
+    expect(orderRefundStatus(Money.ZERO, paid, false, { ordered: 2, settled: 2 })).toBe('refunded');
+    expect(orderRefundStatus(Money.parse('30.00'), paid, false, { ordered: 2, settled: 2 })).toBe(
+      'refunded',
+    );
+    // One unit back for ¥0: something has been refunded, though no money moved.
+    expect(orderRefundStatus(Money.ZERO, paid, false, { ordered: 2, settled: 1 })).toBe(
+      'partially_refunded',
+    );
+    // Money back in full is enough on its own.
+    expect(orderRefundStatus(paid, paid, false, { ordered: 2, settled: 1 })).toBe('refunded');
   });
 });
 

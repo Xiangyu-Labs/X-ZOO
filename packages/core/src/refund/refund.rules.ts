@@ -140,7 +140,7 @@ export function normalise(value: string): string {
 }
 
 /**
- * Units of an order, for the roll-up of an order that collected nothing.
+ * Units of an order, for the roll-up.
  *
  * `settled` counts the units of refunds that reached `succeeded` — not
  * `refunded_quantity`, which also holds units an approved 仅退款 has only
@@ -154,9 +154,11 @@ export interface OrderUnits {
 /**
  * Which roll-up the order should carry after a refund settles.
  *
- * Money decides it for an order that collected money. An order a coupon paid
- * for in full (`paid = 0`) has no money to measure, so its units do: every
- * unit settled is `refunded`, some is `partially_refunded` (REFUND-016).
+ * Money and units both count. The order is `refunded` once the whole payment
+ * is back or every unit has been given back — the second covers a refund the
+ * shop settled for less than the goods, ¥0 included, and an order a coupon
+ * paid for in full, which has no money to measure (REFUND-016). Anything back,
+ * money or units, is `partially_refunded`.
  */
 export function orderRefundStatus(
   refundedAmount: Money,
@@ -164,14 +166,11 @@ export function orderRefundStatus(
   hasOpen: boolean,
   units?: OrderUnits,
 ): 'none' | 'requested' | 'partially_refunded' | 'refunded' {
-  if (paidAmount.isPositive()) {
-    if (refundedAmount.gte(paidAmount)) return 'refunded';
-    if (refundedAmount.isPositive()) return 'partially_refunded';
-    return hasOpen ? 'requested' : 'none';
-  }
+  if (paidAmount.isPositive() && refundedAmount.gte(paidAmount)) return 'refunded';
   if (units !== undefined && units.ordered > 0 && units.settled >= units.ordered) {
     return 'refunded';
   }
+  if (refundedAmount.isPositive()) return 'partially_refunded';
   if (units !== undefined && units.settled > 0) return 'partially_refunded';
   return hasOpen ? 'requested' : 'none';
 }

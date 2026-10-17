@@ -292,5 +292,30 @@ describe('订单详情', () => {
       });
       expect(await screen.findByText('已发起退款 ¥20.00，正在原路退回')).toBeInTheDocument();
     });
+
+    it('takes a 仅退款 of ¥0 — a coupon paid for it, or the goods go back without money', async () => {
+      const calls = stubApi(completed);
+      renderAdmin(<OrderDetailPage id="9001" />, { identity: reviewer });
+
+      await userEvent.click(await screen.findByRole('button', { name: zhName('发起售后') }));
+      const dialog = await screen.findByRole('dialog');
+      await within(dialog).findByText(/最多还能退/);
+      await userEvent.click(within(dialog).getByRole('radio', { name: '退款（未收到货）' }));
+      const quantity = within(dialog).getByRole('spinbutton', { name: /售后数量/ });
+      await userEvent.clear(quantity);
+      await userEvent.type(quantity, '1');
+      await userEvent.type(within(dialog).getByLabelText('售后原因'), '优惠券全额抵扣');
+      await userEvent.type(within(dialog).getByLabelText('退款金额'), '0');
+      await userEvent.click(within(dialog).getByRole('button', { name: zhName('确认发起') }));
+
+      await waitFor(() => {
+        const post = calls.find((call) => call.routeId === refundAdminCreate.id);
+        expect(post?.body).toMatchObject({ kind: 'refund_only', amount: '0.00' });
+      });
+      // No money moves, and the toast does not say it does.
+      expect(
+        await screen.findByText('已发起售后，本次不退款（¥0.00），无需原路退回'),
+      ).toBeInTheDocument();
+    });
   });
 });
