@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { descriptionBlock } from '../catalog/description';
 import { id, idList, instant, money, pageQuery, paged, sortQuery } from '../_conventions/common';
 
 /**
@@ -244,7 +245,10 @@ export type PresaleStorefrontSku = z.infer<typeof presaleStorefrontSku>;
 export const presaleDetail = presaleCard.extend({
   sliderImages: z.array(z.string()),
   perOrderQuantity: z.number().int().min(1),
+  /** The product's rich-text details joined; `null` when it has none. */
   description: z.string().nullable(),
+  /** The product's 商品详情 in order: 富文本 and 视频 blocks. */
+  descriptionBlocks: z.array(descriptionBlock),
   skus: z.array(presaleStorefrontSku),
 });
 export type PresaleDetail = z.infer<typeof presaleDetail>;
@@ -335,6 +339,9 @@ export const presaleDetailExample: PresaleDetail = {
   sliderImages: ['https://cdn.example.com/p/12-1.jpg'],
   perOrderQuantity: 5,
   description: '<p>明前采摘，付款后 15 天内发货。</p>',
+  descriptionBlocks: [
+    { id: 'html', type: 'richText', html: '<p>明前采摘，付款后 15 天内发货。</p>' },
+  ],
   skus: [
     {
       skuId: '31',

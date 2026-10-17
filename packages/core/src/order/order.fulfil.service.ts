@@ -650,7 +650,13 @@ export async function receiveOrder(ctx: Ctx, input: ReceiptInput): Promise<Recei
 
   const outcome = await ctx.withTx(async (tx): Promise<ReceiptOutcome> => {
     const order = await repo.lockOrder(tx, input.orderId);
-    if (!order || order.deletedAt !== null) throw new DomainError('ORDER_NOT_FOUND');
+    if (!order || order.deletedAt !== null) {
+      // The job and WeChat's push find nothing to do on an order the shop has
+      // since deleted (refunded while shipped, then filed away): retrying a
+      // lookup that can never succeed only fills 失败的后台任务.
+      if (strict) throw new DomainError('ORDER_NOT_FOUND');
+      return { received: false };
+    }
     if (order.status !== 'shipped') {
       if (strict)
         throw new DomainError('ORDER_NOT_RECEIVABLE', { details: { status: order.status } });

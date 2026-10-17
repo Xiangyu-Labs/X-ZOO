@@ -1213,9 +1213,6 @@ describe('商家发起售后', () => {
     const order = await completedOrder();
     const unit = String(order.itemIds[0]!);
 
-    await expect(open(order, { amount: '0.00' })).rejects.toMatchObject({
-      code: 'REFUND_AMOUNT_ZERO',
-    });
     // One unit is worth 50.00; the shop cannot give more for it than that.
     await expect(open(order, { amount: '50.01' })).rejects.toMatchObject({
       code: 'REFUND_AMOUNT_ABOVE_ITEMS',
@@ -1240,6 +1237,29 @@ describe('商家发起售后', () => {
     });
     expect(applicable.items[0]).toMatchObject({ refundableQuantity: 1, refundableAmount: '50.00' });
     await expect(open(order)).resolves.toMatchObject({ amount: '50.00' });
+  });
+
+  it('REFUND-016 — settles a 仅退款 of ¥0 on an order that collected money, without the gateway', async () => {
+    const order = await completedOrder();
+
+    const first = await open(order, { amount: '0.00' });
+    expect(first.amount).toBe('0.00');
+    expect(first.items.map((item) => item.amount)).toEqual(['0.00']);
+    expect((await service.executeRefund(racer(), Number(first.id))).status).toBe('succeeded');
+    expect(gateway.refunds.size).toBe(0);
+    let after = await orderRow(order.orderId);
+    expect(after.refundedAmount).toBe('0.00');
+    // A unit came back, though no money did.
+    expect(after.refundStatus).toBe('partially_refunded');
+    expect(after.status).toBe('completed');
+
+    // The last unit for ¥0 too: every unit is back, so the order is over.
+    const last = await open(order, { amount: '0.00' });
+    await service.executeRefund(racer(), Number(last.id));
+    after = await orderRow(order.orderId);
+    expect(after.refundStatus).toBe('refunded');
+    expect(after.status).toBe('refunded');
+    expect(gateway.refunds.size).toBe(0);
   });
 
   it('prices a 退货退款 by its goods, whatever amount comes with it', async () => {

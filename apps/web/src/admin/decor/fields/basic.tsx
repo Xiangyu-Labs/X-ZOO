@@ -15,6 +15,7 @@ import {
 import { useState } from 'react';
 
 import { AssetPicker } from '@/admin/kit/asset/asset-picker';
+import { isPlayableVideo, VideoThumb } from '@/admin/kit/asset/video-preview';
 import { CopyImage } from '@/admin/kit/image-copy';
 import type { ChoiceOption } from '../zod-to-puck';
 import { FieldShell, metaOf, type DecorFieldProps } from './shell';
@@ -107,10 +108,7 @@ export function ImageField({
 
 // ─── video ───────────────────────────────────────────────────────────────────
 
-/** Whether a picked asset is a video the mini-program's `<Video>` can play. */
-export function isPlayableVideo(asset: { mime: string }): boolean {
-  return asset.mime === 'video/mp4' || asset.mime === 'video/quicktime';
-}
+export { isPlayableVideo };
 
 /**
  * A video from the 素材库 (mp4), or a pasted address. The preview is a muted,
@@ -132,20 +130,9 @@ export function VideoField({
     <FieldShell field={field} name={name} readOnly={readOnly}>
       <Space direction="vertical" size={4} style={{ width: '100%' }}>
         {value ? (
-          <video
-            src={value}
-            muted
-            preload="metadata"
-            controls={false}
-            data-testid="video-field-preview"
-            style={{
-              width: '100%',
-              maxHeight: 120,
-              borderRadius: 6,
-              background: '#000',
-              display: 'block',
-            }}
-          />
+          <div data-testid="video-field-preview">
+            <VideoThumb src={value} width={213} height={120} name={field.label ?? '视频'} />
+          </div>
         ) : null}
         <Space size={4}>
           <Button size="small" disabled={readOnly} onClick={() => setOpen(true)}>

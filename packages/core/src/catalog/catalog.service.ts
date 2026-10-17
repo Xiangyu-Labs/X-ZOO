@@ -25,7 +25,7 @@ import { randomBytes } from 'node:crypto';
 import { hasPermission } from '../auth/rbac';
 import { DomainError } from '../kernel/errors';
 import { shopDay } from '../kernel/shop-time';
-import { sanitizeHtml } from '../kernel/sanitize-html';
+import { descriptionBlocksOf, descriptionHtmlOf, descriptionOut } from './catalog.description';
 import { requireAdminId, type Ctx } from '../kernel/context';
 import { catalogConfig } from './catalog.config';
 import { catalogPermissions } from './permissions';
@@ -953,6 +953,8 @@ function productValues(body: AdminProductForm): repo.NewProductValues {
     cardImageUrl: orNull(body.cardImageUrl),
     sliderImages: body.sliderImages,
     videoUrl: orNull(body.videoUrl),
+    // A cover belongs to its video: removing the video drops it too.
+    videoPosterUrl: body.videoUrl ? orNull(body.videoPosterUrl) : null,
     unitName: orNull(body.unitName),
     originalPrice: orNull(body.originalPrice),
     displaySalesBoost: body.displaySalesBoost,
@@ -1036,9 +1038,11 @@ async function writeProductChildren(
   await repo.replaceGiftCoupons(tx, productId, body.giftCouponIds.map(Number));
   // Sanitised on write, like an article body: the column is served to every
   // shopper, so what it holds must already be safe (kernel/sanitize-html.ts).
+  const blocks = descriptionBlocksOf(body);
   await repo.upsertDescription(tx, {
     productId,
-    contentHtml: sanitizeHtml(body.descriptionHtml),
+    contentHtml: descriptionHtmlOf(blocks),
+    blocks,
     now,
   });
   await repo.replaceParams(
@@ -1358,7 +1362,7 @@ async function buildProductDetail(
   const db = tx ?? ctx.db;
   const showCost = seesCost(ctx);
   const [listItem] = await decorateProducts(db, [row], showCost);
-  const [specs, skus, params, links, descriptionHtml] = await Promise.all([
+  const [specs, skus, params, links, description] = await Promise.all([
     repo.listSpecs(db, row.id),
     repo.listSkus(db, row.id),
     repo.listParams(db, row.id),
@@ -1373,6 +1377,7 @@ async function buildProductDetail(
     cardImageUrl: row.cardImageUrl,
     sliderImages: row.sliderImages,
     videoUrl: row.videoUrl,
+    videoPosterUrl: row.videoPosterUrl,
     unitName: row.unitName,
     freightMode: row.freightMode,
     fixedFreight: row.fixedFreight,
@@ -1381,7 +1386,7 @@ async function buildProductDetail(
     purchaseLimitQuantity: row.purchaseLimitQuantity,
     minPurchaseQuantity: row.minPurchaseQuantity,
     customForm: row.customForm,
-    descriptionHtml,
+    ...descriptionOut(description),
     specs: specs.map(toSpec),
     skus: skus.map((sku) => (showCost ? toSku(sku) : { ...toSku(sku), cost: null })),
     params: params.map((param) => ({

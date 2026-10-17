@@ -131,7 +131,7 @@ function Detail({ activity, onStale }: { activity: Activity; onStale: () => void
         ]}
       />
 
-      <ActivityDescription html={activity.description} />
+      <ActivityDescription html={activity.description} blocks={activity.descriptionBlocks} />
 
       <ActionBar
         icons={[

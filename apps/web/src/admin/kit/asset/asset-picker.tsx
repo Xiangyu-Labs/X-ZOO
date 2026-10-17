@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckOutlined, InboxOutlined, ReloadOutlined } from '@ant-design/icons';
+import { CheckOutlined, InboxOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import {
   App,
@@ -21,7 +21,9 @@ import { ApiError } from '../../api/errors';
 import { CopyImage } from '../image-copy';
 import { SideTree } from '../tree/side-tree';
 import { useAssetAccess, useAssetSource } from './asset-source-context';
-import type { AssetCategory, AssetItem } from './types';
+import { NewCategoryDialog } from './new-category-dialog';
+import { assetKindOf, type AssetCategory, type AssetItem } from './types';
+import { PlayMark, VideoPlayerModal } from './video-preview';
 
 const PAGE_SIZE = 24;
 const ALL_KEY = '__all__';
@@ -57,6 +59,14 @@ function toTreeData(
   return [{ key: ALL_KEY, title: '全部素材', children: map(categories) }];
 }
 
+/** Every folder's key, for a tree that opens fully expanded. */
+function allKeys(categories: readonly AssetCategory[]): string[] {
+  return [ALL_KEY, ...categories.flatMap((category) => walkKeys(category))];
+}
+function walkKeys(category: AssetCategory): string[] {
+  return [category.id, ...(category.children ?? []).flatMap(walkKeys)];
+}
+
 /**
  * Shift+click: walk the page from the anchor to the clicked item and append,
  * in walking order, every item not yet picked — so the numbers on the grid
@@ -88,8 +98,9 @@ export function selectRange(
 }
 
 /**
- * Material library picker: category tree, paginated image grid, drag-and-drop
- * upload, single or multiple selection. Returns contract `asset` objects, in
+ * Material library picker: category tree, paginated grid, upload, single or
+ * multiple selection. `accept` decides what it lists: pictures, or videos
+ * (each with 播放, so the operator can watch before picking). Returns contract `asset` objects, in
  * the order they were picked; with `multiple` each tile shows its number and
  * Shift+click picks the run from the last clicked tile. Tiles in `taken` are
  * already in the field and cannot be picked twice.
@@ -116,6 +127,11 @@ export function AssetPicker({
   const [keyword, setKeyword] = useState('');
   const [selected, setSelected] = useState<AssetItem[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [creatingCategory, setCreatingCategory] = useState(false);
+  // `null` until the operator folds something: every folder open, including
+  // ones that arrive after the first render (antd's `defaultExpandAll` only
+  // looks once) and one just filed under a folder that had no children.
+  const [expanded, setExpanded] = useState<string[] | null>(null);
   // Where a Shift+click range starts: the last tile clicked on, only while it is
   // still picked and still on the page being looked at.
   const anchor = useRef<string | null>(null);
@@ -127,9 +143,12 @@ export function AssetPicker({
     staleTime: 5 * 60_000,
   });
 
+  const kind = assetKindOf(accept);
+  // The video being watched from a tile, before it is picked.
+  const [watching, setWatching] = useState<AssetItem | null>(null);
   const list = useQuery({
-    queryKey: ['kit.assets.list', categoryId ?? null, page, keyword],
-    queryFn: () => source.listAssets({ categoryId, page, pageSize: PAGE_SIZE, keyword }),
+    queryKey: ['kit.assets.list', kind, categoryId ?? null, page, keyword],
+    queryFn: () => source.listAssets({ categoryId, page, pageSize: PAGE_SIZE, keyword, kind }),
     enabled: open && access.list,
   });
 
@@ -191,6 +210,7 @@ export function AssetPicker({
   );
 
   const reset = useCallback(() => {
+    setExpanded(null);
     setSelected([]);
     setKeyword('');
     setPage(1);
@@ -227,10 +247,22 @@ export function AssetPicker({
           md={6}
           style={{ minWidth: 0, borderRight: '1px solid var(--ant-color-border-secondary)' }}
         >
+          {access.createCategory ? (
+            <Button
+              size="small"
+              type="link"
+              icon={<PlusOutlined />}
+              style={{ paddingInline: 0, marginBottom: 4 }}
+              onClick={() => setCreatingCategory(true)}
+            >
+              新建分类
+            </Button>
+          ) : null}
           <Spin spinning={access.categories && categories.isPending}>
             <SideTree
               treeData={treeData as never}
-              defaultExpandAll
+              expandedKeys={expanded ?? allKeys(categories.data ?? [])}
+              onExpand={(keys) => setExpanded(keys.map(String))}
               selectedKeys={[categoryId ?? ALL_KEY]}
               onSelect={(keys) => {
                 const key = String(keys[0] ?? ALL_KEY);
@@ -294,93 +326,121 @@ export function AssetPicker({
                   const order = selected.findIndex((asset) => asset.id === item.id) + 1;
                   const active = order > 0;
                   const already = isTaken(item);
+                  const video = item.mime.startsWith('video/');
                   return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      disabled={already}
-                      onClick={(event) => {
-                        if (multiple && event.shiftKey) pickRange(index);
-                        else toggle(item);
-                      }}
-                      title={already ? `${item.name}（已添加）` : item.name}
-                      data-testid={`asset-${item.id}`}
-                      aria-pressed={active}
-                      style={{
-                        position: 'relative',
-                        padding: 0,
-                        border: `2px solid ${active ? 'var(--ant-color-primary)' : 'var(--ant-color-border)'}`,
-                        borderRadius: 6,
-                        overflow: 'hidden',
-                        cursor: already ? 'not-allowed' : 'pointer',
-                        opacity: already ? 0.45 : 1,
-                        background: 'var(--ant-color-fill-quaternary)',
-                        aspectRatio: '1 / 1',
-                      }}
-                    >
-                      {item.mime.startsWith('video/') ? (
-                        // A video's first frame, muted and paused; only its metadata loads.
-                        <video
-                          src={item.url}
-                          muted
-                          preload="metadata"
-                          aria-label={item.name}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            display: 'block',
-                          }}
-                        />
-                      ) : (
-                        <CopyImage
-                          src={item.url}
-                          alt={item.name}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            display: 'block',
-                          }}
-                        />
-                      )}
-                      {active ? (
-                        <span
+                    <div key={item.id} style={{ position: 'relative' }}>
+                      <button
+                        type="button"
+                        disabled={already}
+                        onClick={(event) => {
+                          if (multiple && event.shiftKey) pickRange(index);
+                          else toggle(item);
+                        }}
+                        title={already ? `${item.name}（已添加）` : item.name}
+                        data-testid={`asset-${item.id}`}
+                        aria-pressed={active}
+                        style={{
+                          position: 'relative',
+                          padding: 0,
+                          border: `2px solid ${active ? 'var(--ant-color-primary)' : 'var(--ant-color-border)'}`,
+                          borderRadius: 6,
+                          overflow: 'hidden',
+                          cursor: already ? 'not-allowed' : 'pointer',
+                          opacity: already ? 0.45 : 1,
+                          background: 'var(--ant-color-fill-quaternary)',
+                          aspectRatio: '1 / 1',
+                          width: '100%',
+                          display: 'block',
+                        }}
+                      >
+                        {item.mime.startsWith('video/') ? (
+                          // A video's first frame, muted and paused; only its metadata loads.
+                          <video
+                            src={item.url}
+                            muted
+                            preload="metadata"
+                            aria-label={item.name}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                              display: 'block',
+                            }}
+                          />
+                        ) : (
+                          <CopyImage
+                            src={item.url}
+                            alt={item.name}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                              display: 'block',
+                            }}
+                          />
+                        )}
+                        {active ? (
+                          <span
+                            style={{
+                              position: 'absolute',
+                              insetInlineEnd: 4,
+                              insetBlockStart: 4,
+                              background: 'var(--ant-color-primary)',
+                              color: '#fff',
+                              borderRadius: 9,
+                              minWidth: 18,
+                              height: 18,
+                              paddingInline: 4,
+                              boxSizing: 'border-box',
+                              display: 'grid',
+                              placeItems: 'center',
+                              fontSize: 11,
+                            }}
+                          >
+                            {multiple ? order : <CheckOutlined />}
+                          </span>
+                        ) : null}
+                        {already ? (
+                          <span
+                            style={{
+                              position: 'absolute',
+                              insetInline: 0,
+                              insetBlockEnd: 0,
+                              background: 'rgba(0, 0, 0, 0.55)',
+                              color: '#fff',
+                              fontSize: 11,
+                              lineHeight: '18px',
+                            }}
+                          >
+                            已添加
+                          </span>
+                        ) : null}
+                        {video ? <PlayMark size={28} /> : null}
+                      </button>
+                      {video ? (
+                        // Beside the tile, not inside it: a click on the tile picks.
+                        <Button
+                          size="small"
+                          type="primary"
+                          ghost
+                          aria-label={`播放 ${item.name}`}
+                          onClick={() => setWatching(item)}
                           style={{
                             position: 'absolute',
-                            insetInlineEnd: 4,
-                            insetBlockStart: 4,
-                            background: 'var(--ant-color-primary)',
-                            color: '#fff',
-                            borderRadius: 9,
-                            minWidth: 18,
-                            height: 18,
-                            paddingInline: 4,
-                            boxSizing: 'border-box',
-                            display: 'grid',
-                            placeItems: 'center',
+                            insetInlineStart: 4,
+                            insetBlockEnd: already ? 22 : 4,
                             fontSize: 11,
-                          }}
-                        >
-                          {multiple ? order : <CheckOutlined />}
-                        </span>
-                      ) : null}
-                      {already ? (
-                        <span
-                          style={{
-                            position: 'absolute',
-                            insetInline: 0,
-                            insetBlockEnd: 0,
+                            height: 20,
+                            paddingInline: 6,
                             background: 'rgba(0, 0, 0, 0.55)',
                             color: '#fff',
-                            fontSize: 11,
-                            lineHeight: '18px',
+                            borderColor: 'transparent',
                           }}
                         >
-                          已添加
-                        </span>
+                          播放
+                        </Button>
                       ) : null}
-                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -409,6 +469,33 @@ export function AssetPicker({
           </div>
         </Col>
       </Row>
+      {watching ? (
+        <VideoPlayerModal
+          open
+          src={watching.url}
+          title={watching.name}
+          onClose={() => setWatching(null)}
+        />
+      ) : null}
+      {access.createCategory ? (
+        <NewCategoryDialog
+          open={creatingCategory}
+          categories={categories.data ?? []}
+          defaultParentId={categoryId}
+          onClose={() => setCreatingCategory(false)}
+          onCreate={async (input) => {
+            const created = await source.createCategory!(input);
+            const parentKey = input.parentId ?? ALL_KEY;
+            setExpanded((prev) =>
+              prev === null || prev.includes(parentKey) ? prev : [...prev, parentKey],
+            );
+            await categories.refetch();
+            // Straight into the new folder, so an upload lands there.
+            setCategoryId(created.id);
+            setPage(1);
+          }}
+        />
+      ) : null}
     </Modal>
   );
 }

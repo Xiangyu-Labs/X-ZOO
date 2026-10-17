@@ -708,6 +708,31 @@ describe('receipt', () => {
     });
   });
 
+  it('finishes the auto-receive of an order refunded and then deleted, instead of failing it', async () => {
+    const placed = await shipped();
+    expect(harness.queue.jobs.filter((job) => job.jobName === 'order.autoReceive')).toHaveLength(1);
+    // Refunded in full while shipped, then filed away by the shop.
+    await harness.ctx.db
+      .update(orders)
+      .set({ status: 'refunded', refundStatus: 'refunded', fulfillmentStatus: 'fulfilled' })
+      .where(eq(orders.id, placed.orderId));
+    await expect(
+      order.orderConsole.adminDelete(asAdmin(placed.adminId), { id: String(placed.orderId) }),
+    ).resolves.toEqual({ deleted: true });
+
+    // Deleting takes the pending job away…
+    expect(harness.queue.jobs.filter((job) => job.jobName === 'order.autoReceive')).toHaveLength(0);
+    // …and one already running finds nothing to do rather than 订单不存在 five times.
+    expect(await order.autoReceive(harness.ctx, { orderId: placed.orderId })).toEqual({
+      received: false,
+    });
+    // The buyer's own tap still hears that the order is gone.
+    await expectDomainError(
+      order.confirmReceipt(as(placed.userId), { id: String(placed.orderId) }),
+      'ORDER_NOT_FOUND',
+    );
+  });
+
   it('lets the operator confirm on the buyer’s behalf', async () => {
     const placed = await shipped();
     await order.orderConsole.adminConfirmReceipt(asAdmin(placed.adminId), {

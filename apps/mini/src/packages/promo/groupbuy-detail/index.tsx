@@ -169,7 +169,7 @@ function Detail({ activity, onStale }: { activity: Activity; onStale: () => void
         <OpenTeams activityId={activity.activityId} exclude={myTeam} onOpen={openTeam} />
       ) : null}
 
-      <ActivityDescription html={activity.description} />
+      <ActivityDescription html={activity.description} blocks={activity.descriptionBlocks} />
 
       <ActionBar
         icons={[

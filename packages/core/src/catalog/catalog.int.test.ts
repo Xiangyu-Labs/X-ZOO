@@ -251,6 +251,43 @@ describe('products', () => {
     );
   });
 
+  it('keeps 商品详情 as ordered blocks, and the rich text joined for HTML readers', async () => {
+    const product = await makeProduct(asAdmin(), {
+      descriptionBlocks: [
+        { id: 'a', type: 'richText', html: '<p>面料</p><script>alert(1)</script>' },
+        { id: 'b', type: 'video', src: '/uploads/2026/10/fit.mp4' },
+        { id: 'c', type: 'video', src: '/uploads/2026/10/wash.mp4', posterUrl: '/uploads/w.png' },
+        { id: 'c', type: 'richText', html: '<p>洗涤</p>' },
+      ],
+    });
+    const blocks = [
+      { id: 'a', type: 'richText', html: '<p>面料</p>' },
+      { id: 'b', type: 'video', src: '/uploads/2026/10/fit.mp4', posterUrl: null },
+      { id: 'c', type: 'video', src: '/uploads/2026/10/wash.mp4', posterUrl: '/uploads/w.png' },
+      // The repeated id is made unique.
+      { id: 'c-3', type: 'richText', html: '<p>洗涤</p>' },
+    ];
+    const detail = await service.adminProductDetail(asAdmin(), { id: product.id });
+    expect(detail.descriptionBlocks).toEqual(blocks);
+    expect(detail.descriptionHtml).toBe('<p>面料</p>\n<p>洗涤</p>');
+
+    const shown = await storefront.productDetail(asUser(await makeUser(harness)), {
+      id: product.id,
+    });
+    expect(shown.descriptionBlocks).toEqual(blocks);
+    expect(shown.descriptionHtml).toBe('<p>面料</p>\n<p>洗涤</p>');
+
+    // A client that only knows the HTML still saves it, as one rich-text block.
+    await service.adminProductUpdate(
+      asAdmin(),
+      { id: product.id },
+      productForm({ name: product.name, descriptionHtml: '<p>只有文字</p>' }),
+    );
+    expect(
+      (await service.adminProductDetail(asAdmin(), { id: product.id })).descriptionBlocks,
+    ).toEqual([{ id: 'html', type: 'richText', html: '<p>只有文字</p>' }]);
+  });
+
   it('rolls the denormalised price and stock up from the visible SKUs', async () => {
     const product = await makeProduct(asAdmin(), {
       specMode: true,

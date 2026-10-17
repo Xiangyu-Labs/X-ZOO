@@ -33,6 +33,7 @@ import { originFromEnv } from '../kernel/origin';
 import { enforce, fixedWindow } from '../kernel/rate-limit';
 import type { Storage } from '../kernel/storage';
 import { isRejected, mimeAgrees, probeImageDimensions, sniffFileType } from './file-type';
+import { tooLargeMessage } from './multipart';
 import { safeFetch, SafeFetchError, type SafeFetchOptions } from './safe-fetch';
 import { createS3Storage } from './s3';
 import { createScanTokenStore } from './scan-token';
@@ -491,6 +492,7 @@ async function storeFile(ctx: Ctx, args: StoreArgs): Promise<UploadResult> {
   if (bytes.byteLength === 0) throw new DomainError('STORAGE_NO_FILE');
   if (bytes.byteLength > args.maxBytes) {
     throw new DomainError('STORAGE_FILE_TOO_LARGE', {
+      message: tooLargeMessage(args.maxBytes),
       details: { maxBytes: args.maxBytes, size: bytes.byteLength },
     });
   }

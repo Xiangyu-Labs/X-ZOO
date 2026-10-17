@@ -32,7 +32,12 @@ import { orderPermissions } from './permissions';
 import * as fulfilRepo from './order.fulfil.repo';
 import * as rules from './order.fulfil.rules';
 import { distribute } from './order.pricing';
-import { receiveOrder, shipmentContextFor, toWireShipment } from './order.fulfil.service';
+import {
+  autoReceiveKey,
+  receiveOrder,
+  shipmentContextFor,
+  toWireShipment,
+} from './order.fulfil.service';
 import * as repo from './order.repo';
 
 /**
@@ -605,7 +610,7 @@ export async function adminDelete(ctx: Ctx, params: { id: string }): Promise<{ d
   const adminId = requireAdminId(ctx);
   const orderId = fromId(params.id);
 
-  return ctx.withTx(async (tx) => {
+  const result = await ctx.withTx(async (tx) => {
     const order = await repo.findOrder(tx, orderId);
     if (!order) throw new DomainError('ORDER_NOT_FOUND');
     const deleted = await fulfilRepo.softDeleteOrder(tx, { orderId, at: ctx.clock.now() });
@@ -627,6 +632,9 @@ export async function adminDelete(ctx: Ctx, params: { id: string }): Promise<{ d
     });
     return { deleted: true };
   });
+  // A refunded order can still have its 自动确认收货 waiting from when it shipped.
+  await ctx.queue.cancel(autoReceiveKey(orderId));
+  return result;
 }
 
 /**
@@ -642,7 +650,8 @@ export async function adminDeleteMany(
   const at = ctx.clock.now();
   const ids = [...new Set(body.ids.map(fromId))];
 
-  return ctx.withTx(async (tx) => {
+  const deletedIds: number[] = [];
+  const result = await ctx.withTx(async (tx) => {
     const skippedIds: string[] = [];
     let deleted = 0;
     for (const orderId of ids) {
@@ -652,6 +661,7 @@ export async function adminDeleteMany(
         continue;
       }
       deleted += 1;
+      deletedIds.push(orderId);
       await repo.insertStatusLog(tx, {
         orderId,
         changeType: 'deleted_by_admin',
@@ -662,6 +672,8 @@ export async function adminDeleteMany(
     }
     return { deleted, skippedIds };
   });
+  for (const orderId of deletedIds) await ctx.queue.cancel(autoReceiveKey(orderId));
+  return result;
 }
 
 // ---------------------------------------------------------------------------

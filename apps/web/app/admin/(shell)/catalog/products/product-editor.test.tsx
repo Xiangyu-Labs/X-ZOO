@@ -59,6 +59,7 @@ const detail: AdminProductDetail = {
   cardImageUrl: null,
   sliderImages: [],
   videoUrl: null,
+  videoPosterUrl: null,
   unitName: '件',
   freightMode: 'template',
   fixedFreight: null,
@@ -68,6 +69,7 @@ const detail: AdminProductDetail = {
   minPurchaseQuantity: 1,
   customForm: [{ key: 'engraving', label: '刻字内容', type: 'text', required: false }],
   descriptionHtml: '<p>纯棉</p>',
+  descriptionBlocks: [{ id: 'html', type: 'richText', html: '<p>纯棉</p>' }],
   specs: [
     {
       id: '900',
@@ -140,7 +142,7 @@ const neighbourList = on(catalogAdminProductList, (call) => {
   return { items, total: items.length, page: 1, pageSize: 20 };
 });
 
-function stubApi(): StubCall[] {
+function stubApi(product: AdminProductDetail = detail): StubCall[] {
   const empty = { items: [], total: 0, page: 1, pageSize: 100 };
   return stubRoutes([
     on(catalogAdminCategoryTree, { items: [] }),
@@ -153,8 +155,8 @@ function stubApi(): StubCall[] {
     on(catalogAdminLabelList, empty),
     on(catalogAdminProtectionList, empty),
     on(catalogAdminParamTemplateList, empty),
-    on(catalogAdminProductDetail, detail),
-    on(catalogAdminProductUpdate, detail),
+    on(catalogAdminProductDetail, product),
+    on(catalogAdminProductUpdate, product),
     neighbourList,
   ]);
 }
@@ -220,6 +222,31 @@ describe('商品编辑器', () => {
       expect(body.fixedFreight).toBeUndefined();
       // The select round-trips the id it was loaded with.
       expect(body.shippingTemplateId).toBe('3');
+      // 商品详情 goes back as its blocks, in order.
+      expect(body.descriptionBlocks).toEqual(detail.descriptionBlocks);
+    });
+  });
+
+  it('shows the main video as a playable thumbnail, and drops its cover with it', async () => {
+    const withVideo = {
+      ...detail,
+      videoUrl: '/uploads/2026/10/clip.mp4',
+      videoPosterUrl: 'https://cdn.example.com/cover.png',
+    };
+    const saved = stubApi(withVideo);
+    renderAdmin(withStubAssets(<ProductEditorPage productId="1" />), { identity: editor });
+    await waitFor(() => expect(screen.getByLabelText('商品名称')).toHaveValue('简约白 T 恤'));
+
+    await userEvent.click(await screen.findByRole('button', { name: '播放主图视频' }));
+    expect(await screen.findByTestId('video-player')).toHaveAttribute('src', withVideo.videoUrl);
+    await userEvent.click(screen.getByRole('button', { name: /关闭|Close/ }));
+
+    await userEvent.click(screen.getByRole('button', { name: '移除主图视频' }));
+    await userEvent.click(screen.getByRole('button', { name: zhName('保存') }));
+    await waitFor(() => {
+      const body = saved.find((call) => call.method === 'PUT')?.body as Record<string, unknown>;
+      expect(body).toBeDefined();
+      expect(body.videoUrl).toBeUndefined();
     });
   });
 

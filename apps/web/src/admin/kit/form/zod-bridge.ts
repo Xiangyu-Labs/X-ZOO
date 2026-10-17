@@ -100,6 +100,7 @@ function emptyMessage(spec: Pick<FieldSpec, 'kind' | 'label'> | undefined): stri
   if (spec === undefined || typeof spec.label !== 'string' || spec.label === '') return null;
   switch (spec.kind) {
     case 'asset':
+    case 'video':
       return `请上传${spec.label}`;
     case 'select':
     case 'radio':

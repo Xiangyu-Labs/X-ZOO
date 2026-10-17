@@ -16,6 +16,7 @@ import {
   catalogAdminProtectionList,
 } from '@shop/contracts/catalog/catalog.taxonomy.admin.contract';
 import { shippingTemplateOptionList } from '@shop/contracts/shipping/shipping.template.admin.contract';
+import type { DescriptionBlockInput } from '@shop/contracts/catalog/description';
 import {
   adminProductForm,
   type AdminProductDetail,
@@ -47,6 +48,7 @@ import {
   options,
 } from '../catalog-enums';
 import { SHIPPING_CHARGE_MODE } from '../../shipping/shipping-enums';
+import { DescriptionBlocksField } from './description-blocks-field';
 import { ParamEditor, SkuMatrixEditor, SpecEditor, blankSku } from './product-sku-editor';
 
 /** Its own chunk: the storefront blocks it draws with are not needed below `xl`. */
@@ -338,7 +340,7 @@ const NEW_PRODUCT: Partial<AdminProductForm> = {
   params: [],
   recommendedProductIds: [],
   giftCouponIds: [],
-  descriptionHtml: '',
+  descriptionBlocks: [],
 };
 
 function buildFields({
@@ -456,7 +458,7 @@ function buildFields({
       allowClear: true,
     },
 
-    { kind: 'asset', name: 'imageUrl', section: '图片与视频', label: '商品主图', span: 12 },
+    { kind: 'asset', name: 'imageUrl', section: '图片与视频', label: '商品缩略图', span: 12 },
     {
       kind: 'asset',
       name: 'cardImageUrl',
@@ -469,19 +471,28 @@ function buildFields({
       kind: 'asset',
       name: 'sliderImages',
       section: '图片与视频',
-      label: '轮播图',
+      label: '商品轮播图',
       span: 24,
       multiple: true,
       max: 10,
     },
     {
-      kind: 'text',
+      kind: 'video',
       name: 'videoUrl',
       section: '图片与视频',
       label: '主图视频',
       span: 12,
-      maxLength: 512,
-      placeholder: 'https://…',
+      posterName: 'videoPosterUrl',
+      help: '商品页轮播的第一屏，点击播放。请上传 mp4。',
+    },
+    {
+      kind: 'asset',
+      name: 'videoPosterUrl',
+      section: '图片与视频',
+      label: '视频封面',
+      span: 12,
+      help: '播放前显示的图片；不选则用商品缩略图',
+      visibleWhen: (values) => typeof values.videoUrl === 'string' && values.videoUrl !== '',
     },
     {
       kind: 'money',
@@ -666,12 +677,18 @@ function buildFields({
       ),
     },
     {
-      kind: 'richText',
-      name: 'descriptionHtml',
+      kind: 'custom',
+      name: 'descriptionBlocks',
       section: '详情',
       label: '商品详情',
       span: 24,
-      minHeight: 320,
+      render: ({ value, onChange, disabled }) => (
+        <DescriptionBlocksField
+          value={value as DescriptionBlockInput[] | undefined}
+          onChange={onChange}
+          disabled={disabled}
+        />
+      ),
     },
   ];
 }
@@ -720,6 +737,7 @@ export function formValuesOf(record: AdminProductDetail): Partial<AdminProductFo
     ...(record.cardImageUrl === null ? {} : { cardImageUrl: record.cardImageUrl }),
     sliderImages: record.sliderImages,
     ...(record.videoUrl === null ? {} : { videoUrl: record.videoUrl }),
+    ...(record.videoPosterUrl === null ? {} : { videoPosterUrl: record.videoPosterUrl }),
     ...(record.unitName === null ? {} : { unitName: record.unitName }),
     ...(record.originalPrice === null ? {} : { originalPrice: record.originalPrice }),
     displaySalesBoost: record.displaySalesBoost,
@@ -748,7 +766,16 @@ export function formValuesOf(record: AdminProductDetail): Partial<AdminProductFo
     isBenefit: record.isBenefit,
     isRecommended: record.isRecommended,
     sortOrder: record.sortOrder,
-    descriptionHtml: record.descriptionHtml,
+    descriptionBlocks: record.descriptionBlocks.map((block) =>
+      block.type === 'richText'
+        ? block
+        : {
+            id: block.id,
+            type: block.type,
+            src: block.src,
+            ...(block.posterUrl === null ? {} : { posterUrl: block.posterUrl }),
+          },
+    ),
     categoryIds: record.categoryIds,
     labelIds: record.labelIds,
     protectionIds: record.protectionIds,

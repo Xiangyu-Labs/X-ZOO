@@ -20,6 +20,7 @@ import {
 
 import { ApiError } from '@/admin/api/errors';
 import { useInvalidateRoutes, useRouteMutation, useRouteQuery } from '@/admin/api/hooks';
+import { VideoThumb } from '@/admin/kit/asset/video-preview';
 import { ConfirmButton } from '@/admin/kit/confirm-button';
 import { ModalForm, useFormModal } from '@/admin/kit/form/modal-form';
 import { PageContainer } from '@/admin/kit/page-container';
@@ -31,6 +32,7 @@ import {
   textColumn,
 } from '@/admin/kit/table/columns';
 import { CrudTable } from '@/admin/kit/table/crud-table';
+import { Thumbnail } from '@/admin/kit/thumbnail';
 import { Can } from '@/admin/session/can';
 import { useCan } from '@/admin/session/session-provider';
 import { uploadFile } from '@/admin/storage/upload';
@@ -204,7 +206,16 @@ export function AttachmentsPage() {
             )}
             columns={[
               idColumn<AttachmentItem>({ sortable: true }),
-              imageColumn<AttachmentItem>({ title: '预览', dataIndex: 'url', size: 44 }),
+              {
+                ...imageColumn<AttachmentItem>({ title: '预览', dataIndex: 'url', size: 44 }),
+                // A video plays on click; a picture opens its preview, as before.
+                render: (_value: unknown, row: AttachmentItem) =>
+                  row.kind === 'video' ? (
+                    <VideoThumb src={row.url} width={44} name={row.name} />
+                  ) : (
+                    <Thumbnail src={row.url} size={44} />
+                  ),
+              },
               textColumn<AttachmentItem>({
                 title: '名称',
                 dataIndex: 'name',

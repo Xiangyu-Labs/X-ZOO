@@ -1,4 +1,5 @@
 import type { PageQuery } from '@shop/contracts/conventions';
+import { storedDescriptionBlocks } from '@shop/contracts/catalog/description';
 import type {
   GroupbuyActivityDetail,
   GroupbuyActivityForm,
@@ -524,7 +525,10 @@ export async function detail(ctx: Ctx, input: { id: string }): Promise<GroupbuyD
     sliderImages: activity.sliderImages,
     groupTtlSeconds: activity.groupTtlSeconds,
     perOrderQuantity: activity.perOrderQuantity,
-    description,
+    description: description?.html ?? null,
+    descriptionBlocks: description
+      ? storedDescriptionBlocks(description.html, description.blocks)
+      : [],
     skus: skus
       .filter((sku) => sku.isEnabled)
       .map((sku) => ({

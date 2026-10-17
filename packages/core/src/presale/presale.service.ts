@@ -1,4 +1,5 @@
 import type { PageQuery } from '@shop/contracts/conventions';
+import { storedDescriptionBlocks } from '@shop/contracts/catalog/description';
 import type {
   PresaleActivityDetail,
   PresaleActivityForm,
@@ -319,7 +320,10 @@ export async function detail(ctx: Ctx, input: { id: string }): Promise<PresaleDe
     ...toCard(activity, now),
     sliderImages: activity.sliderImages,
     perOrderQuantity: activity.perOrderQuantity,
-    description,
+    description: description?.html ?? null,
+    descriptionBlocks: description
+      ? storedDescriptionBlocks(description.html, description.blocks)
+      : [],
     skus: skus
       .filter((sku) => sku.isEnabled)
       .map((sku) => ({

@@ -12,6 +12,7 @@ import { MoneyInput } from './money-input';
 import { RichTextField } from './rich-text-field';
 import { CascaderField, TreeSelectField } from './select-fields';
 import { SortableListField } from './sortable-list-field';
+import { VideoFormField } from './video-asset-field';
 import type { FieldSpec } from './types';
 import { maxLengthOf } from './zod-bridge';
 import { defined } from '../props';
@@ -194,6 +195,16 @@ export function renderControl(
           max={spec.max}
           valueType={spec.valueType ?? 'url'}
           size={spec.size ?? 96}
+          disabled={off}
+        />
+      );
+
+    case 'video':
+      return (
+        <VideoFormField
+          posterName={spec.posterName}
+          width={spec.width}
+          label={typeof spec.label === 'string' ? spec.label : undefined}
           disabled={off}
         />
       );

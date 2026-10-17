@@ -129,6 +129,13 @@ export type FieldSpec<N extends string = string> =
       valueType?: AssetValueType | undefined;
       size?: number | undefined;
     })
+  | (FieldBase<N> & {
+      /** One mp4 from the 素材库 (or a pasted address), shown as a playable thumbnail. */
+      kind: 'video';
+      /** The form field holding its cover, shown over the thumbnail. */
+      posterName?: FieldName | undefined;
+      width?: number | undefined;
+    })
   | (FieldBase<N> & { kind: 'link'; allow?: readonly LinkTargetType[] })
   | (FieldBase<N> & {
       kind: 'sortableList';

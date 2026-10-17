@@ -40,6 +40,7 @@ const activity = (patch: Partial<Activity> = {}): Activity => ({
   groupTtlSeconds: 86400,
   perOrderQuantity: 2,
   description: null,
+  descriptionBlocks: [],
   skus: [sku('21'), sku('22', 0)],
   myOpenGroupId: null,
   myOpenGroupRole: null,

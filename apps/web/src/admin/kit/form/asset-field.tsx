@@ -1,8 +1,25 @@
 'use client';
 
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Button, Typography } from 'antd';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 
 import { useAssetPicker } from '../asset/asset-picker';
 import { useAssetAccess } from '../asset/asset-source-context';
@@ -31,6 +48,17 @@ function toArray(value: unknown): unknown[] {
 }
 
 /**
+ * The value after a tile is dragged from `from` onto `to`; anything that is not
+ * a move between two tiles leaves it as it was.
+ */
+export function reorderAssets(value: unknown, from: number, to: number): unknown[] {
+  const items = toArray(value);
+  if (!Number.isInteger(from) || !Number.isInteger(to) || from === to) return items;
+  if (from < 0 || to < 0 || from >= items.length || to >= items.length) return items;
+  return arrayMove(items, from, to);
+}
+
+/**
  * Image field backed by `<AssetPicker>`.
  *
  * `valueType` decides what lands in the form value:
@@ -40,6 +68,9 @@ function toArray(value: unknown): unknown[] {
  *
  * With `'id'` the component can only show a thumbnail for assets picked in this
  * session; give it `'url'` or `'asset'` when the page must render existing images.
+ *
+ * With `multiple`, the tiles are dragged into order (轮播图 shows them in that
+ * order); the add tile stays last.
  */
 export function AssetField({
   value,
@@ -121,20 +152,28 @@ export function AssetField({
   const canAdd =
     !disabled && (multiple ? max === undefined || entries.length < max : entries.length === 0);
 
-  return (
+  // A short move before a drag starts, so a click still opens the preview.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const sortable = multiple && !disabled && entries.length > 1;
+  // The position is the id, as in `SortableListField`: stable for one drag.
+  const ids = entries.map((_entry, index) => String(index));
+  const handleDragEnd = (event: DragEndEvent): void => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    onChange?.(reorderAssets(value, Number(active.id), Number(over.id)));
+  };
+
+  const tiles = (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
       {entries.map((entry, index) => (
-        <div
+        <SortableTile
           key={`${entry.key}-${index}`}
-          style={{
-            position: 'relative',
-            width: size,
-            height: size,
-            borderRadius: 6,
-            overflow: 'hidden',
-            border: '1px solid var(--ant-color-border)',
-            background: 'var(--ant-color-fill-quaternary)',
-          }}
+          id={String(index)}
+          size={size}
+          enabled={sortable}
         >
           {entry.url ? (
             <Thumbnail src={entry.url} size={size - 2} radius={0} />
@@ -153,11 +192,13 @@ export function AssetField({
               icon={<DeleteOutlined />}
               aria-label="移除"
               onClick={() => removeAt(index)}
+              // Enter on 移除 removes; it must not pick the tile up for a drag.
+              onKeyDown={(event) => event.stopPropagation()}
               // Above the thumbnail's preview cover.
               style={{ position: 'absolute', insetInlineEnd: 0, insetBlockStart: 0, zIndex: 2 }}
             />
           )}
-        </div>
+        </SortableTile>
       ))}
 
       {canAdd && !access.list ? (
@@ -187,6 +228,60 @@ export function AssetField({
       ) : null}
 
       {picker.holder}
+    </div>
+  );
+
+  if (!sortable) return tiles;
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={ids} strategy={rectSortingStrategy}>
+        {tiles}
+      </SortableContext>
+    </DndContext>
+  );
+}
+
+/** One picture; draggable when the field is sortable. */
+function SortableTile({
+  id,
+  size,
+  enabled,
+  children,
+}: {
+  id: string;
+  size: number;
+  enabled: boolean;
+  children: ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+    disabled: !enabled,
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      {...(enabled ? { ...attributes, ...listeners, title: '拖动调整顺序' } : {})}
+      data-testid="asset-field-tile"
+      style={{
+        position: 'relative',
+        width: size,
+        height: size,
+        borderRadius: 6,
+        overflow: 'hidden',
+        border: '1px solid var(--ant-color-border)',
+        background: 'var(--ant-color-fill-quaternary)',
+        ...(enabled
+          ? {
+              transform: CSS.Translate.toString(transform),
+              transition,
+              cursor: isDragging ? 'grabbing' : 'grab',
+              zIndex: isDragging ? 3 : undefined,
+              opacity: isDragging ? 0.7 : 1,
+            }
+          : {}),
+      }}
+    >
+      {children}
     </div>
   );
 }

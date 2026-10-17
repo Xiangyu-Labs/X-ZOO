@@ -1,5 +1,10 @@
 import type { DbOrTx, Tx } from '@shop/db';
-import { productDescriptions, products, productSkus } from '@shop/db/schema/catalog';
+import {
+  productDescriptions,
+  products,
+  productSkus,
+  type ProductDescriptionBlockRow,
+} from '@shop/db/schema/catalog';
 import {
   groupbuyActivities,
   groupbuyActivitySkus,
@@ -543,13 +548,13 @@ export async function replaceActivitySkus(
 export async function findProductDescription(
   db: DbOrTx,
   productId: number,
-): Promise<string | null> {
+): Promise<{ html: string; blocks: ProductDescriptionBlockRow[] } | null> {
   const [row] = await db
-    .select({ html: productDescriptions.contentHtml })
+    .select({ html: productDescriptions.contentHtml, blocks: productDescriptions.blocks })
     .from(productDescriptions)
     .where(eq(productDescriptions.productId, productId))
     .limit(1);
-  return row?.html ?? null;
+  return row ?? null;
 }
 
 /** Are the SKUs really this product's? Guards against a hand-crafted form body. */

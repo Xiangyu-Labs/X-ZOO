@@ -5,7 +5,7 @@ import { useRouteMutation, useRouteQuery } from '@shop/api-client/react';
 import { useDisplay } from '@/app-config';
 import { useCartCount } from '@/data/cart';
 import { useRecordVisit } from '@/data/visits';
-import { RichContent } from '@/features/content/rich-content';
+import { DescriptionBlocks, hasDescription } from '@/features/content/description-blocks';
 import { useCheckoutDraft } from '@/features/checkout/draft';
 import { useProductActivities } from '@/features/product/activities';
 import { ProductCoupons } from '@/features/product/product-coupons';
@@ -37,6 +37,7 @@ import { Price } from '@/ui/price';
 import { Pressable } from '@/ui/pressable';
 import { ProductCard, formatSales } from '@/ui/product-card';
 import { Sheet } from '@/ui/sheet';
+import { VideoPlayer } from '@/ui/video-player';
 import { ProductCardSkeleton, Skeleton } from '@/ui/skeleton';
 import './index.scss';
 import { errorMessage } from '@/lib/error-message';
@@ -150,6 +151,11 @@ function Detail({
 
   const images = product.sliderImages.length > 0 ? product.sliderImages : [product.imageUrl];
   const urls = images.map((src) => assetUrl(src)).filter((src): src is string => !!src);
+  // The main video is the first slide; its cover is the 商品缩略图 unless one was picked.
+  const video = product.videoUrl
+    ? { src: product.videoUrl, poster: product.videoPosterUrl ?? product.imageUrl }
+    : null;
+  const slides = urls.length + (video ? 1 : 0);
   const soldOut = product.stock <= 0 || product.skus.every((sku) => sku.stock <= 0);
   const strike = strikePrice(product.price, product.originalPrice);
   const canCart = product.canAddToCart && !soldOut;
@@ -233,9 +239,20 @@ function Detail({
       <View className="product__gallery">
         <Swiper
           className="product__swiper"
-          circular={urls.length > 1}
+          circular={slides > 1}
           onChange={(event) => setSlide(event.detail.current)}
         >
+          {video ? (
+            <SwiperItem key="video">
+              <VideoPlayer
+                src={video.src}
+                poster={video.poster}
+                label="商品视频"
+                layout="fill"
+                active={slide === 0}
+              />
+            </SwiperItem>
+          ) : null}
           {urls.map((src, index) => (
             <SwiperItem key={src}>
               <Pressable
@@ -248,9 +265,9 @@ function Detail({
             </SwiperItem>
           ))}
         </Swiper>
-        {urls.length > 1 ? (
+        {slides > 1 ? (
           <Text className="product__counter">
-            {slide + 1}/{urls.length}
+            {slide + 1}/{slides}
           </Text>
         ) : null}
         {soldOut ? <Text className="product__sold-out">已售罄</Text> : null}
@@ -335,8 +352,8 @@ function Detail({
       {display.productReviews ? <Reviews product={product} /> : null}
 
       <Card title="商品详情" className="product__description" id="product-description">
-        {product.descriptionHtml.trim() ? (
-          <RichContent html={product.descriptionHtml} />
+        {hasDescription(product.descriptionBlocks, product.descriptionHtml) ? (
+          <DescriptionBlocks blocks={product.descriptionBlocks} html={product.descriptionHtml} />
         ) : (
           <Text className="product__muted">暂无图文详情</Text>
         )}
