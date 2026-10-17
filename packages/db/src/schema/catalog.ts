@@ -210,12 +210,20 @@ export const productCategoriesMap = pgTable(
 export type ProductCategoriesMapRow = typeof productCategoriesMap.$inferSelect;
 export type NewProductCategoriesMapRow = typeof productCategoriesMap.$inferInsert;
 
+/** One block of 商品详情 (`@shop/contracts/catalog/description`). */
+export type ProductDescriptionBlockRow =
+  | { id: string; type: 'richText'; html: string }
+  | { id: string; type: 'video'; src: string; posterUrl: string | null };
+
 /** Long HTML body. Split out so product list queries never drag it along. */
 export const productDescriptions = pgTable('product_descriptions', {
   productId: fk()
     .primaryKey()
     .references(() => products.id, { onDelete: 'cascade' }),
+  /** The rich-text blocks joined, for readers that only know HTML. */
   contentHtml: text().notNull(),
+  /** 商品详情 in order. Empty on a row written before the blocks: `contentHtml` is all of it. */
+  blocks: jsonb().$type<ProductDescriptionBlockRow[]>().notNull().default(emptyJsonArray),
   updatedAt: updatedAt(),
 });
 

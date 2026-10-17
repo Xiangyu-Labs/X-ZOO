@@ -69,6 +69,7 @@ const detail: AdminProductDetail = {
   minPurchaseQuantity: 1,
   customForm: [{ key: 'engraving', label: '刻字内容', type: 'text', required: false }],
   descriptionHtml: '<p>纯棉</p>',
+  descriptionBlocks: [{ id: 'html', type: 'richText', html: '<p>纯棉</p>' }],
   specs: [
     {
       id: '900',
@@ -221,6 +222,8 @@ describe('商品编辑器', () => {
       expect(body.fixedFreight).toBeUndefined();
       // The select round-trips the id it was loaded with.
       expect(body.shippingTemplateId).toBe('3');
+      // 商品详情 goes back as its blocks, in order.
+      expect(body.descriptionBlocks).toEqual(detail.descriptionBlocks);
     });
   });
 

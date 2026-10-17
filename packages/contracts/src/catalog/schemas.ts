@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { descriptionBlock, descriptionBlocksInput } from './description';
 import {
   id,
   idList,
@@ -490,7 +491,10 @@ export const adminProductDetail = adminProductListItem.extend({
   purchaseLimitQuantity: z.number().int().nullable(),
   minPurchaseQuantity: z.number().int().min(1),
   customForm: z.array(productCustomFormField).nullable(),
+  /** The rich-text blocks joined; `descriptionBlocks` is the whole of it. */
   descriptionHtml: z.string(),
+  /** 商品详情 in order: 富文本 and 视频 blocks. */
+  descriptionBlocks: z.array(descriptionBlock),
   specs: z.array(productSpec),
   skus: z.array(productSku),
   params: z.array(z.object({ id, name: z.string(), value: z.string(), templateId: id.nullable() })),
@@ -545,7 +549,10 @@ export const adminProductForm = z
     isRecommended: z.boolean().default(false),
     customForm: z.array(productCustomFormField).max(20).optional(),
     sortOrder: z.number().int().min(0).max(9999).default(0),
+    /** Read only when `descriptionBlocks` is absent: the details as one rich-text block. */
     descriptionHtml: z.string().max(500_000).default(''),
+    /** 商品详情 in order; replaces `descriptionHtml` when sent. */
+    descriptionBlocks: descriptionBlocksInput.optional(),
     categoryIds: z.array(id).min(1).max(20),
     labelIds: z.array(id).max(20).default([]),
     protectionIds: z.array(id).max(20).default([]),
@@ -1013,7 +1020,10 @@ export const storefrontProduct = productCard.extend({
   freightMode: productFreightMode,
   fixedFreight: money.nullable(),
   views: z.number().int().min(0),
+  /** The rich-text blocks joined, for versions that do not read `descriptionBlocks`. */
   descriptionHtml: z.string(),
+  /** 商品详情 in order: 富文本 and 视频 blocks. */
+  descriptionBlocks: z.array(descriptionBlock),
   specs: z.array(storefrontSpec),
   skus: z.array(storefrontSku),
   params: z.array(z.object({ name: z.string(), value: z.string() })),
@@ -1364,6 +1374,10 @@ export const adminProductDetailExample: AdminProductDetail = {
   minPurchaseQuantity: 1,
   customForm: null,
   descriptionHtml: '<p>经典款，四季可穿。</p>',
+  descriptionBlocks: [
+    { id: 'a1', type: 'richText', html: '<p>经典款，四季可穿。</p>' },
+    { id: 'a2', type: 'video', src: '/uploads/2026/10/fit.mp4', posterUrl: null },
+  ],
   specs: [productSpecExample, productSpecSizeExample],
   skus: [productSkuExample, productSkuSecondExample],
   params: [{ id: '401', name: '面料', value: '纯棉', templateId: '1' }],
@@ -1415,7 +1429,10 @@ export const adminProductFormExample = {
   purchaseLimitQuantity: 5,
   isHot: true,
   isRecommended: true,
-  descriptionHtml: '<p>经典款，四季可穿。</p>',
+  descriptionBlocks: [
+    { id: 'a1', type: 'richText', html: '<p>经典款，四季可穿。</p>' },
+    { id: 'a2', type: 'video', src: '/uploads/2026/10/fit.mp4' },
+  ],
   categoryIds: ['7', '17'],
   labelIds: ['3'],
   protectionIds: ['1'],
@@ -1475,6 +1492,10 @@ export const storefrontProductExample: StorefrontProduct = {
   fixedFreight: null,
   views: 3820,
   descriptionHtml: '<p>经典款，四季可穿。</p>',
+  descriptionBlocks: [
+    { id: 'a1', type: 'richText', html: '<p>经典款，四季可穿。</p>' },
+    { id: 'a2', type: 'video', src: '/uploads/2026/10/fit.mp4', posterUrl: null },
+  ],
   specs: [
     { name: '颜色', values: [{ value: '白', imageUrl: 'https://cdn.example.com/p/1-white.png' }] },
     {

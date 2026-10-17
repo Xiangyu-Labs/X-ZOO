@@ -146,6 +146,31 @@ describe('商品详情', () => {
     act(() => useOverlayStore.setState({ open: 0 }));
   });
 
+  it('draws 商品详情 block by block: rich text, then a video played on a tap', async () => {
+    serve({
+      'GET /api/v1/catalog/products/12': () => ({
+        body: productDetailFixture({
+          descriptionHtml: '<p>先看面料</p>',
+          descriptionBlocks: [
+            { id: 'a', type: 'richText', html: '<p>先看面料</p>' },
+            { id: 'b', type: 'video', src: '/uploads/fit.mp4', posterUrl: '/uploads/fit.jpg' },
+            { id: 'c', type: 'richText', html: '' },
+          ],
+        }),
+      }),
+    });
+    await renderPage(<ProductPage />);
+
+    const card = (await screen.findByText('先看面料')).closest(
+      '.product__description',
+    ) as HTMLElement;
+    expect(card.querySelectorAll('.description-blocks__item')).toHaveLength(2);
+
+    fireEvent.click(within(card).getByRole('button', { name: '播放详情视频' }));
+    const player = await within(card).findByTestId('native-video');
+    expect(player.getAttribute('data-src')).toMatch(/\/uploads\/fit\.mp4$/);
+  });
+
   it('asks for this product’s activities and coupons, and shows them', async () => {
     const seen = serve();
     await renderPage(<ProductPage />);

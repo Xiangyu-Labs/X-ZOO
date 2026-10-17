@@ -18,6 +18,7 @@ import {
   productSpecs,
   productVirtualCards,
   products,
+  type ProductDescriptionBlockRow,
 } from '@shop/db/schema/catalog';
 import { productGiftCoupons } from '@shop/db/schema/coupon';
 import { productEvents, searchLogs } from '@shop/db/schema/stats';
@@ -912,24 +913,38 @@ export async function labelsFor(
 
 export async function upsertDescription(
   tx: Tx,
-  args: { productId: number; contentHtml: string; now: Date },
+  args: {
+    productId: number;
+    contentHtml: string;
+    blocks: ProductDescriptionBlockRow[];
+    now: Date;
+  },
 ): Promise<void> {
   await tx
     .insert(productDescriptions)
-    .values({ productId: args.productId, contentHtml: args.contentHtml, updatedAt: args.now })
+    .values({
+      productId: args.productId,
+      contentHtml: args.contentHtml,
+      blocks: args.blocks,
+      updatedAt: args.now,
+    })
     .onConflictDoUpdate({
       target: productDescriptions.productId,
-      set: { contentHtml: args.contentHtml, updatedAt: args.now },
+      set: { contentHtml: args.contentHtml, blocks: args.blocks, updatedAt: args.now },
     });
 }
 
-export async function findDescription(db: DbOrTx, productId: number): Promise<string> {
+/** 商品详情 as stored: its HTML and its blocks (`storedDescriptionBlocks` reads them together). */
+export async function findDescription(
+  db: DbOrTx,
+  productId: number,
+): Promise<{ html: string; blocks: ProductDescriptionBlockRow[] }> {
   const rows = await db
-    .select({ contentHtml: productDescriptions.contentHtml })
+    .select({ html: productDescriptions.contentHtml, blocks: productDescriptions.blocks })
     .from(productDescriptions)
     .where(eq(productDescriptions.productId, productId))
     .limit(1);
-  return rows[0]?.contentHtml ?? '';
+  return rows[0] ?? { html: '', blocks: [] };
 }
 
 export async function replaceParams(

@@ -5,7 +5,7 @@ import { useRouteMutation, useRouteQuery } from '@shop/api-client/react';
 import { useDisplay } from '@/app-config';
 import { useCartCount } from '@/data/cart';
 import { useRecordVisit } from '@/data/visits';
-import { RichContent } from '@/features/content/rich-content';
+import { DescriptionBlocks, hasDescription } from '@/features/content/description-blocks';
 import { useCheckoutDraft } from '@/features/checkout/draft';
 import { useProductActivities } from '@/features/product/activities';
 import { ProductCoupons } from '@/features/product/product-coupons';
@@ -352,8 +352,8 @@ function Detail({
       {display.productReviews ? <Reviews product={product} /> : null}
 
       <Card title="商品详情" className="product__description" id="product-description">
-        {product.descriptionHtml.trim() ? (
-          <RichContent html={product.descriptionHtml} />
+        {hasDescription(product.descriptionBlocks, product.descriptionHtml) ? (
+          <DescriptionBlocks blocks={product.descriptionBlocks} html={product.descriptionHtml} />
         ) : (
           <Text className="product__muted">暂无图文详情</Text>
         )}

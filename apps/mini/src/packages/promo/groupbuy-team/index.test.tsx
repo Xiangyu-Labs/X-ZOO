@@ -47,6 +47,7 @@ const activity: ResponseOf<'groupbuy.detail'> = {
   groupTtlSeconds: 86400,
   perOrderQuantity: 1,
   description: null,
+  descriptionBlocks: [],
   skus: [
     {
       skuId: '21',

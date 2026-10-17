@@ -4,6 +4,7 @@ import { Form, type FormInstance } from 'antd';
 import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { ProductParam, ProductSkuInput } from '@shop/contracts/catalog/schemas';
+import type { DescriptionBlockInput } from '@shop/contracts/catalog/description';
 import type { RichTextProps } from '@shop/storefront-blocks';
 import { RichText } from '@shop/storefront-blocks/admin';
 import blocksCss from '@shop/storefront-blocks/admin-css';
@@ -22,6 +23,15 @@ import { isMoney, moneyToFen } from '@/admin/kit/money';
  * phone, and the admin's styles must not reach in. Everything else is the page's layout at half
  * its 750-wide design px.
  */
+
+/** What the phone draws: an empty rich text or a video with no file shows nothing. */
+function shownBlocks(
+  blocks: readonly DescriptionBlockInput[] | undefined,
+): DescriptionBlockInput[] {
+  return (blocks ?? []).filter((block) =>
+    block.type === 'richText' ? block.html.trim() !== '' : block.src.trim() !== '',
+  );
+}
 
 type Slide = { video: string; poster: string | undefined } | { image: string };
 
@@ -42,6 +52,7 @@ body {
 *, *::before, *::after { box-sizing: border-box; }
 .pp-nav { position: sticky; top: 0; z-index: 2; height: 44px; display: flex; align-items: center; justify-content: center; background: #fff; font-size: 16px; font-weight: 600; }
 .pp-gallery { position: relative; width: 375px; height: 375px; background: #fff; cursor: pointer; }
+.pp-video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; }
 .pp-gallery img, .pp-gallery video { display: block; width: 100%; height: 100%; object-fit: cover; }
 .pp-gallery-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: #bbb; font-size: 13px; }
 .pp-counter { position: absolute; right: 12px; bottom: 12px; padding: 1px 8px; border-radius: 999px; background: rgba(0,0,0,.45); color: #fff; font-size: 11px; line-height: 15px; }
@@ -153,7 +164,7 @@ export function ProductPreview({ form, sales = 0 }: { form: FormInstance; sales?
   const boost = Form.useWatch<number | undefined>('displaySalesBoost', form);
   const skus = Form.useWatch<ProductSkuInput[] | undefined>('skus', form);
   const params = Form.useWatch<ProductParam[] | undefined>('params', form);
-  const html = Form.useWatch<string | undefined>('descriptionHtml', form);
+  const blocks = Form.useWatch<DescriptionBlockInput[] | undefined>('descriptionBlocks', form);
   const [slide, setSlide] = useState(0);
 
   const images =
@@ -234,8 +245,25 @@ export function ProductPreview({ form, sales = 0 }: { form: FormInstance; sales?
 
       <div className="pp-card">
         <div className="pp-card-title">商品详情</div>
-        {html?.trim() ? (
-          <RichText props={{ html, style: FLAT, visibility: EVERYONE }} />
+        {shownBlocks(blocks).length > 0 ? (
+          shownBlocks(blocks).map((block) =>
+            block.type === 'richText' ? (
+              <RichText
+                key={block.id}
+                props={{ html: block.html, style: FLAT, visibility: EVERYONE }}
+              />
+            ) : (
+              <video
+                key={block.id}
+                className="pp-video"
+                src={block.src}
+                {...(block.posterUrl ? { poster: block.posterUrl } : {})}
+                controls
+                playsInline
+                preload="metadata"
+              />
+            ),
+          )
         ) : (
           <span className="pp-muted">暂无图文详情</span>
         )}

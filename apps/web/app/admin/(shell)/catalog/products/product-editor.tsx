@@ -16,6 +16,7 @@ import {
   catalogAdminProtectionList,
 } from '@shop/contracts/catalog/catalog.taxonomy.admin.contract';
 import { shippingTemplateOptionList } from '@shop/contracts/shipping/shipping.template.admin.contract';
+import type { DescriptionBlockInput } from '@shop/contracts/catalog/description';
 import {
   adminProductForm,
   type AdminProductDetail,
@@ -47,6 +48,7 @@ import {
   options,
 } from '../catalog-enums';
 import { SHIPPING_CHARGE_MODE } from '../../shipping/shipping-enums';
+import { DescriptionBlocksField } from './description-blocks-field';
 import { ParamEditor, SkuMatrixEditor, SpecEditor, blankSku } from './product-sku-editor';
 
 /** Its own chunk: the storefront blocks it draws with are not needed below `xl`. */
@@ -338,7 +340,7 @@ const NEW_PRODUCT: Partial<AdminProductForm> = {
   params: [],
   recommendedProductIds: [],
   giftCouponIds: [],
-  descriptionHtml: '',
+  descriptionBlocks: [],
 };
 
 function buildFields({
@@ -675,12 +677,18 @@ function buildFields({
       ),
     },
     {
-      kind: 'richText',
-      name: 'descriptionHtml',
+      kind: 'custom',
+      name: 'descriptionBlocks',
       section: '详情',
       label: '商品详情',
       span: 24,
-      minHeight: 320,
+      render: ({ value, onChange, disabled }) => (
+        <DescriptionBlocksField
+          value={value as DescriptionBlockInput[] | undefined}
+          onChange={onChange}
+          disabled={disabled}
+        />
+      ),
     },
   ];
 }
@@ -758,7 +766,16 @@ export function formValuesOf(record: AdminProductDetail): Partial<AdminProductFo
     isBenefit: record.isBenefit,
     isRecommended: record.isRecommended,
     sortOrder: record.sortOrder,
-    descriptionHtml: record.descriptionHtml,
+    descriptionBlocks: record.descriptionBlocks.map((block) =>
+      block.type === 'richText'
+        ? block
+        : {
+            id: block.id,
+            type: block.type,
+            src: block.src,
+            ...(block.posterUrl === null ? {} : { posterUrl: block.posterUrl }),
+          },
+    ),
     categoryIds: record.categoryIds,
     labelIds: record.labelIds,
     protectionIds: record.protectionIds,

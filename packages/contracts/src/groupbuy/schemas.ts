@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { descriptionBlock } from '../catalog/description';
 import { id, idList, instant, money, pageQuery, paged, sortQuery } from '../_conventions/common';
 import { storefrontRoute } from '../system/storefront-routes';
 
@@ -354,7 +355,10 @@ export const groupbuyDetail = groupbuyCard.extend({
   sliderImages: z.array(z.string()),
   groupTtlSeconds: z.number().int().min(1),
   perOrderQuantity: z.number().int().min(1),
+  /** The product's rich-text details joined; `null` when it has none. */
   description: z.string().nullable(),
+  /** The product's 商品详情 in order: 富文本 and 视频 blocks. */
+  descriptionBlocks: z.array(descriptionBlock),
   skus: z.array(groupbuyStorefrontSku),
   /** `null` for an anonymous visitor: "cannot join" and "we do not know you" differ. */
   myOpenGroupId: id.nullable(),
@@ -599,6 +603,7 @@ export const groupbuyDetailExample: GroupbuyDetail = {
   groupTtlSeconds: 86400,
   perOrderQuantity: 1,
   description: '<p>每日坚果，三人成团。</p>',
+  descriptionBlocks: [{ id: 'html', type: 'richText', html: '<p>每日坚果，三人成团。</p>' }],
   skus: [
     {
       skuId: '21',

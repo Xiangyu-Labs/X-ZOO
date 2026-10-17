@@ -160,6 +160,7 @@ export const catalogAdminProductCreate = defineRoute({
         purchaseLimitMode: 'none',
         purchaseLimitQuantity: null,
         descriptionHtml: '',
+        descriptionBlocks: [],
         specs: [],
         skus: [
           {

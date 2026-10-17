@@ -124,6 +124,7 @@ export function productDetailFixture(overrides: Partial<Detail> = {}): Detail {
     fixedFreight: null,
     views: 300,
     descriptionHtml: '<p>礼盒图文详情</p>',
+    descriptionBlocks: [{ id: 'html', type: 'richText', html: '<p>礼盒图文详情</p>' }],
     specs: skuMatrixFixture.specs,
     skus: skuMatrixFixture.skus,
     params: [{ name: '材质', value: '丝绒' }],

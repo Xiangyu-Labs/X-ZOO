@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Swiper, SwiperItem, Text, View } from '@tarojs/components';
-import { RichContent } from '@/features/content/rich-content';
+import type { DescriptionBlock } from '@shop/contracts/catalog/description';
+import { DescriptionBlocks, hasDescription } from '@/features/content/description-blocks';
 import { assetUrl } from '@/lib/asset-url';
 import { strikePrice } from '@/lib/money';
 import { previewImages } from '@/platform';
@@ -124,11 +125,18 @@ export function ActivityHero({
 }
 
 /** 商品详情 under an activity: the description through the 富文本 block, as on 商品详情. */
-export function ActivityDescription({ html }: { html: string | null }) {
+export function ActivityDescription({
+  html,
+  blocks,
+}: {
+  html: string | null;
+  /** The product's 商品详情 in order; absent from a server before the blocks. */
+  blocks?: readonly DescriptionBlock[] | undefined;
+}) {
   return (
     <Card title="商品详情" className="activity-hero__description" id="activity-description">
-      {html?.trim() ? (
-        <RichContent html={html} />
+      {hasDescription(blocks, html) ? (
+        <DescriptionBlocks blocks={blocks} html={html} />
       ) : (
         <Text className="activity-hero__muted">暂无图文详情</Text>
       )}

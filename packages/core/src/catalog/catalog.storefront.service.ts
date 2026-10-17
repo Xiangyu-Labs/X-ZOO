@@ -14,6 +14,7 @@ import * as coupon from '../coupon';
 import { DomainError } from '../kernel/errors';
 import { requireUserId, type Ctx } from '../kernel/context';
 import { catalogConfig } from './catalog.config';
+import { descriptionOut } from './catalog.description';
 import * as repo from './catalog.repo';
 import { normaliseKeyword, summariseReviews } from './catalog.rules';
 import { pageBounds, platformOf, toProductCard } from './catalog.service';
@@ -178,17 +179,16 @@ export async function productDetail(ctx: Ctx, input: { id: string }): Promise<St
 
   const userId = ctx.actor.kind === 'user' ? ctx.actor.id : null;
 
-  const [labels, specs, skus, params, protections, links, descriptionHtml, counts] =
-    await Promise.all([
-      repo.labelsFor(ctx.db, [productId]),
-      repo.listSpecs(ctx.db, productId),
-      repo.listVisibleSkus(ctx.db, productId),
-      repo.listParams(ctx.db, productId),
-      repo.protectionsFor(ctx.db, productId),
-      repo.linkedIds(ctx.db, productId),
-      repo.findDescription(ctx.db, productId),
-      repo.reviewCountsFor(ctx.db, [productId]),
-    ]);
+  const [labels, specs, skus, params, protections, links, description, counts] = await Promise.all([
+    repo.labelsFor(ctx.db, [productId]),
+    repo.listSpecs(ctx.db, productId),
+    repo.listVisibleSkus(ctx.db, productId),
+    repo.listParams(ctx.db, productId),
+    repo.protectionsFor(ctx.db, productId),
+    repo.linkedIds(ctx.db, productId),
+    repo.findDescription(ctx.db, productId),
+    repo.reviewCountsFor(ctx.db, [productId]),
+  ]);
 
   const favorited = userId === null ? null : await repo.isFavorited(ctx.db, { userId, productId });
 
@@ -214,7 +214,7 @@ export async function productDetail(ctx: Ctx, input: { id: string }): Promise<St
     purchaseLimitQuantity: row.purchaseLimitQuantity,
     freightMode: row.freightMode,
     fixedFreight: row.fixedFreight,
-    descriptionHtml,
+    ...descriptionOut(description),
     specs: specs.map((entry) => ({
       name: entry.spec.name,
       values: entry.values.map((value) => ({ value: value.value, imageUrl: value.imageUrl })),

@@ -27,6 +27,7 @@ const activity = (patch: Partial<Activity> = {}): Activity => ({
   sliderImages: [],
   perOrderQuantity: 3,
   description: null,
+  descriptionBlocks: [],
   skus: [
     {
       skuId: '31',
