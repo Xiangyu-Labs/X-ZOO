@@ -101,11 +101,17 @@ describe('the video field', () => {
 
     await pick(CLIP);
     await waitFor(() => expect(onValue).toHaveBeenLastCalledWith(CLIP.url));
-    const preview = screen.getByTestId('video-field-preview') as HTMLVideoElement;
+    const preview = screen.getByTestId('video-field-preview').querySelector('video')!;
     expect(preview.getAttribute('src')).toBe(CLIP.url);
     expect(preview.muted).toBe(true);
     expect(preview.autoplay).toBe(false);
     expect(preview.getAttribute('preload')).toBe('metadata');
+
+    // A click plays it, with the controls to seek and pause.
+    fireEvent.click(screen.getByTestId('video-thumb'));
+    const player = (await screen.findByTestId('video-player')) as HTMLVideoElement;
+    expect(player.getAttribute('src')).toBe(CLIP.url);
+    expect(player.controls).toBe(true);
   });
 
   it('refuses a picture picked from the library, keeping the video it had', async () => {
@@ -115,7 +121,9 @@ describe('the video field', () => {
     await pick(PHOTO);
     expect(await screen.findByText('「封面.png」不是 mp4 视频，请另选')).toBeInTheDocument();
     expect(onValue).not.toHaveBeenCalled();
-    expect(screen.getByTestId('video-field-preview').getAttribute('src')).toBe(CLIP.url);
+    expect(
+      screen.getByTestId('video-field-preview').querySelector('video')?.getAttribute('src'),
+    ).toBe(CLIP.url);
   });
 
   it('draws the library’s videos as video frames, not broken pictures', async () => {

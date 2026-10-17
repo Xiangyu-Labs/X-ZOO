@@ -229,3 +229,23 @@ describe('AssetPicker — 新建分类', () => {
     expect(screen.queryByRole('button', { name: /新建分类/ })).not.toBeInTheDocument();
   });
 });
+
+describe('AssetPicker — videos', () => {
+  it('lists videos for a video field, and plays one before it is picked', async () => {
+    const stub = createStubAssetSource(2);
+    await stub.upload(new File(['x'], '开箱.mp4', { type: 'video/mp4' }));
+    const source: AssetSource = { ...stub, listAssets: vi.fn(stub.listAssets) };
+    const onSelect = vi.fn();
+    renderAdmin(
+      <AssetSourceProvider source={source}>
+        <AssetPicker open accept="video/mp4" onClose={() => {}} onSelect={onSelect} />
+      </AssetSourceProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: '播放 开箱.mp4' }));
+    expect(await screen.findByTestId('video-player')).toHaveAttribute('controls');
+    expect(source.listAssets).toHaveBeenCalledWith(expect.objectContaining({ kind: 'video' }));
+    // Only the video: the pictures belong to picture fields.
+    expect(screen.queryByAltText('示例素材-1.png')).toBeNull();
+  });
+});

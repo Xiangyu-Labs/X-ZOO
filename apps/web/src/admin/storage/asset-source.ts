@@ -56,7 +56,8 @@ export function createStorageAssetSource(): AssetSource {
           // The picker's folders are browsing aids, not filters: opening 商品图
           // should show what is filed underneath it too.
           includeSubcategories: query.categoryId ? 'true' : 'false',
-          kind: 'image',
+          // A picture field lists pictures and a video field videos.
+          kind: query.kind ?? 'image',
           sortBy: 'createdAt',
           sortOrder: 'desc',
         },

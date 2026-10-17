@@ -22,7 +22,8 @@ import { CopyImage } from '../image-copy';
 import { SideTree } from '../tree/side-tree';
 import { useAssetAccess, useAssetSource } from './asset-source-context';
 import { NewCategoryDialog } from './new-category-dialog';
-import type { AssetCategory, AssetItem } from './types';
+import { assetKindOf, type AssetCategory, type AssetItem } from './types';
+import { PlayMark, VideoPlayerModal } from './video-preview';
 
 const PAGE_SIZE = 24;
 const ALL_KEY = '__all__';
@@ -97,8 +98,9 @@ export function selectRange(
 }
 
 /**
- * Material library picker: category tree, paginated image grid, drag-and-drop
- * upload, single or multiple selection. Returns contract `asset` objects, in
+ * Material library picker: category tree, paginated grid, upload, single or
+ * multiple selection. `accept` decides what it lists: pictures, or videos
+ * (each with 播放, so the operator can watch before picking). Returns contract `asset` objects, in
  * the order they were picked; with `multiple` each tile shows its number and
  * Shift+click picks the run from the last clicked tile. Tiles in `taken` are
  * already in the field and cannot be picked twice.
@@ -141,9 +143,12 @@ export function AssetPicker({
     staleTime: 5 * 60_000,
   });
 
+  const kind = assetKindOf(accept);
+  // The video being watched from a tile, before it is picked.
+  const [watching, setWatching] = useState<AssetItem | null>(null);
   const list = useQuery({
-    queryKey: ['kit.assets.list', categoryId ?? null, page, keyword],
-    queryFn: () => source.listAssets({ categoryId, page, pageSize: PAGE_SIZE, keyword }),
+    queryKey: ['kit.assets.list', kind, categoryId ?? null, page, keyword],
+    queryFn: () => source.listAssets({ categoryId, page, pageSize: PAGE_SIZE, keyword, kind }),
     enabled: open && access.list,
   });
 
@@ -321,93 +326,121 @@ export function AssetPicker({
                   const order = selected.findIndex((asset) => asset.id === item.id) + 1;
                   const active = order > 0;
                   const already = isTaken(item);
+                  const video = item.mime.startsWith('video/');
                   return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      disabled={already}
-                      onClick={(event) => {
-                        if (multiple && event.shiftKey) pickRange(index);
-                        else toggle(item);
-                      }}
-                      title={already ? `${item.name}（已添加）` : item.name}
-                      data-testid={`asset-${item.id}`}
-                      aria-pressed={active}
-                      style={{
-                        position: 'relative',
-                        padding: 0,
-                        border: `2px solid ${active ? 'var(--ant-color-primary)' : 'var(--ant-color-border)'}`,
-                        borderRadius: 6,
-                        overflow: 'hidden',
-                        cursor: already ? 'not-allowed' : 'pointer',
-                        opacity: already ? 0.45 : 1,
-                        background: 'var(--ant-color-fill-quaternary)',
-                        aspectRatio: '1 / 1',
-                      }}
-                    >
-                      {item.mime.startsWith('video/') ? (
-                        // A video's first frame, muted and paused; only its metadata loads.
-                        <video
-                          src={item.url}
-                          muted
-                          preload="metadata"
-                          aria-label={item.name}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            display: 'block',
-                          }}
-                        />
-                      ) : (
-                        <CopyImage
-                          src={item.url}
-                          alt={item.name}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            display: 'block',
-                          }}
-                        />
-                      )}
-                      {active ? (
-                        <span
+                    <div key={item.id} style={{ position: 'relative' }}>
+                      <button
+                        type="button"
+                        disabled={already}
+                        onClick={(event) => {
+                          if (multiple && event.shiftKey) pickRange(index);
+                          else toggle(item);
+                        }}
+                        title={already ? `${item.name}（已添加）` : item.name}
+                        data-testid={`asset-${item.id}`}
+                        aria-pressed={active}
+                        style={{
+                          position: 'relative',
+                          padding: 0,
+                          border: `2px solid ${active ? 'var(--ant-color-primary)' : 'var(--ant-color-border)'}`,
+                          borderRadius: 6,
+                          overflow: 'hidden',
+                          cursor: already ? 'not-allowed' : 'pointer',
+                          opacity: already ? 0.45 : 1,
+                          background: 'var(--ant-color-fill-quaternary)',
+                          aspectRatio: '1 / 1',
+                          width: '100%',
+                          display: 'block',
+                        }}
+                      >
+                        {item.mime.startsWith('video/') ? (
+                          // A video's first frame, muted and paused; only its metadata loads.
+                          <video
+                            src={item.url}
+                            muted
+                            preload="metadata"
+                            aria-label={item.name}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                              display: 'block',
+                            }}
+                          />
+                        ) : (
+                          <CopyImage
+                            src={item.url}
+                            alt={item.name}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                              display: 'block',
+                            }}
+                          />
+                        )}
+                        {active ? (
+                          <span
+                            style={{
+                              position: 'absolute',
+                              insetInlineEnd: 4,
+                              insetBlockStart: 4,
+                              background: 'var(--ant-color-primary)',
+                              color: '#fff',
+                              borderRadius: 9,
+                              minWidth: 18,
+                              height: 18,
+                              paddingInline: 4,
+                              boxSizing: 'border-box',
+                              display: 'grid',
+                              placeItems: 'center',
+                              fontSize: 11,
+                            }}
+                          >
+                            {multiple ? order : <CheckOutlined />}
+                          </span>
+                        ) : null}
+                        {already ? (
+                          <span
+                            style={{
+                              position: 'absolute',
+                              insetInline: 0,
+                              insetBlockEnd: 0,
+                              background: 'rgba(0, 0, 0, 0.55)',
+                              color: '#fff',
+                              fontSize: 11,
+                              lineHeight: '18px',
+                            }}
+                          >
+                            已添加
+                          </span>
+                        ) : null}
+                        {video ? <PlayMark size={28} /> : null}
+                      </button>
+                      {video ? (
+                        // Beside the tile, not inside it: a click on the tile picks.
+                        <Button
+                          size="small"
+                          type="primary"
+                          ghost
+                          aria-label={`播放 ${item.name}`}
+                          onClick={() => setWatching(item)}
                           style={{
                             position: 'absolute',
-                            insetInlineEnd: 4,
-                            insetBlockStart: 4,
-                            background: 'var(--ant-color-primary)',
-                            color: '#fff',
-                            borderRadius: 9,
-                            minWidth: 18,
-                            height: 18,
-                            paddingInline: 4,
-                            boxSizing: 'border-box',
-                            display: 'grid',
-                            placeItems: 'center',
+                            insetInlineStart: 4,
+                            insetBlockEnd: already ? 22 : 4,
                             fontSize: 11,
-                          }}
-                        >
-                          {multiple ? order : <CheckOutlined />}
-                        </span>
-                      ) : null}
-                      {already ? (
-                        <span
-                          style={{
-                            position: 'absolute',
-                            insetInline: 0,
-                            insetBlockEnd: 0,
+                            height: 20,
+                            paddingInline: 6,
                             background: 'rgba(0, 0, 0, 0.55)',
                             color: '#fff',
-                            fontSize: 11,
-                            lineHeight: '18px',
+                            borderColor: 'transparent',
                           }}
                         >
-                          已添加
-                        </span>
+                          播放
+                        </Button>
                       ) : null}
-                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -436,6 +469,14 @@ export function AssetPicker({
           </div>
         </Col>
       </Row>
+      {watching ? (
+        <VideoPlayerModal
+          open
+          src={watching.url}
+          title={watching.name}
+          onClose={() => setWatching(null)}
+        />
+      ) : null}
       {access.createCategory ? (
         <NewCategoryDialog
           open={creatingCategory}

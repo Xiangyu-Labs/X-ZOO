@@ -17,6 +17,15 @@ export interface AssetListQuery {
   page: number;
   pageSize: number;
   keyword?: string | undefined;
+  /** What the field takes: pictures (the default) or videos. */
+  kind?: AssetKind | undefined;
+}
+
+export type AssetKind = 'image' | 'video';
+
+/** The kind a picker's `accept` asks for: `video/*`, `video/mp4` → videos; anything else pictures. */
+export function assetKindOf(accept: string | undefined): AssetKind {
+  return accept !== undefined && accept.trim().startsWith('video/') ? 'video' : 'image';
 }
 
 export interface AssetListResult {

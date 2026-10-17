@@ -79,6 +79,7 @@ export function createStubAssetSource(seed = 24): AssetSource {
       const filtered = items.filter((item) => {
         if (query.categoryId && categoryOf.get(item.id) !== query.categoryId) return false;
         if (keyword && !item.name.toLowerCase().includes(keyword)) return false;
+        if (!item.mime.startsWith(`${query.kind ?? 'image'}/`)) return false;
         return true;
       });
       const start = (query.page - 1) * query.pageSize;

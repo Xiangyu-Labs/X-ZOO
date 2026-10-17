@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   storageAttachmentList,
@@ -27,11 +27,22 @@ afterEach(() => {
   resetApiConfig();
 });
 
-function stubApi() {
+const CLIP = {
+  ...attachmentItemExample,
+  id: '902',
+  kind: 'video' as const,
+  name: '开箱视频',
+  mime: 'video/mp4',
+  url: '/uploads/2026/10/clip.mp4',
+  width: null,
+  height: null,
+};
+
+function stubApi(items = [attachmentItemExample]) {
   return stubRoutes([
     on(storageAttachmentList, {
-      items: [attachmentItemExample],
-      total: 1,
+      items,
+      total: items.length,
       page: 1,
       pageSize: 20,
     }),
@@ -66,5 +77,16 @@ describe('素材库', () => {
     expect(await screen.findByText('首页 banner')).toBeInTheDocument();
     expect(screen.queryByText(/商品图/)).toBeNull();
     expect(categoryRequests(calls)).toEqual([]);
+  });
+
+  it('plays a video when its preview is clicked', async () => {
+    stubApi([attachmentItemExample, CLIP]);
+    renderAdmin(<AttachmentsPage />, {
+      identity: { ...testIdentity, permissions: ['storage:attachment:read'] },
+    });
+    fireEvent.click(await screen.findByRole('button', { name: '播放开箱视频' }));
+    const player = (await screen.findByTestId('video-player')) as HTMLVideoElement;
+    expect(player.getAttribute('src')).toBe(CLIP.url);
+    expect(player.controls).toBe(true);
   });
 });

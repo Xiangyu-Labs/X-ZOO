@@ -97,8 +97,18 @@ export async function readFilePart(
 
 function tooLarge(maxBytes: number, size?: number): DomainError {
   return new DomainError('STORAGE_FILE_TOO_LARGE', {
+    message: tooLargeMessage(maxBytes),
     details: size === undefined ? { maxBytes } : { maxBytes, size },
   });
+}
+
+/**
+ * Names the limit, so the operator knows how far to compress — or that a video
+ * needs 存储设置's 上传大小上限 raised.
+ */
+export function tooLargeMessage(maxBytes: number): string {
+  const mb = Math.round((maxBytes / 1_048_576) * 10) / 10;
+  return `文件过大，单个文件不能超过 ${mb} MB，请压缩后再上传`;
 }
 
 async function readForm(
