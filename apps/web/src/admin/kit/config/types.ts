@@ -120,6 +120,11 @@ export function isConfigFieldVisible(field: ConfigFieldDescriptor, values: Confi
  * saving an unrelated setting can never blank out a stored credential; a
  * `readOnly` field is never included at all, so saving the site name does not
  * post back an origin the server would then refuse.
+ *
+ * A field the operator cleared (an image removed, a select or number emptied)
+ * is sent as `null`, which the server reads as "back to the default". Left as
+ * `undefined` it would vanish from the JSON, and the server, which merges the
+ * payload over what is stored, would keep the old value.
  */
 export function buildConfigPayload(
   descriptor: ConfigGroupDescriptor,
@@ -135,7 +140,9 @@ export function buildConfigPayload(
       if (typed !== undefined && typed !== '') payload[field.key] = typed;
       continue;
     }
-    payload[field.key] = formValues[field.key];
+    if (!(field.key in formValues)) continue;
+    const value = formValues[field.key];
+    payload[field.key] = value === undefined ? null : value;
   }
   return payload;
 }

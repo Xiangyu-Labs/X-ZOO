@@ -7,6 +7,7 @@ import type {
   ConfigTestBody,
   ConfigTestResult,
 } from '@shop/contracts/system/schemas';
+import type { z } from 'zod';
 import type { Ctx } from '../kernel/context';
 import { requireAdminId } from '../kernel/context';
 import {
@@ -341,17 +342,36 @@ function refuseForeignKeys(def: ConfigGroupDef, values: Record<string, unknown>)
  * The browser round-trips a secret's "is set" flag. Anything that is not a
  * non-empty string means "leave it alone", so saving the site name can never
  * blank out a credential.
+ *
+ * `null` is a field the operator cleared: it takes the field's default (an
+ * image removed means "use the built-in one"). A field with no default cannot
+ * be cleared and says 请填写…, not a type error. A field that holds `null` of
+ * its own keeps it.
  */
 function secretSafePatch(
   def: ConfigGroupDef,
   values: Record<string, unknown>,
 ): Record<string, unknown> {
   const secrets = secretKeys(def);
+  const shape = def.schema.shape as Record<string, z.ZodType | undefined>;
   const patch: Record<string, unknown> = {};
+  const missing: Array<{ field: string; message: string }> = [];
   for (const [key, value] of Object.entries(values)) {
     if (secrets.has(key) && (typeof value !== 'string' || value.length === 0)) continue;
+    const field = shape[key];
+    if (value === null && field && !field.safeParse(null).success) {
+      const fallback = field.safeParse(undefined);
+      if (fallback.success) {
+        patch[key] = fallback.data;
+      } else {
+        const label = (def.ui as Record<string, ConfigFieldUi | undefined>)[key]?.label ?? key;
+        missing.push({ field: `values.${key}`, message: `请填写${label}` });
+      }
+      continue;
+    }
     patch[key] = value;
   }
+  if (missing.length > 0) throw new DomainError('VALIDATION_FAILED', { details: missing });
   return patch;
 }
 

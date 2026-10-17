@@ -33,7 +33,9 @@ export async function upsertValues(
       entries.map((e) => ({
         group,
         key: e.key,
-        value: e.value as never,
+        // A setting that is `null` (no link, no override) is stored as JSON
+        // `null`: a bare JS `null` would be SQL NULL, which the column refuses.
+        value: (e.value === null || e.value === undefined ? sql`'null'::jsonb` : e.value) as never,
         updatedAt: options.now,
         updatedBy: options.updatedBy ?? null,
       })),
