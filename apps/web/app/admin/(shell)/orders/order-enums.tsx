@@ -49,15 +49,15 @@ export const FULFILLMENT_STATUS: StatusMap<OrderFulfillmentStatus> = {
 
 export const REFUND_STATUS: StatusMap<OrderRefundStatus> = {
   none: { label: '无', color: 'default' },
-  requested: { label: '退款中', color: 'warning' },
+  requested: { label: '售后中', color: 'warning' },
   partially_refunded: { label: '部分退款', color: 'orange' },
   refunded: { label: '已退款', color: 'error' },
 };
 
 export const ORDER_KIND: StatusMap<OrderKind> = {
-  normal: { label: '普通', color: 'default' },
-  groupbuy: { label: '拼团', color: 'magenta' },
-  presale: { label: '预售', color: 'geekblue' },
+  normal: { label: '普通', color: 'blue' },
+  groupbuy: { label: '拼团', color: 'orange' },
+  presale: { label: '预售', color: 'purple' },
 };
 
 export const DELIVERY_MODE: StatusMap<ShipmentDeliveryMode> = {
