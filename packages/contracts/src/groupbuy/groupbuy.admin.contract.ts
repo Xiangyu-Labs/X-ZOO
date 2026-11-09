@@ -72,7 +72,12 @@ export const groupbuyAdminActivityDetail = defineRoute({
   tags: ['groupbuy'],
   params: activityParams,
   response: groupbuyActivityDetail,
-  errors: ['GROUPBUY_ACTIVITY_NOT_FOUND'],
+  errors: [
+    'CATALOG_PRODUCT_NOT_FOUND',
+    'CATALOG_PROMOTION_CONFLICT',
+    'CATALOG_PROMOTION_INVALID',
+    'GROUPBUY_ACTIVITY_NOT_FOUND',
+  ],
   examples: [{ name: 'ok', params: { id: '1' }, response: groupbuyActivityDetailExample }],
 });
 
@@ -87,7 +92,12 @@ export const groupbuyAdminActivityCreate = defineRoute({
   body: groupbuyActivityForm,
   response: groupbuyActivityDetail,
   status: 201,
-  errors: ['GROUPBUY_SKU_NOT_IN_ACTIVITY'],
+  errors: [
+    'CATALOG_PRODUCT_NOT_FOUND',
+    'CATALOG_PROMOTION_CONFLICT',
+    'CATALOG_PROMOTION_INVALID',
+    'GROUPBUY_SKU_NOT_IN_ACTIVITY',
+  ],
   examples: [
     {
       name: 'three-seats',
@@ -127,6 +137,9 @@ export const groupbuyAdminActivityUpdate = defineRoute({
   body: groupbuyActivityForm,
   response: groupbuyActivityDetail,
   errors: [
+    'CATALOG_PRODUCT_NOT_FOUND',
+    'CATALOG_PROMOTION_CONFLICT',
+    'CATALOG_PROMOTION_INVALID',
     'GROUPBUY_ACTIVITY_NOT_FOUND',
     'GROUPBUY_SKU_NOT_IN_ACTIVITY',
     'GROUPBUY_STOCK_CHANGED',
@@ -170,7 +183,12 @@ export const groupbuyAdminActivitySetStatus = defineRoute({
   params: activityParams,
   body: groupbuyActivityStatusBody,
   response: groupbuyActivityDetail,
-  errors: ['GROUPBUY_ACTIVITY_NOT_FOUND'],
+  errors: [
+    'CATALOG_PRODUCT_NOT_FOUND',
+    'CATALOG_PROMOTION_CONFLICT',
+    'CATALOG_PROMOTION_INVALID',
+    'GROUPBUY_ACTIVITY_NOT_FOUND',
+  ],
   examples: [
     {
       name: 'pause',
@@ -192,7 +210,13 @@ export const groupbuyAdminActivityDelete = defineRoute({
   params: activityParams,
   response: z.void(),
   status: 204,
-  errors: ['GROUPBUY_ACTIVITY_NOT_FOUND', 'GROUPBUY_ACTIVITY_IN_USE'],
+  errors: [
+    'CATALOG_PRODUCT_NOT_FOUND',
+    'CATALOG_PROMOTION_CONFLICT',
+    'CATALOG_PROMOTION_INVALID',
+    'GROUPBUY_ACTIVITY_NOT_FOUND',
+    'GROUPBUY_ACTIVITY_IN_USE',
+  ],
   examples: [{ name: 'ok', params: { id: '1' }, response: undefined }],
 });
 
@@ -207,7 +231,12 @@ export const groupbuyAdminActivityOrders = defineRoute({
   params: activityParams,
   query: groupbuyActivityOrderQuery,
   response: pagedGroupbuyActivityOrders,
-  errors: ['GROUPBUY_ACTIVITY_NOT_FOUND'],
+  errors: [
+    'CATALOG_PRODUCT_NOT_FOUND',
+    'CATALOG_PROMOTION_CONFLICT',
+    'CATALOG_PROMOTION_INVALID',
+    'GROUPBUY_ACTIVITY_NOT_FOUND',
+  ],
   examples: [
     {
       name: 'paid-only',
@@ -266,7 +295,12 @@ export const groupbuyAdminGroupDetail = defineRoute({
   tags: ['groupbuy'],
   params: groupParams,
   response: groupbuyGroupDetail,
-  errors: ['GROUPBUY_GROUP_NOT_FOUND'],
+  errors: [
+    'CATALOG_PRODUCT_NOT_FOUND',
+    'CATALOG_PROMOTION_CONFLICT',
+    'CATALOG_PROMOTION_INVALID',
+    'GROUPBUY_GROUP_NOT_FOUND',
+  ],
   examples: [{ name: 'ok', params: { id: '501' }, response: groupbuyGroupDetailExample }],
 });
 
@@ -282,6 +316,9 @@ export const groupbuyAdminGroupComplete = defineRoute({
   body: groupbuyCompleteBody,
   response: groupbuyGroupDetail,
   errors: [
+    'CATALOG_PRODUCT_NOT_FOUND',
+    'CATALOG_PROMOTION_CONFLICT',
+    'CATALOG_PROMOTION_INVALID',
     'GROUPBUY_GROUP_NOT_FOUND',
     'GROUPBUY_GROUP_NOT_COMPLETABLE',
     'GROUPBUY_VIRTUAL_FILL_DISABLED',

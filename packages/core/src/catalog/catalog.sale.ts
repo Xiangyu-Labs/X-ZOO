@@ -1,3 +1,4 @@
+import { assertProductPromotionPurchase } from './catalog.promotion';
 import type { DbOrTx } from '@shop/db';
 
 // Through `order/index.ts`, which is the only door `boundaries/core-cross-domain`
@@ -21,6 +22,7 @@ import * as repo from './catalog.repo';
  * it lives here. `registerCatalogDomain()` in `index.ts` installs it.
  */
 export const catalogSalePort: CatalogPort = {
+  assertPurchase: assertProductPromotionPurchase,
   async getSkusForSale(db: DbOrTx, skuIds: readonly number[]): Promise<Map<number, SkuForSale>> {
     const out = new Map<number, SkuForSale>();
     if (skuIds.length === 0) return out;

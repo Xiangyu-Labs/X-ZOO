@@ -1,3 +1,5 @@
+import { Money } from '../kernel/money';
+import { storefrontProductPromotion } from './catalog.promotion';
 import type { PageQuery } from '@shop/contracts/conventions';
 import type {
   FavoriteAddBatchBody,
@@ -200,8 +202,30 @@ export async function productDetail(ctx: Ctx, input: { id: string }): Promise<St
   // (`foldProductViews`, `catalog.foldProductViews`).
   await repo.recordProductView(ctx.db, { productId, userId, platform: platformOf(ctx) });
 
+  const campaign = await storefrontProductPromotion(ctx, productId);
+  const card = toProductCard(row, labels.get(productId) ?? []);
+  if (campaign.promotion) {
+    const owned = new Map(skus.map((sku) => [String(sku.id), sku]));
+    campaign.promotion.skus = campaign.promotion.skus
+      .filter((sku) => owned.has(sku.skuId))
+      .map((sku) => ({
+        ...sku,
+        stock: Math.min(sku.stock, owned.get(sku.skuId)!.stock),
+      }));
+    if (campaign.promotion.skus.length > 0) {
+      campaign.promotion.price = campaign.promotion.skus
+        .map((sku) => Money.parse(sku.price))
+        .reduce(Money.min)
+        .toString();
+    }
+    campaign.promotion.canBuy =
+      campaign.promotion.canBuy && campaign.promotion.skus.some((sku) => sku.stock > 0);
+  }
   return {
-    ...toProductCard(row, labels.get(productId) ?? []),
+    ...card,
+    ...campaign,
+    canAddToCart:
+      card.canAddToCart && !campaign.promotionConflict && campaign.promotion?.kind !== 'presale',
     // The folded count, up to a minute behind, and never this visit: the
     // shopper does not see his own view counted. One less thing to explain.
     views: row.views,

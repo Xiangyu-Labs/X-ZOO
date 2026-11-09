@@ -22,6 +22,8 @@ export interface ActivitySku {
 
 export interface ActivitySkuSheetProps {
   visible: boolean;
+  initialSkuId?: string | undefined;
+  onSelect?: ((sku: ActivitySku) => void) | undefined;
   onClose: () => void;
   title: string;
   imageUrl: string | null;
@@ -53,6 +55,8 @@ export function quantityMax(sku: Pick<ActivitySku, 'stock'> | null, perOrder: nu
  */
 export function ActivitySkuSheet({
   visible,
+  initialSkuId,
+  onSelect,
   onClose,
   title,
   imageUrl,
@@ -61,13 +65,13 @@ export function ActivitySkuSheet({
   confirmText,
   onConfirm,
 }: ActivitySkuSheetProps) {
-  const [picked, setPicked] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string | null>(initialSkuId ?? null);
   const [quantity, setQuantity] = useState(1);
   const [wasVisible, setWasVisible] = useState(visible);
   if (visible !== wasVisible) {
     setWasVisible(visible);
     if (visible) {
-      setPicked(null);
+      setPicked(initialSkuId ?? null);
       setQuantity(1);
     }
   }
@@ -133,7 +137,10 @@ export function ActivitySkuSheet({
                     selected && 'activity-sku__value--selected',
                     out && 'activity-sku__value--sold-out',
                   )}
-                  onClick={() => setPicked(item.skuId)}
+                  onClick={() => {
+                    setPicked(item.skuId);
+                    onSelect?.(item);
+                  }}
                 >
                   {skuLabel(item)}
                 </Pressable>

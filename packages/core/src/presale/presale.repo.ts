@@ -29,6 +29,7 @@ import {
   isNull,
   lte,
   notInArray,
+  ne,
   or,
   sql,
   type SQL,
@@ -880,5 +881,41 @@ export async function closeActivity(
       lte(presaleActivities.endAt, args.now),
     ),
     set: { status: 'ended', updatedAt: args.now },
+  });
+}
+
+/** Internal product-editor read, unpaged so legacy conflicts cannot be hidden by a list cap. */
+export async function productActivityIds(
+  db: DbOrTx,
+  productId: number,
+  includeId: number | null,
+): Promise<number[]> {
+  const rows = await db
+    .select({ id: presaleActivities.id })
+    .from(presaleActivities)
+    .where(
+      and(
+        eq(presaleActivities.productId, productId),
+        isNull(presaleActivities.deletedAt),
+        or(
+          ne(presaleActivities.status, 'ended'),
+          includeId === null ? undefined : eq(presaleActivities.id, includeId),
+        ),
+      ),
+    );
+  return rows.map((row) => row.id);
+}
+export async function endProductActivity(
+  tx: Tx,
+  id: number,
+  now: Date,
+): Promise<ConditionalUpdateResult> {
+  return conditionalUpdate(tx, presaleActivities, {
+    where: and(
+      eq(presaleActivities.id, id),
+      ne(presaleActivities.status, 'ended'),
+      isNull(presaleActivities.deletedAt),
+    ),
+    set: { status: 'ended', updatedAt: now },
   });
 }

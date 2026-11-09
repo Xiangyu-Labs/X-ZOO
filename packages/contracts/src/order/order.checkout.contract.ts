@@ -41,6 +41,8 @@ export const checkoutPreviewRoute = defineRoute({
   body: checkoutPreviewBody,
   response: checkoutPreview,
   errors: [
+    'CATALOG_PROMOTION_CONFLICT',
+    'CATALOG_PRESALE_REQUIRED',
     'ORDER_EMPTY',
     'ORDER_ITEM_UNAVAILABLE',
     'ORDER_VIRTUAL_CARD_QUANTITY',
@@ -178,6 +180,8 @@ export const orderCreate = defineRoute({
   response: orderDetail,
   status: 201,
   errors: [
+    'CATALOG_PROMOTION_CONFLICT',
+    'CATALOG_PRESALE_REQUIRED',
     'ORDER_EMPTY',
     'ORDER_ITEM_UNAVAILABLE',
     'ORDER_OUT_OF_STOCK',
@@ -303,7 +307,7 @@ export const orderGetDetail = defineRoute({
    */
   params: orderRefParams,
   response: orderDetail,
-  errors: ['ORDER_NOT_FOUND'],
+  errors: ['CATALOG_PROMOTION_CONFLICT', 'CATALOG_PRESALE_REQUIRED', 'ORDER_NOT_FOUND'],
   examples: [
     { name: 'by-id', params: { id: '9001' }, response: orderDetailExample },
     {
@@ -332,6 +336,8 @@ export const orderCancel = defineRoute({
   body: orderCancelBody,
   response: orderDetail,
   errors: [
+    'CATALOG_PROMOTION_CONFLICT',
+    'CATALOG_PRESALE_REQUIRED',
     'ORDER_NOT_FOUND',
     'ORDER_NOT_CANCELLABLE',
     'ORDER_ALREADY_PAID',
@@ -377,6 +383,11 @@ export const orderHide = defineRoute({
   tags: ['order'],
   params: orderRefParams,
   response: orderHidden,
-  errors: ['ORDER_NOT_FOUND', 'ORDER_NOT_DELETABLE'],
+  errors: [
+    'CATALOG_PROMOTION_CONFLICT',
+    'CATALOG_PRESALE_REQUIRED',
+    'ORDER_NOT_FOUND',
+    'ORDER_NOT_DELETABLE',
+  ],
   examples: [{ name: 'ok', params: { id: '9001' }, response: { hidden: true } }],
 });

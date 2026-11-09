@@ -1,3 +1,9 @@
+import {
+  guardProductPromotionWrite,
+  associateProductPromotion,
+  lockProductPromotionForWrite,
+  touchProductPromotion,
+} from '../catalog';
 import type { PageQuery } from '@shop/contracts/conventions';
 import { storedDescriptionBlocks } from '@shop/contracts/catalog/description';
 import type {
@@ -106,6 +112,7 @@ export async function adminActivityCreate(
   body: GroupbuyActivityForm,
 ): Promise<GroupbuyActivityDetail> {
   return ctx.withTx(async (tx) => {
+    await guardProductPromotionWrite(ctx, tx, Number(body.productId), 'groupbuy');
     await assertSkusBelongToProduct(tx, body);
     const now = ctx.clock.now();
     const row = await repo.insertActivity(tx, {
@@ -114,6 +121,7 @@ export async function adminActivityCreate(
       updatedAt: now,
     });
     await repo.replaceActivitySkus(tx, { activityId: row.id, skus: skuValues(body) });
+    await associateProductPromotion(ctx, tx, Number(body.productId), 'groupbuy', String(row.id));
     const full = await mustFindActivity(ctx, row.id, tx);
     return toDetail(ctx, full, tx);
   });
@@ -135,6 +143,12 @@ export async function adminActivityUpdate(
 ): Promise<GroupbuyActivityDetail> {
   const id = Number(input.id);
   return ctx.withTx(async (tx) => {
+    const original = await mustFindActivity(ctx, id, tx);
+    if (original.productId !== Number(body.productId))
+      throw new DomainError('CATALOG_PROMOTION_INVALID');
+    await lockProductPromotionForWrite(ctx, tx, original.productId);
+    if (body.status !== 'ended')
+      await guardProductPromotionWrite(ctx, tx, original.productId, 'groupbuy', String(id));
     const locked = await repo.lockActivityStock(tx, id);
     if (!locked) throw new DomainError('GROUPBUY_ACTIVITY_NOT_FOUND');
     // `ended` is terminal (see `adminActivitySetStatus`): the form cannot re-open it either.
@@ -170,6 +184,9 @@ export async function adminActivityUpdate(
       activityId: id,
       skus: skus.map((sku) => ({ ...sku, stock: stocks.skuStocks.get(sku.skuId) ?? sku.stock })),
     });
+    if (body.status !== 'ended')
+      await associateProductPromotion(ctx, tx, original.productId, 'groupbuy', String(id));
+    else await touchProductPromotion(ctx, tx, original.productId, 'groupbuy', String(id));
     return toDetail(ctx, await mustFindActivity(ctx, id, tx), tx);
   });
 }
@@ -181,6 +198,8 @@ export async function adminActivitySetStatus(
 ): Promise<GroupbuyActivityDetail> {
   const id = Number(input.id);
   return ctx.withTx(async (tx) => {
+    const original = await mustFindActivity(ctx, id, tx);
+    await guardProductPromotionWrite(ctx, tx, original.productId, 'groupbuy', String(id));
     const moved = await repo.setActivityStatus(tx, {
       id,
       // `ended` is terminal: an expired campaign is not re-opened, it is copied.
@@ -195,6 +214,7 @@ export async function adminActivitySetStatus(
         details: { status: existing.status },
       });
     }
+    await associateProductPromotion(ctx, tx, original.productId, 'groupbuy', String(id));
     return toDetail(ctx, await mustFindActivity(ctx, id, tx), tx);
   });
 }

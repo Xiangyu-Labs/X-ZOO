@@ -142,7 +142,11 @@ const neighbourList = on(catalogAdminProductList, (call) => {
   return { items, total: items.length, page: 1, pageSize: 20 };
 });
 
-function stubApi(product: AdminProductDetail = detail): StubCall[] {
+function stubApi(
+  product: AdminProductDetail = detail,
+  updated: AdminProductDetail = product,
+): StubCall[] {
+  let latest = product;
   const empty = { items: [], total: 0, page: 1, pageSize: 100 };
   return stubRoutes([
     on(catalogAdminCategoryTree, { items: [] }),
@@ -155,8 +159,11 @@ function stubApi(product: AdminProductDetail = detail): StubCall[] {
     on(catalogAdminLabelList, empty),
     on(catalogAdminProtectionList, empty),
     on(catalogAdminParamTemplateList, empty),
-    on(catalogAdminProductDetail, product),
-    on(catalogAdminProductUpdate, product),
+    on(catalogAdminProductDetail, () => latest),
+    on(catalogAdminProductUpdate, () => {
+      latest = updated;
+      return latest;
+    }),
     neighbourList,
   ]);
 }
@@ -419,5 +426,119 @@ describe('商品编辑器', () => {
       expect(screen.queryByRole('combobox', { name: '运费模板' })).not.toBeInTheDocument(),
     );
     expect(screen.getByText('按件收取：下单数量 × 该金额')).toBeInTheDocument();
+  });
+});
+
+const promotionSettings = {
+  endAt: '2099-12-31T23:59:59+08:00',
+  shipAfterDays: 10,
+  skus: detail.skus.map((sku) => ({
+    specValues: sku.specValues,
+    price: '29.00',
+    stock: sku.stock,
+    expectedStock: sku.stock,
+  })),
+};
+const presaleProduct: AdminProductDetail = {
+  ...detail,
+  promotion: {
+    mode: 'presale',
+    version: 4,
+    activityId: '7',
+    conflict: false,
+    candidates: [
+      {
+        kind: 'presale',
+        activityId: '7',
+        title: '商品预售',
+        status: 'active',
+        settings: promotionSettings,
+      },
+    ],
+  },
+};
+const promotionEditor = {
+  ...editor,
+  permissions: [...editor.permissions, 'presale:activity:read', 'presale:activity:write'],
+};
+
+describe('integrated product promotion save', () => {
+  it('saves per-spec presale settings in the same product PUT and refreshes the saved configuration', async () => {
+    const savedSettings = {
+      ...promotionSettings,
+      skus: promotionSettings.skus.map((sku) => ({ ...sku, price: '30.00' })),
+    };
+    const saved: AdminProductDetail = {
+      ...presaleProduct,
+      promotion: {
+        ...presaleProduct.promotion!,
+        version: 6,
+        candidates: [{ ...presaleProduct.promotion!.candidates[0]!, settings: savedSettings }],
+      },
+    };
+    const calls = stubApi(presaleProduct, saved);
+    renderAdmin(withStubAssets(<ProductEditorPage productId="1" />), { identity: promotionEditor });
+    const bulk = await screen.findByLabelText('批量预售价');
+    await userEvent.type(bulk, '30');
+    await userEvent.click(screen.getByRole('button', { name: '批量填写预售价' }));
+    await userEvent.click(screen.getByRole('button', { name: zhName('保存') }));
+    await waitFor(() => {
+      const write = calls.find((call) => call.method === 'PUT');
+      expect(write?.body).toMatchObject({
+        promotion: {
+          mode: 'presale',
+          activityId: '7',
+          expectedVersion: 4,
+          settings: { shipAfterDays: 10, skus: [{ price: '30.00' }, { price: '30.00' }] },
+        },
+      });
+    });
+    await waitFor(() => expect(screen.getByLabelText('M预售价')).toHaveValue('30.00'));
+  });
+
+  it('allows product-only edits without reading or submitting campaign settings', async () => {
+    const product: AdminProductDetail = {
+      ...presaleProduct,
+      promotion: {
+        ...presaleProduct.promotion!,
+        candidates: [
+          {
+            kind: 'presale',
+            activityId: '7',
+            title: '商品预售',
+            status: 'active',
+          },
+        ],
+      },
+    };
+    const calls = stubApi(product, { ...product, name: '商品新名称' });
+    renderAdmin(withStubAssets(<ProductEditorPage productId="1" />), { identity: editor });
+    const name = await screen.findByLabelText('商品名称');
+    await userEvent.clear(name);
+    await userEvent.type(name, '商品新名称');
+    await userEvent.click(screen.getByRole('button', { name: zhName('保存') }));
+    await waitFor(() => {
+      const write = calls.find((call) => call.method === 'PUT');
+      expect(write?.body).toMatchObject({ name: '商品新名称' });
+      expect(write?.body).not.toHaveProperty('promotion');
+    });
+  });
+
+  it('confirms before stopping an active presale', async () => {
+    const calls = stubApi(presaleProduct, {
+      ...presaleProduct,
+      promotion: { mode: 'normal', version: 5, activityId: null, conflict: false, candidates: [] },
+    });
+    renderAdmin(withStubAssets(<ProductEditorPage productId="1" />), { identity: promotionEditor });
+    await userEvent.click(await screen.findByRole('switch', { name: '是否为预售商品' }));
+    await userEvent.click(screen.getByRole('button', { name: zhName('保存') }));
+    expect((await screen.findAllByText('确认调整商品活动？')).length).toBeGreaterThan(0);
+    expect(calls.some((call) => call.method === 'PUT')).toBe(false);
+    await userEvent.click(screen.getByRole('button', { name: '确认保存' }));
+    await waitFor(() =>
+      expect(calls.find((call) => call.method === 'PUT')?.body).toMatchObject({
+        promotion: { mode: 'normal', expectedVersion: 4 },
+      }),
+    );
   });
 });

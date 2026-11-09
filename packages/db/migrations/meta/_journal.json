@@ -190,6 +190,13 @@
       "when": 1792242680947,
       "tag": "0026_product_description_blocks",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1794229638022,
+      "tag": "0027_product_promotions",
+      "breakpoints": true
     }
   ]
 }

@@ -12,6 +12,14 @@ import { defineErrors } from '../_conventions/errors';
  * The generic 404/422/429 cases come from `commonErrors` and are not repeated.
  */
 export const catalogErrors = defineErrors({
+  CATALOG_PROMOTION_CONFLICT: {
+    status: 409,
+    message: '商品存在多个活动，请在商品编辑页选定一个活动',
+  },
+  CATALOG_PROMOTION_CHANGED: { status: 409, message: '活动设置已被修改，请刷新商品后重试' },
+  CATALOG_PROMOTION_INVALID: { status: 422, message: '活动设置不完整或规格不匹配，请检查后重试' },
+  CATALOG_PRESALE_REQUIRED: { status: 409, message: '该商品正在预售，请从商品详情按预售方式购买' },
+
   // -- categories ----------------------------------------------------------
   CATALOG_CATEGORY_NOT_FOUND: { status: 404, message: '商品分类不存在' },
   /** The tree is capped at three levels; a fourth has nowhere to render. */

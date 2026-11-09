@@ -1,3 +1,4 @@
+import { registerPresaleProductPromotion } from './presale.product';
 /**
  * The presale domain's public surface.
  *
@@ -66,6 +67,7 @@ import './presale.config';
  * worker job module in the same process may both call it.
  */
 export function registerPresaleDomain(): void {
+  registerPresaleProductPromotion();
   registerPresaleOrderSeams();
   registerPresaleEffects();
   registerPresaleNotificationEvents();

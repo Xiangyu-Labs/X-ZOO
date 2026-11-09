@@ -1,3 +1,4 @@
+import { productPromotionAdmin, productPromotionInput, storefrontPromotion } from './promotion';
 import { z } from 'zod';
 import { descriptionBlock, descriptionBlocksInput } from './description';
 import {
@@ -476,6 +477,7 @@ export const adminProductListItem = z.object({
 export type AdminProductListItem = z.infer<typeof adminProductListItem>;
 
 export const adminProductDetail = adminProductListItem.extend({
+  promotion: productPromotionAdmin.optional(),
   keyword: z.string().nullable(),
   barCode: z.string().nullable(),
   cardImageUrl: z.string().nullable(),
@@ -516,6 +518,7 @@ export type AdminProductDetail = z.infer<typeof adminProductDetail>;
  */
 export const adminProductForm = z
   .object({
+    promotion: productPromotionInput.optional(),
     name: z.string().trim().min(1).max(128),
     subtitle: z.string().trim().max(255).optional(),
     keyword: z.string().trim().max(255).optional(),
@@ -1009,6 +1012,8 @@ export const storefrontSpec = z.object({
 });
 
 export const storefrontProduct = productCard.extend({
+  promotion: storefrontPromotion.nullable().optional(),
+  promotionConflict: z.boolean().optional(),
   sliderImages: z.array(z.string()),
   videoUrl: z.string().nullable(),
   /** Cover over `videoUrl` until it plays; `null` means show `imageUrl`. */

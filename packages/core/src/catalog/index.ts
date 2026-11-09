@@ -201,3 +201,15 @@ export {
   specTextOf,
   summariseReviews,
 } from './catalog.rules';
+
+export {
+  registerProductPromotionPort,
+  guardProductPromotionWrite,
+  associateProductPromotion,
+  promotionTxContext,
+  assertProductPromotionPurchase,
+  type ProductPromotionPort,
+} from './catalog.promotion';
+export { productPromotionForm } from './catalog.promotion.rules';
+
+export { lockProductPromotionForWrite, touchProductPromotion } from './catalog.promotion';

@@ -917,7 +917,12 @@ describe('the window sweep', () => {
 });
 
 describe('the admin surface', () => {
-  const ADMIN = ['presale:activity:read', 'presale:activity:write', 'presale:activity:delete'];
+  const ADMIN = [
+    'catalog:product:write',
+    'presale:activity:read',
+    'presale:activity:write',
+    'presale:activity:delete',
+  ];
 
   const form = (over: Record<string, unknown> = {}) => ({
     productId: '0',
@@ -938,6 +943,11 @@ describe('the admin surface', () => {
 
   it('creates a campaign with its SKU prices and reads it back', async () => {
     const fixture = await makeActivity();
+    // This test creates a new campaign; the fixture's campaign is historical.
+    await harness.ctx.db
+      .update(presaleActivities)
+      .set({ status: 'ended' })
+      .where(eq(presaleActivities.id, fixture.activityId));
     const ctx = asAdmin(ADMIN);
 
     const created = await service.adminActivityCreate(
@@ -959,6 +969,11 @@ describe('the admin surface', () => {
 
   it('refuses a SKU that belongs to another product', async () => {
     const fixture = await makeActivity();
+    // This test creates a new campaign; the fixture's campaign is historical.
+    await harness.ctx.db
+      .update(presaleActivities)
+      .set({ status: 'ended' })
+      .where(eq(presaleActivities.id, fixture.activityId));
     const other = await makeActivity();
     await expect(
       service.adminActivityCreate(

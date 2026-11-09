@@ -1,6 +1,6 @@
 'use client';
 
-import { Alert, Badge, Button, Col, Form, Grid, Row, Skeleton, Tooltip } from 'antd';
+import { App, Alert, Badge, Button, Col, Form, Grid, Row, Skeleton, Tooltip } from 'antd';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -27,6 +27,15 @@ import {
   type ProductSpecInput,
 } from '@shop/contracts/catalog/schemas';
 
+import {
+  presaleAdminActivityList,
+  presaleAdminActivityDetail,
+} from '@shop/contracts/presale/presale.admin.contract';
+import {
+  groupbuyAdminActivityList,
+  groupbuyAdminActivityDetail,
+} from '@shop/contracts/groupbuy/groupbuy.admin.contract';
+import { ProductPromotionField } from './product-promotion-field';
 import { LoadFailure } from '@/admin/kit/load-failure';
 import { useRouteMutation, useRouteQuery } from '@/admin/api/hooks';
 import { useCan } from '@/admin/session/session-provider';
@@ -70,6 +79,8 @@ const ProductPreview = dynamic(() => import('./product-preview'), { ssr: false }
  */
 export function ProductEditorPage({ productId }: { productId?: string | undefined }) {
   const router = useRouter();
+  const { modal } = App.useApp();
+  const [promotionDirty, setPromotionDirty] = useState(false);
   const { listHref, keepList } = useListReturn('/admin/catalog/products');
   const [form] = Form.useForm();
   // The phone preview beside the form, where there is room for both.
@@ -117,7 +128,7 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
 
   const create = useRouteMutation(catalogAdminProductCreate, {
     presentError: false,
-    invalidate: [catalogAdminProductList],
+    invalidate: [catalogAdminProductList, presaleAdminActivityList, groupbuyAdminActivityList],
     successMessage: '已创建',
     onSuccess: (data) => {
       setDirty(false);
@@ -126,9 +137,20 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
   });
   const update = useRouteMutation(catalogAdminProductUpdate, {
     presentError: false,
-    invalidate: [catalogAdminProductList, catalogAdminProductDetail],
+    invalidate: [
+      catalogAdminProductList,
+      catalogAdminProductDetail,
+      presaleAdminActivityList,
+      presaleAdminActivityDetail,
+      groupbuyAdminActivityList,
+      groupbuyAdminActivityDetail,
+    ],
     successMessage: '已保存',
-    onSuccess: () => setDirty(false),
+    onSuccess: (saved) => {
+      setDirty(false);
+      setPromotionDirty(false);
+      form.setFieldsValue({ ...formValuesOf(saved), promotion: undefined });
+    },
   });
   const saving = create.isPending || update.isPending;
   const save = useCallback(() => form.submit(), [form]);
@@ -140,6 +162,7 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
   const specs = (Form.useWatch<ProductSpecInput[] | undefined>('specs', form) ??
     []) as ProductSpecInput[];
   const freightMode = Form.useWatch<string | undefined>('freightMode', form);
+  const promotionSkus = Form.useWatch<ProductSkuInput[] | undefined>('skus', form) ?? [];
   const purchaseLimitMode = Form.useWatch<string | undefined>('purchaseLimitMode', form);
 
   /**
@@ -206,17 +229,41 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
 
   const fields = useMemo(
     () =>
-      buildFields({
-        labelOptions,
-        protectionOptions,
-        shippingTemplateOptions,
-        templates,
-        specs,
-        specMode,
-        kind,
-        showCost,
-        setSpecs,
-      }),
+      [
+        ...buildFields({
+          labelOptions,
+          protectionOptions,
+          shippingTemplateOptions,
+          templates,
+          specs,
+          specMode,
+          kind,
+          showCost,
+          setSpecs,
+        }),
+        {
+          kind: 'custom',
+          name: 'promotion',
+          section: '预售与拼单',
+          label: '销售模式',
+          span: 24,
+          render: ({ value, onChange, disabled }) => (
+            <ProductPromotionField
+              value={value as AdminProductForm['promotion']}
+              onChange={(next) => {
+                setPromotionDirty(true);
+                onChange(next);
+              }}
+              skus={promotionSkus}
+              state={detail.data?.promotion}
+              shippingOptions={shippingTemplateOptions}
+              disabled={disabled}
+              canPresale={mayWrite && can('presale:activity:write')}
+              canGroupbuy={mayWrite && can('groupbuy:activity:write')}
+            />
+          ),
+        },
+      ] satisfies FieldSpec<Extract<keyof AdminProductForm, string>>[],
     // `labelOptions`/`protectionOptions` are rebuilt every render; their data is what matters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
@@ -229,6 +276,10 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
       kind,
       showCost,
       setSpecs,
+      promotionSkus,
+      detail.data?.promotion,
+      mayWrite,
+      can,
     ],
   );
 
@@ -294,7 +345,7 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
         ) : null}
         <Col flex="auto" style={{ minWidth: 0 }}>
           <ZodForm
-            disabled={!mayWrite}
+            disabled={!mayWrite || saving}
             form={form}
             schema={adminProductForm}
             fields={fields}
@@ -311,8 +362,32 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
                 ...values,
                 ...(record?.customForm ? { customForm: record.customForm } : {}),
               };
-              if (record) update.mutate({ params: { id: record.id }, body });
-              else create.mutate({ body });
+              if (!promotionDirty) delete body.promotion;
+              const send = async () => {
+                if (record) await update.mutateAsync({ params: { id: record.id }, body });
+                else await create.mutateAsync({ body });
+              };
+              const before = record?.promotion;
+              const after = body.promotion;
+              if (
+                after &&
+                before &&
+                (before.conflict ||
+                  (before.mode !== 'normal' &&
+                    (before.mode !== after.mode ||
+                      before.activityId !== (after.activityId ?? null) ||
+                      after.settings?.status === 'paused')))
+              ) {
+                modal.confirm({
+                  title: '确认调整商品活动？',
+                  content: '原活动停止接受新订单；已有订单和已开团按原规则处理。',
+                  okText: '确认保存',
+                  cancelText: '取消',
+                  onOk: send,
+                });
+                return;
+              }
+              return send();
             }}
           />
         </Col>

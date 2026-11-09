@@ -203,9 +203,20 @@ describe('/admin-api/groupbuy-activities', () => {
     expect((await forbidden.json()).code).toBe('FORBIDDEN');
   });
 
-  it('creates with 201 and writes an audit row', async () => {
+  it('requires product-write permission in addition to activity-write', async () => {
     const ids = await makeProduct();
     const headers = await adminCookie(['groupbuy:activity:write']);
+    const { POST } = await import('./route');
+    const response = await POST(
+      json('POST', '/admin-api/groupbuy-activities', activityForm(ids), headers),
+    );
+    expect(response.status).toBe(403);
+    expect((await response.json()).code).toBe('FORBIDDEN');
+  });
+
+  it('creates with 201 and writes an audit row', async () => {
+    const ids = await makeProduct();
+    const headers = await adminCookie(['groupbuy:activity:write', 'catalog:product:write']);
     const { POST } = await import('./route');
 
     const response = await POST(

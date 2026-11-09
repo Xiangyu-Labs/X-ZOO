@@ -124,6 +124,8 @@ export const cartAddItem = defineRoute({
   response: cartMutationResult,
   status: 201,
   errors: [
+    'CATALOG_PROMOTION_CONFLICT',
+    'CATALOG_PRESALE_REQUIRED',
     'CART_SKU_NOT_AVAILABLE',
     'CART_OUT_OF_STOCK',
     'CART_VIRTUAL_CARD_QUANTITY',
@@ -150,6 +152,8 @@ export const cartUpdateItem = defineRoute({
   body: cartUpdateBody,
   response: cartMutationResult,
   errors: [
+    'CATALOG_PROMOTION_CONFLICT',
+    'CATALOG_PRESALE_REQUIRED',
     'CART_ITEM_NOT_FOUND',
     'CART_OUT_OF_STOCK',
     'CART_VIRTUAL_CARD_QUANTITY',
@@ -239,7 +243,7 @@ export const cartRemoveItem = defineRoute({
   tags: ['cart'],
   params: z.object({ id }),
   response: cartMutationResult,
-  errors: ['CART_ITEM_NOT_FOUND'],
+  errors: ['CATALOG_PROMOTION_CONFLICT', 'CATALOG_PRESALE_REQUIRED', 'CART_ITEM_NOT_FOUND'],
   examples: [
     {
       name: 'ok',
@@ -329,7 +333,7 @@ export const cartRebuy = defineRoute({
   body: cartRebuyBody,
   response: cartRebuyResult,
   status: 201,
-  errors: ['ORDER_NOT_FOUND'],
+  errors: ['CATALOG_PROMOTION_CONFLICT', 'CATALOG_PRESALE_REQUIRED', 'ORDER_NOT_FOUND'],
   examples: [
     {
       name: 'partly-available',

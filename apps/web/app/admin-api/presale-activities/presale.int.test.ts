@@ -197,9 +197,25 @@ describe('/admin-api/presale-activities', () => {
     expect(await response.json()).toMatchObject({ items: [], total: 0, page: 1, pageSize: 20 });
   });
 
-  it('creates with 201 and writes an audit row', async () => {
+  it('requires product-write permission in addition to activity-write', async () => {
     const { productId, skuId } = await seedProduct();
     const headers = await adminCookie(['presale:activity:write']);
+    const { POST } = await import('./route');
+    const response = await POST(
+      json(
+        'POST',
+        '/admin-api/presale-activities',
+        activityForm({ productId, skus: [{ skuId, price: '59.00', stock: 5, isEnabled: true }] }),
+        headers,
+      ),
+    );
+    expect(response.status).toBe(403);
+    expect((await response.json()).code).toBe('FORBIDDEN');
+  });
+
+  it('creates with 201 and writes an audit row', async () => {
+    const { productId, skuId } = await seedProduct();
+    const headers = await adminCookie(['presale:activity:write', 'catalog:product:write']);
     const { POST } = await import('./route');
 
     const response = await POST(

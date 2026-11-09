@@ -1,3 +1,4 @@
+import type { Ctx } from '../kernel/context';
 import type { DbOrTx } from '@shop/db';
 import {
   getFreightPort,
@@ -75,6 +76,9 @@ export interface SkuForSale {
 }
 
 export interface CatalogPort {
+  /** Campaign eligibility is checked again under the product lock on order creation. */
+  assertPurchase?(ctx: Ctx, db: DbOrTx, productIds: readonly number[], kind: string): Promise<void>;
+
   /**
    * Variants by id. An id with no row is simply absent from the map; a
    * soft-deleted one comes back with `deleted: true`, because the cart has to

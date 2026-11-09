@@ -1,3 +1,4 @@
+import { registerGroupbuyProductPromotion } from './groupbuy.product';
 /**
  * The group-buy domain's public surface.
  *
@@ -79,6 +80,7 @@ import './groupbuy.config';
  * worker job module in the same process may both call it.
  */
 export function registerGroupbuyDomain(): void {
+  registerGroupbuyProductPromotion();
   registerGroupbuyOrderSeams();
   registerGroupbuyEffects();
   registerGroupbuyNotificationEvents();

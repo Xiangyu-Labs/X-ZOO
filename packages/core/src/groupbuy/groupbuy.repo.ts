@@ -1517,3 +1517,39 @@ export async function listActivityOrders(
     total: totalRow?.value ?? 0,
   };
 }
+
+/** Internal product-editor read, unpaged so legacy conflicts cannot be hidden by a list cap. */
+export async function productActivityIds(
+  db: DbOrTx,
+  productId: number,
+  includeId: number | null,
+): Promise<number[]> {
+  const rows = await db
+    .select({ id: groupbuyActivities.id })
+    .from(groupbuyActivities)
+    .where(
+      and(
+        eq(groupbuyActivities.productId, productId),
+        isNull(groupbuyActivities.deletedAt),
+        or(
+          ne(groupbuyActivities.status, 'ended'),
+          includeId === null ? undefined : eq(groupbuyActivities.id, includeId),
+        ),
+      ),
+    );
+  return rows.map((row) => row.id);
+}
+export async function endProductActivity(
+  tx: Tx,
+  id: number,
+  now: Date,
+): Promise<ConditionalUpdateResult> {
+  return conditionalUpdate(tx, groupbuyActivities, {
+    where: and(
+      eq(groupbuyActivities.id, id),
+      ne(groupbuyActivities.status, 'ended'),
+      isNull(groupbuyActivities.deletedAt),
+    ),
+    set: { status: 'ended', updatedAt: now },
+  });
+}

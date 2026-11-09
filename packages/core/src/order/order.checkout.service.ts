@@ -339,10 +339,24 @@ async function buildDraft(
   if (requested.length === 0) throw new DomainError('ORDER_EMPTY');
 
   const catalog = resolveCatalogPort();
-  const skus = await catalog.getSkusForSale(
+  let skus = await catalog.getSkusForSale(
     db,
     requested.map((line) => line.skuId),
   );
+  await catalog.assertPurchase?.(
+    ctx,
+    db,
+    [...skus.values()].map((sku) => sku.productId),
+    input.kind,
+  );
+  // An editor may have changed the SKU while this transaction waited for its
+  // product lock. Re-read prices and availability under that lock before pricing.
+  if (catalog.assertPurchase && 'rollback' in db) {
+    skus = await catalog.getSkusForSale(
+      db,
+      requested.map((line) => line.skuId),
+    );
+  }
   const purchased = await repo.purchasedQuantity(db, {
     userId,
     productIds: [...skus.values()].map((sku) => sku.productId),
