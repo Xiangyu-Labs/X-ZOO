@@ -155,7 +155,8 @@ await uploadFile(storageScanUpload, { params: { token } }, file);
 
 ```
 route        列表 RouteDef，响应必须是 paged(item)
-columns      antd ColumnsType，用下面的列助手拼
+columns      antd ColumnsType，用下面的列助手拼；用 renderCard 时可传 []
+renderCard   (row, { selected, selectable, toggle }) => ReactNode，传了就用卡片列表代替表格；筛选、URL、分页、排序和 batchActions 照常工作。卡片自己画多选框
 rowKey       默认 'id'
 filters      FilterSpec[]，name 就是路由的 query 键
 params       嵌套列表的路径参数
@@ -168,6 +169,8 @@ scrollX / size / expandable / emptyText / title / bordered / onData
 ```
 
 分页、排序、筛选都同步到 URL search params（`page` `pageSize` `sort=field:asc` + 各筛选键），所以筛过的列表是可以直接发给同事的链接，刷新也不丢。排序发给后端的是 `sortBy` + `sortOrder=asc|desc`——**契约的 query 里请按这两个键声明**。多选筛选在 URL 里是 `a,b`，发给后端是重复键 `?status=a&status=b`。
+
+卡片模式同样复用这些 URL 约定；`batchActions` 打开多选后，列表在卡片上方给出「全选本页」，行内的多选框由 `renderCard` 用 `selected` / `toggle` 自己画（订单列表就是这样把多选框放进卡片头部的）。
 
 列助手：`idColumn()` `textColumn({ellipsis})` `codeColumn({href?})` `moneyColumn()` `instantColumn({format})` `imageColumn({size})` `enumColumn({map})` `errorColumn({summary, detail})` `actionsColumn({render})`。带 `sortable: true` 即开启服务端排序。
 

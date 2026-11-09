@@ -2,7 +2,19 @@
 
 import { ReloadOutlined } from '@ant-design/icons';
 import { keepPreviousData } from '@tanstack/react-query';
-import { Alert, Button, Card, Empty, Space, Table, Typography } from 'antd';
+import {
+  Alert,
+  Button,
+  Card,
+  Checkbox,
+  Empty,
+  Flex,
+  Pagination,
+  Skeleton,
+  Space,
+  Table,
+  Typography,
+} from 'antd';
 import type { ColumnsType, TableProps } from 'antd/es/table';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 
@@ -12,6 +24,7 @@ import { errorMessage } from '../../api/errors';
 import { useRouteQuery } from '../../api/hooks';
 import { stableInput } from '../../api/query-keys';
 import { FilterBar, filterKeys, type FilterSpec } from './filter-bar';
+import { LoadFailure } from '../load-failure';
 import { defined } from '../props';
 import { prefixKey, useNextUrlState, type TableUrlState } from './url-state';
 
@@ -25,6 +38,13 @@ export interface BatchActionContext<T> {
   clear: () => void;
 }
 
+/** What a card needs to draw its own row checkbox, when batch actions are on. */
+export interface CardRenderContext {
+  selected: boolean;
+  selectable: boolean;
+  toggle: () => void;
+}
+
 /** What a toolbar rendered as a function sees: the list as it is filtered now. */
 export interface ToolbarContext {
   /** The filter bar's values as query keys, without paging, sorting or `fixedQuery`. */
@@ -36,7 +56,16 @@ export interface ToolbarContext {
 export interface CrudTableProps<R extends AnyRouteDef, T = PagedItemOf<R>> {
   /** A list route whose response is `paged(item)`. */
   route: R;
+  /** The table's columns. Ignored (may be `[]`) when `renderCard` is set. */
   columns: ColumnsType<T>;
+  /**
+   * Render each result as a card instead of a table row. Filters, URL state,
+   * pagination, sorting and `batchActions` work exactly as in table mode.
+   *
+   * The card draws its own checkbox from `context` so it can place it in its
+   * own header; the list renders 全选本页 above the cards when selection is on.
+   */
+  renderCard?: ((row: T, context: CardRenderContext) => ReactNode) | undefined;
   /** Default `'id'`. */
   rowKey?: (keyof T & string) | ((row: T) => React.Key) | undefined;
   /** Filter bar; each `name` is a query key of the route. */
@@ -147,6 +176,7 @@ function WithRouterUrlState<R extends AnyRouteDef, T>(props: CrudTableProps<R, T
 function CrudTableInner<R extends AnyRouteDef, T>({
   route,
   columns,
+  renderCard,
   rowKey = 'id' as keyof T & string,
   filters = [],
   params,
@@ -262,6 +292,36 @@ function CrudTableInner<R extends AnyRouteDef, T>({
     [querySignature],
   );
 
+  const selectable = batchActions !== undefined;
+  const keyOf = useCallback(
+    (row: T): React.Key =>
+      typeof rowKey === 'function' ? rowKey(row) : (row[rowKey] as React.Key),
+    [rowKey],
+  );
+  const pageRows = data?.items ?? [];
+  const pageKeys = pageRows.map(keyOf);
+  const allSelected =
+    selectable && pageKeys.length > 0 && pageKeys.every((key) => selectedRowKeys.includes(key));
+  const someSelected = selectable && pageKeys.some((key) => selectedRowKeys.includes(key));
+
+  const toggleRow = (row: T): void => {
+    const key = keyOf(row);
+    const exists = selectedRowKeys.includes(key);
+    setSelection({
+      signature: querySignature,
+      keys: exists ? selectedRowKeys.filter((entry) => entry !== key) : [...selectedRowKeys, key],
+      rows: exists ? selectedRows.filter((entry) => keyOf(entry) !== key) : [...selectedRows, row],
+    });
+  };
+
+  const toggleAll = (): void => {
+    setSelection({
+      signature: querySignature,
+      keys: allSelected ? [] : pageKeys,
+      rows: allSelected ? [] : pageRows,
+    });
+  };
+
   const applyFilters = (next: Record<string, string | undefined>): void => {
     const patch: Record<string, string | undefined> = { [key('page')]: '1' };
     for (const [name, value] of Object.entries(next)) patch[key(name)] = value;
@@ -325,41 +385,96 @@ function CrudTableInner<R extends AnyRouteDef, T>({
         />
       ) : null}
 
-      <Table<T>
-        rowKey={rowKey as never}
-        size={size}
-        bordered={bordered}
-        columns={columns}
-        dataSource={data?.items ?? []}
-        loading={result.isFetching && !data}
-        {...defined({ expandable })}
-        onChange={handleTableChange}
-        locale={{
-          emptyText: result.isError ? (
-            <Empty description={errorMessage(result.error, '加载失败，请重试')} />
-          ) : (
+      {renderCard ? (
+        <>
+          {selectable && pageRows.length > 0 ? (
+            <div style={{ marginBottom: 8 }}>
+              <Checkbox
+                indeterminate={someSelected && !allSelected}
+                checked={allSelected}
+                onChange={toggleAll}
+              >
+                全选本页
+              </Checkbox>
+            </div>
+          ) : null}
+
+          {result.isError && data === undefined ? (
+            <LoadFailure error={result.error} onRetry={() => result.refetch()} />
+          ) : data === undefined ? (
+            <Skeleton active paragraph={{ rows: 6 }} />
+          ) : pageRows.length === 0 ? (
             <Empty description={emptyText ?? '暂无数据'} />
-          ),
-        }}
-        scroll={{ x: Math.max(scrollX ?? 0, columnsWidth(columns, batchActions !== undefined)) }}
-        {...(batchActions
-          ? {
-              rowSelection: {
-                selectedRowKeys,
-                onChange: (keys: React.Key[], rows: T[]) =>
-                  setSelection({ signature: querySignature, keys, rows }),
-              },
-            }
-          : {})}
-        pagination={{
-          current: page,
-          pageSize,
-          total: data?.total ?? 0,
-          showSizeChanger: true,
-          pageSizeOptions: pageSizeOptions.map(String),
-          showTotal: (total) => `共 ${total} 条`,
-        }}
-      />
+          ) : (
+            <Flex vertical gap={12}>
+              {pageRows.map((row) => (
+                <div key={String(keyOf(row))}>
+                  {renderCard(row, {
+                    selected: selectedRowKeys.includes(keyOf(row)),
+                    selectable,
+                    toggle: () => toggleRow(row),
+                  })}
+                </div>
+              ))}
+            </Flex>
+          )}
+
+          {data !== undefined && data.total > 0 ? (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+              <Pagination
+                current={page}
+                pageSize={pageSize}
+                total={data.total}
+                showSizeChanger
+                pageSizeOptions={pageSizeOptions.map(String)}
+                showTotal={(total) => `共 ${total} 条`}
+                onChange={(nextPage, nextPageSize) =>
+                  write({
+                    [key('page')]: nextPageSize !== pageSize ? '1' : String(nextPage),
+                    [key('pageSize')]: String(nextPageSize),
+                  })
+                }
+              />
+            </div>
+          ) : null}
+        </>
+      ) : (
+        <Table<T>
+          rowKey={rowKey as never}
+          size={size}
+          bordered={bordered}
+          columns={columns}
+          dataSource={data?.items ?? []}
+          loading={result.isFetching && !data}
+          {...defined({ expandable })}
+          onChange={handleTableChange}
+          locale={{
+            emptyText: result.isError ? (
+              <Empty description={errorMessage(result.error, '加载失败，请重试')} />
+            ) : (
+              <Empty description={emptyText ?? '暂无数据'} />
+            ),
+          }}
+          scroll={{ x: Math.max(scrollX ?? 0, columnsWidth(columns, selectable)) }}
+          {...(batchActions
+            ? {
+                rowSelection: {
+                  selectedRowKeys,
+                  onChange: (keys: React.Key[], rows: T[]) =>
+                    setSelection({ signature: querySignature, keys, rows }),
+                },
+              }
+            : {})}
+          pagination={{
+            current: page,
+            pageSize,
+            total: data?.total ?? 0,
+            showSizeChanger: true,
+            pageSizeOptions: pageSizeOptions.map(String),
+            showTotal: (total) => `共 ${total} 条`,
+          }}
+        />
+      )}
     </>
   );
 

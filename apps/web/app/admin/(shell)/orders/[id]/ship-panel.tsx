@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Card, Empty, InputNumber, Space, Table, Typography } from 'antd';
 import {
   orderAdminCancelShipment,
@@ -27,6 +27,7 @@ import { ModalForm, useFormModal } from '@/admin/kit/form/modal-form';
 import { StatusTag } from '@/admin/kit/status-tag';
 import { Can } from '@/admin/session';
 
+import { shippableOrder, teamForming } from '../order-actions';
 import { DELIVERY_MODE, SHIPMENT_STATUS } from '../order-enums';
 
 /**
@@ -44,10 +45,20 @@ export function ShipPanel({
   id,
   order,
   loading,
+  mode = 'ship',
+  autoOpenShip = false,
 }: {
   id: string;
   order: AdminOrderDetail | null;
   loading: boolean;
+  /**
+   * `ship` is the order page's panel and the list's 发货 drawer. `logistics` is
+   * the read-only view the list opens for 物流详情: the same shipment rows and
+   * courier feed, without a 发货 button or the paid-order warnings.
+   */
+  mode?: 'ship' | 'logistics' | undefined;
+  /** The list's 发货 action opens the form directly; the order page does not. */
+  autoOpenShip?: boolean | undefined;
 }) {
   const shipModal = useFormModal<AdminOrderDetail>();
   const editModal = useFormModal<Shipment>();
@@ -70,18 +81,23 @@ export function ShipPanel({
     [order],
   );
 
-  // 拼团 not yet 成团: the server refuses the dispatch, so the button is not offered.
-  const waitingForTeam =
-    order !== null && order.groupbuyTeamStatus !== null && order.groupbuyTeamStatus !== 'succeeded';
+  const isLogistics = mode === 'logistics';
 
-  const shippable =
-    order !== null &&
-    order.status === 'paid' &&
-    !waitingForTeam &&
-    outstanding.some(
-      (entry) =>
-        entry.item.productKind === 'physical' || entry.item.productKind === 'virtual_manual',
-    );
+  // 拼团 not yet 成团: the server refuses the dispatch, so the button is not offered.
+  const waitingForTeam = order !== null && teamForming(order);
+
+  const shippable = order !== null && shippableOrder(order);
+
+  // The list's 发货 action opens the drawer; the operator should land in the
+  // form, not on a second button that says the same thing. The drawer remounts
+  // this panel for every open, so a ref is enough to open it once.
+  const autoOpened = useRef(false);
+  const showShipModal = shipModal.show;
+  useEffect(() => {
+    if (!autoOpenShip || order === null || !shippable || autoOpened.current) return;
+    autoOpened.current = true;
+    showShipModal(order);
+  }, [autoOpenShip, order, shippable, showShipModal]);
 
   const invalidate = [orderAdminDetail, orderAdminShipments, orderAdminTimeline, orderAdminList];
 
@@ -102,10 +118,10 @@ export function ShipPanel({
   return (
     <Card
       size="small"
-      title="发货"
+      title={isLogistics ? '物流信息' : '发货'}
       loading={loading}
       extra={
-        shippable ? (
+        !isLogistics && shippable ? (
           <Can permission="order:shipment:write">
             <Button
               type="primary"
@@ -120,7 +136,7 @@ export function ShipPanel({
         ) : null
       }
     >
-      {order && order.status === 'paid' && waitingForTeam ? (
+      {!isLogistics && order && order.status === 'paid' && waitingForTeam ? (
         <Alert
           type="warning"
           showIcon
@@ -138,7 +154,7 @@ export function ShipPanel({
         />
       ) : null}
 
-      {order && order.status === 'paid' && !waitingForTeam && !shippable ? (
+      {!isLogistics && order && order.status === 'paid' && !waitingForTeam && !shippable ? (
         <Alert
           type="info"
           showIcon

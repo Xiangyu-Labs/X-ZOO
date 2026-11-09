@@ -200,6 +200,54 @@ describe('<CrudTable>', () => {
     await waitFor(() => expect(urls.at(-1)).toContain('page=2'));
   });
 
+  it('renders cards with the same paging and selection, without a table header', async () => {
+    const user = userEvent.setup();
+    const { urls } = stubList();
+    let state!: { snapshot: Record<string, string> };
+
+    function CardHarness({
+      onState,
+    }: {
+      onState: (next: TableUrlState & { snapshot: Record<string, string> }) => void;
+    }) {
+      const urlState = useMemoryUrlState();
+      onState(urlState);
+      return (
+        <CrudTable
+          route={listRoute}
+          columns={[]}
+          urlState={urlState}
+          batchActions={({ selectedRowKeys }) => (
+            <span data-testid="selected">{selectedRowKeys.length}</span>
+          )}
+          renderCard={(row, context) => (
+            <div data-testid={`card-${row.id}`}>
+              <span>{row.name}</span>
+              <input
+                type="checkbox"
+                aria-label={`选择 ${row.name}`}
+                checked={context.selected}
+                onChange={() => context.toggle()}
+              />
+            </div>
+          )}
+        />
+      );
+    }
+
+    renderAdmin(<CardHarness onState={(next) => (state = next)} />);
+
+    expect(await screen.findByTestId('card-1')).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader')).toBeNull();
+    await user.click(screen.getByLabelText('选择 组件 1'));
+    expect(screen.getByTestId('selected')).toHaveTextContent('1');
+
+    await waitFor(() => expect(document.querySelector('.ant-pagination-item-2')).not.toBeNull());
+    await user.click(document.querySelector('.ant-pagination-item-2') as HTMLElement);
+    await waitFor(() => expect(state.snapshot['page']).toBe('2'));
+    await waitFor(() => expect(urls.at(-1)).toContain('page=2'));
+  });
+
   it('shows the server error message in the empty state', async () => {
     stubRoutes([
       on(listRoute, () => respondWithError(500, { code: 'INTERNAL', message: '服务器开小差了' })),
