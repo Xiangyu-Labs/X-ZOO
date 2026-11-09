@@ -1499,7 +1499,7 @@ describe('the admin surface', () => {
     const looking = await service.adminActivityDetail(asAdmin(['groupbuy:activity:read']), params);
     expect(looking.cost).toBeNull();
     const editing = await service.adminActivityDetail(
-      asAdmin(['groupbuy:activity:read', 'groupbuy:activity:write']),
+      asAdmin(['groupbuy:activity:read', 'groupbuy:activity:write', 'catalog:product:write']),
       params,
     );
     expect(editing.cost).toBe('31.00');
@@ -1511,7 +1511,11 @@ describe('the admin surface', () => {
     const opened = await placeOrder({ userId: leader, fixture });
     await pay(opened.orderId);
 
-    const admin = asAdmin(['groupbuy:activity:read', 'groupbuy:activity:write']);
+    const admin = asAdmin([
+      'groupbuy:activity:read',
+      'groupbuy:activity:write',
+      'catalog:product:write',
+    ]);
     const before = await service.adminActivityDetail(admin, { id: String(fixture.activityId) });
     const edited = await service.adminActivityUpdate(
       admin,
@@ -1552,7 +1556,11 @@ describe('the admin surface', () => {
       status: 'active' | 'ended' = 'active',
       sku: 'kept' | 'removed' | 'switched-off' = 'kept',
     ) {
-      const admin = asAdmin(['groupbuy:activity:read', 'groupbuy:activity:write']);
+      const admin = asAdmin([
+        'groupbuy:activity:read',
+        'groupbuy:activity:write',
+        'catalog:product:write',
+      ]);
       const before = await service.adminActivityDetail(admin, { id: String(fixture.activityId) });
       return service.adminActivityUpdate(
         admin,

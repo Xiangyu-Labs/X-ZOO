@@ -195,6 +195,7 @@ async function skuOrRefuse(ctx: Ctx, db: DbOrTx, skuId: number): Promise<SkuForS
   const skus = await resolveCatalogPort().getSkusForSale(db, [skuId]);
   const sku = skus.get(skuId);
   if (!sku || sku.deleted || !sku.onSale) throw new DomainError('CART_SKU_NOT_AVAILABLE');
+  await resolveCatalogPort().assertPurchase?.(ctx, db, [sku.productId], 'normal');
   return sku;
 }
 
@@ -425,6 +426,18 @@ export async function rebuy(ctx: Ctx, body: CartRebuyBody): Promise<CartRebuyRes
       if (!sku || sku.deleted || !sku.onSale || sku.stock < 1) {
         skipped.push(toId(line.skuId));
         continue;
+      }
+      try {
+        await resolveCatalogPort().assertPurchase?.(ctx, tx, [sku.productId], 'normal');
+      } catch (error) {
+        if (
+          DomainError.is(error) &&
+          ['CATALOG_PRESALE_REQUIRED', 'CATALOG_PROMOTION_CONFLICT'].includes(error.code)
+        ) {
+          skipped.push(toId(line.skuId));
+          continue;
+        }
+        throw error;
       }
       const quantity = Math.min(line.quantity, capFor(sku), Math.max(1, sku.stock));
       await repo.addUnits(tx, {

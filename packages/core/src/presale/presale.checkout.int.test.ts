@@ -170,22 +170,19 @@ describe('确认订单', () => {
     );
   });
 
-  it('does not touch an ordinary order for the same SKU', async () => {
+  it('refuses ordinary checkout while the SKU is in an active presale', async () => {
     const fixture = await seed();
-    const preview = await checkout.preview(asUser(fixture.userId), {
-      source: 'buy-now',
-      cartItemIds: [],
-      item: { skuId: String(fixture.skuId), quantity: 2 },
-      kind: 'normal',
-    });
-
-    // The contributor refuses to fire without `kind: 'presale'`: a campaign
-    // must not quietly discount a shopper who never chose it.
-    expect(preview.payableAmount).toBe('176.00');
-    expect(preview.adjustments).toEqual([]);
+    await expect(
+      checkout.preview(asUser(fixture.userId), {
+        source: 'buy-now',
+        cartItemIds: [],
+        item: { skuId: String(fixture.skuId), quantity: 2 },
+        kind: 'normal',
+      }),
+    ).rejects.toMatchObject({ code: 'CATALOG_PRESALE_REQUIRED' });
   });
 
-  it('says when a presale order ships — the campaign’s days after payment — and nothing for an ordinary one', async () => {
+  it('says when a presale order ships, then omits presale terms after expiry', async () => {
     const fixture = await seed();
     const presale = await checkout.preview(asUser(fixture.userId), buyNow(fixture, 1));
     expect(presale.shipAfterDays).toBe(15);
@@ -198,6 +195,7 @@ describe('确认订单', () => {
       0,
     );
 
+    harness.clock.set('2026-08-01T00:00:00.000Z');
     const ordinary = await checkout.preview(asUser(fixture.userId), {
       source: 'buy-now',
       cartItemIds: [],
@@ -344,29 +342,23 @@ describe('ORDER-009 — a presale kind smuggled into kindMeta', () => {
       kindMeta: { kind: 'presale', activityId: String(fixture.activityId) },
     }) as unknown as Parameters<typeof checkout.preview>[1];
 
-  it('never quotes 预售价 on an ordinary order', async () => {
+  it('refuses a forged kindMeta instead of quoting presale on an ordinary order', async () => {
     const fixture = await seed();
-    const preview = await checkout.preview(asUser(fixture.userId), smuggled(fixture, 2));
-    expect(preview.payableAmount).toBe('176.00');
-    expect(preview.adjustments).toEqual([]);
-    expect(preview.shipAfterDays).toBeNull();
+    await expect(
+      checkout.preview(asUser(fixture.userId), smuggled(fixture, 2)),
+    ).rejects.toMatchObject({ code: 'CATALOG_PRESALE_REQUIRED' });
   });
 
-  it('places it as an ordinary order at the catalogue price, and leaves the campaign alone', async () => {
+  it('refuses an ordinary create with forged kindMeta and leaves every campaign counter alone', async () => {
     const fixture = await seed({ stock: 10 });
-    const order = await checkout.create(asUser(fixture.userId), {
-      ...smuggled(fixture, 1),
-      idempotencyKey: `smuggled-${fixture.activityId}`,
-    } as unknown as Parameters<typeof checkout.create>[1]);
-
-    expect(order.kind).toBe('normal');
-    expect(order.payableAmount).toBe(LIST);
-    expect(
-      await harness.ctx.db
-        .select()
-        .from(presaleOrders)
-        .where(eq(presaleOrders.orderId, Number(order.id))),
-    ).toHaveLength(0);
+    await expect(
+      checkout.create(asUser(fixture.userId), {
+        ...smuggled(fixture, 1),
+        idempotencyKey: `smuggled-${fixture.activityId}`,
+      } as unknown as Parameters<typeof checkout.create>[1]),
+    ).rejects.toMatchObject({ code: 'CATALOG_PRESALE_REQUIRED' });
+    expect(await harness.ctx.db.select().from(orders)).toHaveLength(0);
+    expect(await harness.ctx.db.select().from(presaleOrders)).toHaveLength(0);
     const [activity] = await harness.ctx.db
       .select()
       .from(presaleActivities)

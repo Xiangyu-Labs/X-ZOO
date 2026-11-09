@@ -1,3 +1,4 @@
+import type { ProductPromotionSettings } from './promotion';
 import { z } from 'zod';
 import { id } from '../_conventions/common';
 import { defineRoute } from '../_conventions/route';
@@ -97,6 +98,40 @@ export const catalogAdminProductDetail = defineRoute({
   examples: [{ name: 'ok', params: { id: '1' }, response: adminProductDetailExample }],
 });
 
+function productPromotionExample(mode: 'presale' | 'groupbuy') {
+  const settings: ProductPromotionSettings = {
+    startAt: '2026-01-01T00:00:00+08:00',
+    endAt: '2030-12-31T23:59:59+08:00',
+    ...(mode === 'presale' ? { shipAfterDays: 10 } : { seatsRequired: 2 }),
+    skus: adminProductFormExample.skus.map((sku) => ({
+      specValues: sku.specValues,
+      price: '29.00',
+    })),
+  };
+  return {
+    name: mode,
+    body: { ...adminProductFormExample, promotion: { mode, expectedVersion: 0, settings } },
+    response: {
+      ...adminProductDetailExample,
+      promotion: {
+        mode,
+        version: 2,
+        activityId: '7',
+        conflict: false,
+        candidates: [
+          {
+            kind: mode,
+            activityId: '7',
+            title: adminProductFormExample.name,
+            status: 'active' as const,
+            settings,
+          },
+        ],
+      },
+    },
+  };
+}
+
 export const catalogAdminProductCreate = defineRoute({
   id: 'catalog.adminProductCreate',
   method: 'POST',
@@ -113,9 +148,18 @@ export const catalogAdminProductCreate = defineRoute({
     'CATALOG_LABEL_NOT_FOUND',
     'CATALOG_PROTECTION_NOT_FOUND',
     'CATALOG_PRODUCT_SPU_TAKEN',
+    'CATALOG_PROMOTION_CONFLICT',
+    'CATALOG_PROMOTION_CHANGED',
+    'CATALOG_PROMOTION_INVALID',
+    'PRESALE_STOCK_CHANGED',
+    'GROUPBUY_STOCK_CHANGED',
+    'PRESALE_ACTIVITY_SKU_IN_USE',
+    'GROUPBUY_ACTIVITY_SKU_IN_USE',
   ],
   examples: [
     { name: 'two-sku', body: adminProductFormExample, response: adminProductDetailExample },
+    productPromotionExample('presale'),
+    productPromotionExample('groupbuy'),
     {
       name: 'single-sku-virtual',
       body: {
@@ -208,6 +252,13 @@ export const catalogAdminProductUpdate = defineRoute({
     'CATALOG_LABEL_NOT_FOUND',
     'CATALOG_PROTECTION_NOT_FOUND',
     'CATALOG_PRODUCT_SPU_TAKEN',
+    'CATALOG_PROMOTION_CONFLICT',
+    'CATALOG_PROMOTION_CHANGED',
+    'CATALOG_PROMOTION_INVALID',
+    'PRESALE_STOCK_CHANGED',
+    'GROUPBUY_STOCK_CHANGED',
+    'PRESALE_ACTIVITY_SKU_IN_USE',
+    'GROUPBUY_ACTIVITY_SKU_IN_USE',
     'CATALOG_SKU_STOCK_CHANGED',
     'CATALOG_SKU_IN_USE',
   ],

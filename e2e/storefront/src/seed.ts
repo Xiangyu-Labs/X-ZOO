@@ -375,9 +375,8 @@ export async function seedE2E(options: {
     });
     const postageSkuId = await firstSkuId(parts, Number(postage.id));
 
-    // The product both activities are attached to — a third, plain product,
-    // so neither activity spec depends on the freight/spec fixtures above.
-    const activityProduct = await adminProductCreate(ctx, {
+    // Presale and group-buy use separate products, matching the exclusive sale modes.
+    const activityProductBody = {
       name: 'E2E 活动商品',
       sliderImages: [E2E_IMAGE_URL],
       kind: 'physical',
@@ -412,7 +411,13 @@ export async function seedE2E(options: {
       params: [],
       recommendedProductIds: [],
       giftCouponIds: [],
+    } satisfies Parameters<typeof adminProductCreate>[1];
+    const activityProduct = await adminProductCreate(ctx, activityProductBody);
+    const groupProduct = await adminProductCreate(ctx, {
+      ...activityProductBody,
+      name: 'E2E 拼单商品',
     });
+    const groupSkuId = await firstSkuId(parts, Number(groupProduct.id));
     const activitySkuId = await firstSkuId(parts, Number(activityProduct.id));
 
     // A coupon template, granted to both shoppers so the checkout journey has
@@ -452,7 +457,7 @@ export async function seedE2E(options: {
     const [groupbuy] = await db
       .insert(groupbuyActivities)
       .values({
-        productId: Number(activityProduct.id),
+        productId: Number(groupProduct.id),
         title: 'E2E 拼团活动',
         imageUrl: E2E_IMAGE_URL,
         status: 'active',
@@ -469,7 +474,7 @@ export async function seedE2E(options: {
       .returning({ id: groupbuyActivities.id });
     await db.insert(groupbuyActivitySkus).values({
       activityId: groupbuy!.id,
-      skuId: activitySkuId,
+      skuId: groupSkuId,
       price: '68.00',
       stock: 100,
       quota: null,

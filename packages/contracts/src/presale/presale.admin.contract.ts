@@ -57,7 +57,12 @@ export const presaleAdminActivityDetail = defineRoute({
   tags: ['presale'],
   params: activityParams,
   response: presaleActivityDetail,
-  errors: ['PRESALE_ACTIVITY_NOT_FOUND'],
+  errors: [
+    'CATALOG_PRODUCT_NOT_FOUND',
+    'CATALOG_PROMOTION_CONFLICT',
+    'CATALOG_PROMOTION_INVALID',
+    'PRESALE_ACTIVITY_NOT_FOUND',
+  ],
   examples: [{ name: 'ok', params: { id: '2' }, response: presaleActivityDetailExample }],
 });
 
@@ -72,7 +77,13 @@ export const presaleAdminActivityCreate = defineRoute({
   body: presaleActivityForm,
   response: presaleActivityDetail,
   status: 201,
-  errors: ['PRESALE_SKU_NOT_IN_ACTIVITY', 'PRESALE_DEPOSIT_NOT_SUPPORTED'],
+  errors: [
+    'CATALOG_PRODUCT_NOT_FOUND',
+    'CATALOG_PROMOTION_CONFLICT',
+    'CATALOG_PROMOTION_INVALID',
+    'PRESALE_SKU_NOT_IN_ACTIVITY',
+    'PRESALE_DEPOSIT_NOT_SUPPORTED',
+  ],
   examples: [
     {
       name: 'full-payment',
@@ -111,6 +122,9 @@ export const presaleAdminActivityUpdate = defineRoute({
   body: presaleActivityForm,
   response: presaleActivityDetail,
   errors: [
+    'CATALOG_PRODUCT_NOT_FOUND',
+    'CATALOG_PROMOTION_CONFLICT',
+    'CATALOG_PROMOTION_INVALID',
     'PRESALE_ACTIVITY_NOT_FOUND',
     'PRESALE_SKU_NOT_IN_ACTIVITY',
     'PRESALE_DEPOSIT_NOT_SUPPORTED',
@@ -151,7 +165,12 @@ export const presaleAdminActivitySetStatus = defineRoute({
   params: activityParams,
   body: presaleActivityStatusBody,
   response: presaleActivityDetail,
-  errors: ['PRESALE_ACTIVITY_NOT_FOUND'],
+  errors: [
+    'CATALOG_PRODUCT_NOT_FOUND',
+    'CATALOG_PROMOTION_CONFLICT',
+    'CATALOG_PROMOTION_INVALID',
+    'PRESALE_ACTIVITY_NOT_FOUND',
+  ],
   examples: [
     {
       name: 'pause',
@@ -173,7 +192,13 @@ export const presaleAdminActivityDelete = defineRoute({
   params: activityParams,
   response: z.void(),
   status: 204,
-  errors: ['PRESALE_ACTIVITY_NOT_FOUND', 'PRESALE_ACTIVITY_IN_USE'],
+  errors: [
+    'CATALOG_PRODUCT_NOT_FOUND',
+    'CATALOG_PROMOTION_CONFLICT',
+    'CATALOG_PROMOTION_INVALID',
+    'PRESALE_ACTIVITY_NOT_FOUND',
+    'PRESALE_ACTIVITY_IN_USE',
+  ],
   examples: [{ name: 'ok', params: { id: '2' }, response: undefined }],
 });
 

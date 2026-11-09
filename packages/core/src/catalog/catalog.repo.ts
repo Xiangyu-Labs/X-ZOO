@@ -41,7 +41,7 @@ import {
   type SQL,
 } from 'drizzle-orm';
 
-import { allOf, conditionalUpdate, type ConditionalUpdateResult } from '../kernel/tx';
+import { allOf, conditionalUpdate, lockRows, type ConditionalUpdateResult } from '../kernel/tx';
 import { likePattern } from './catalog.rules';
 
 /**
@@ -2482,4 +2482,18 @@ export async function stockAndSalesOf(
     .where(eq(productSkus.id, skuId))
     .limit(1);
   return rows[0] ?? { stock: 0, sales: 0 };
+}
+
+/** Product → SKU is the shared order for edits, checkout and its stock inverses. */
+export async function lockStockProducts(tx: Tx, skuIds: readonly number[]): Promise<void> {
+  if (skuIds.length === 0) return;
+  const rows = await tx
+    .select({ productId: productSkus.productId })
+    .from(productSkus)
+    .where(inArray(productSkus.id, [...skuIds]));
+  await lockRows(
+    tx,
+    products,
+    rows.map((row) => row.productId),
+  );
 }

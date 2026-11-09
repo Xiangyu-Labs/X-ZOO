@@ -4,23 +4,16 @@ import { Button, Drawer, Typography } from 'antd';
 import Link from 'next/link';
 import { useState } from 'react';
 import {
-  groupbuyAdminActivityCreate,
   groupbuyAdminActivityDelete,
-  groupbuyAdminActivityDetail,
   groupbuyAdminActivityList,
   groupbuyAdminActivityOrders,
-  groupbuyAdminActivitySetStatus,
-  groupbuyAdminActivityUpdate,
 } from '@shop/contracts/groupbuy/groupbuy.admin.contract';
 import {
-  groupbuyActivityForm,
-  type GroupbuyActivityDetail,
   type GroupbuyActivityListItem,
   type GroupbuyActivityOrder,
 } from '@shop/contracts/groupbuy/schemas';
 
 import { ConfirmButton } from '@/admin/kit/confirm-button';
-import { ModalForm, useFormModal } from '@/admin/kit/form/modal-form';
 import { PageContainer } from '@/admin/kit/page-container';
 import {
   actionsColumn,
@@ -31,7 +24,6 @@ import {
   textColumn,
 } from '@/admin/kit/table/columns';
 import { CrudTable } from '@/admin/kit/table/crud-table';
-import { StatusToggleButton } from '@/admin/kit/status-toggle-button';
 import { Can } from '@/admin/session/can';
 
 import { ActivityStatusTag } from '../activity-window';
@@ -41,39 +33,15 @@ import {
   GROUPBUY_GROUP_STATUS,
   GROUPBUY_MEMBER_ROLE,
   GROUPBUY_MEMBER_STATUS,
-  groupbuyActivityFields,
   optionsOf,
 } from '../groupbuy-enums';
 
-/**
- * 拼团活动 — the campaign list.
- *
- * Two things here are group-buy specific and worth knowing:
- *
- *  - **还在拼 counts teams, not orders.** A campaign with teams still forming
- *    cannot be deleted: the server answers `GROUPBUY_ACTIVITY_IN_USE` rather
- *    than leaving shoppers in a team whose campaign is gone;
- *  - **editing never resets the counters.** Deleting and re-inserting the
- *    per-SKU rows on every save would zero 已售 and un-sell the campaign's
- *    stock on each edit. Here the editor first *reads* the
- *    activity — SKUs, 轮播图, 成本价 and all — and sends it back whole, so a
- *    price change is a price change and `sales` survives it.
- */
+/** Activity history and order access. Configuration is owned by 商品编辑. */
 export function GroupbuyActivitiesPage() {
-  // The form mounts only once the detail has arrived: seeded from the list row
-  // it would have an empty 规格 list, and the save would wipe every per-SKU price.
-  const modal = useFormModal<GroupbuyActivityListItem, typeof groupbuyAdminActivityDetail>({
-    detail: {
-      route: groupbuyAdminActivityDetail,
-      params: (row) => ({ id: row.id }),
-      select: formValuesOf,
-    },
-  });
-  const editing = modal.record;
   const [ordersOf, setOrdersOf] = useState<GroupbuyActivityListItem | null>(null);
 
   return (
-    <PageContainer subTitle="拼团活动；成团人数、有效时长和活动库存都独立于商品本身">
+    <PageContainer subTitle="拼单配置统一在商品编辑页设置；此处保留活动历史和订单查看">
       <CrudTable
         route={groupbuyAdminActivityList}
         scrollX={1560}
@@ -90,9 +58,11 @@ export function GroupbuyActivitiesPage() {
         ]}
         toolbar={
           <Can permission="groupbuy:activity:write">
-            <Button type="primary" onClick={() => modal.show()}>
-              新建拼团活动
-            </Button>
+            <Can permission="catalog:product:write">
+              <Button type="primary" href="/admin/catalog/products">
+                到商品页设置
+              </Button>
+            </Can>
           </Can>
         }
         columns={[
@@ -160,22 +130,9 @@ export function GroupbuyActivitiesPage() {
             render: (row) => (
               <>
                 <Can permission="groupbuy:activity:write">
-                  <Button type="link" size="small" onClick={() => modal.show(row)}>
-                    编辑
-                  </Button>
-                  <StatusToggleButton
-                    route={groupbuyAdminActivitySetStatus}
-                    on={row.status === 'active'}
-                    input={(next) => ({
-                      params: { id: row.id },
-                      body: { status: next ? ('active' as const) : ('paused' as const) },
-                    })}
-                    labels={['开启', '暂停']}
-                    confirmTitle={`暂停拼团「${row.title}」？`}
-                    confirmDescription="暂停后买家不能再开团或参团。"
-                    invalidate={[groupbuyAdminActivityList]}
-                    disabled={row.status === 'ended'}
-                  />
+                  <Can permission="catalog:product:write">
+                    <Link href={`/admin/catalog/products/${row.productId}`}>编辑</Link>
+                  </Can>
                 </Can>
                 <Can permission="groupbuy:group:read">
                   <Button type="link" size="small" onClick={() => setOrdersOf(row)}>
@@ -200,62 +157,9 @@ export function GroupbuyActivitiesPage() {
         ]}
       />
 
-      <ModalForm
-        {...modal.props}
-        title={editing ? `编辑：${editing.title}` : '新建拼团活动'}
-        size="large"
-        columns={2}
-        schema={groupbuyActivityForm}
-        fields={groupbuyActivityFields}
-        route={editing ? groupbuyAdminActivityUpdate : groupbuyAdminActivityCreate}
-        toInput={(values) =>
-          editing ? { params: { id: editing.id }, body: values } : { body: values }
-        }
-        invalidate={[groupbuyAdminActivityList, groupbuyAdminActivityDetail]}
-        successMessage={editing ? '已保存' : '已创建'}
-      />
-
       <ActivityOrdersDrawer activity={ordersOf} onClose={() => setOrdersOf(null)} />
     </PageContainer>
   );
-}
-
-/**
- * The detail minus the fields the form does not own (`sales`, `views`,
- * `formingGroups`, `createdAt`, and each SKU's `sales` / `specText`), with
- * `null` turned into an absent key: `exactOptionalPropertyTypes` means an
- * optional field is either missing or a real value, never `null`.
- */
-function formValuesOf(row: GroupbuyActivityDetail) {
-  return {
-    productId: row.productId,
-    title: row.title,
-    ...(row.intro === null ? {} : { intro: row.intro }),
-    ...(row.imageUrl === null ? {} : { imageUrl: row.imageUrl }),
-    sliderImages: row.sliderImages,
-    status: row.status,
-    price: row.price,
-    ...(row.originalPrice === null ? {} : { originalPrice: row.originalPrice }),
-    ...(row.cost === null ? {} : { cost: row.cost }),
-    seatsRequired: row.seatsRequired,
-    groupTtlSeconds: row.groupTtlSeconds,
-    stock: row.stock,
-    expectedStock: row.stock,
-    ...(row.totalQuota === null ? {} : { totalQuota: row.totalQuota }),
-    perOrderQuantity: row.perOrderQuantity,
-    startAt: row.startAt,
-    endAt: row.endAt,
-    ...(row.shippingTemplateId === null ? {} : { shippingTemplateId: row.shippingTemplateId }),
-    sortOrder: row.sortOrder,
-    skus: row.skus.map((sku) => ({
-      skuId: sku.skuId,
-      price: sku.price,
-      stock: sku.stock,
-      expectedStock: sku.stock,
-      ...(sku.quota === null ? {} : { quota: sku.quota }),
-      isEnabled: sku.isEnabled,
-    })),
-  };
 }
 
 /**

@@ -645,7 +645,7 @@ Over real HTTP, submitting an order with an already spent coupon is refused befo
 
 ### ORDER-009
 
-`kind` and `kindMeta` are one discriminated union: a group-buy or presale order carries its own typed payload, a key its kind does not declare is stripped, an ordinary order's `kindMeta` is discarded, and every payload the legacy client sends still parses. Nothing inside `kindMeta` can overrule `kind`, so an ordinary order is never priced at an activity price.
+`kind` and `kindMeta` are one discriminated union: a group-buy or presale order carries its own typed payload, a key its kind does not declare is stripped, an ordinary order's `kindMeta` is discarded, and every payload the legacy client sends still parses. Nothing inside `kindMeta` can overrule `kind`, so an ordinary order is never priced at an activity price. Active presale products refuse ordinary checkout entirely (PROMO-003).
 
 - `packages/contracts/src/order/checkout-kind.test.ts::ORDER-009 — typed kindMeta > what the legacy client sends still parses > previews <label>`
 - `packages/contracts/src/order/checkout-kind.test.ts::ORDER-009 — typed kindMeta > what the union tightens > strips a key the kind does not declare, above all a smuggled kind`
@@ -653,8 +653,8 @@ Over real HTTP, submitting an order with an already spent coupon is refused befo
 - `packages/core/src/groupbuy/groupbuy.int.test.ts::ORDER-009 — a kind smuggled into kindMeta never reprices an ordinary order`
 - `packages/contracts/src/order/checkout-kind.test.ts::ORDER-009 — typed kindMeta > what the union tightens > discards a presale kind smuggled into an ordinary order, on create too`
 - `packages/contracts/src/order/checkout-kind.test.ts::ORDER-009 — typed kindMeta > what the union tightens > refuses a kind the union does not know, however kindMeta is dressed`
-- `packages/core/src/presale/presale.checkout.int.test.ts::ORDER-009 — a presale kind smuggled into kindMeta > never quotes 预售价 on an ordinary order`
-- `packages/core/src/presale/presale.checkout.int.test.ts::ORDER-009 — a presale kind smuggled into kindMeta > places it as an ordinary order at the catalogue price, and leaves the campaign alone`
+- `packages/core/src/presale/presale.checkout.int.test.ts::ORDER-009 — a presale kind smuggled into kindMeta > refuses a forged kindMeta instead of quoting presale on an ordinary order`
+- `packages/core/src/presale/presale.checkout.int.test.ts::ORDER-009 — a presale kind smuggled into kindMeta > refuses an ordinary create with forged kindMeta and leaves every campaign counter alone`
 - `packages/core/src/presale/presale.checkout.int.test.ts::ORDER-009 — a presale kind smuggled into kindMeta > keeps a real presale order at 预售价 whatever else its kindMeta carries`
 
 ## Orders, ownership and the cashier
@@ -1203,7 +1203,7 @@ An order sold from a group buy, a presale or ordinary stock restores through tha
 - `packages/core/src/refund/refund.concurrency.int.test.ts::REFUND-006 — reconciliation racing a refund callback > ends the order and releases nothing twice when the last line is refunded`
 - `packages/core/src/presale/presale.int.test.ts::refunding > walks stock and sales back together`
 - `packages/core/src/presale/presale.int.test.ts::paying > ignores an order that is not a presale`
-- `packages/core/src/presale/presale.checkout.int.test.ts::确认订单 > does not touch an ordinary order for the same SKU`
+- `packages/core/src/presale/presale.checkout.int.test.ts::确认订单 > refuses ordinary checkout while the SKU is in an active presale`
 
 ### REFUND-004
 
@@ -1674,7 +1674,7 @@ An expired under-filled team refunds every paid member exactly once, through the
 Editing a campaign keeps its counters: an edit is an update of the per-SKU rows, never a delete and re-insert, so 已售 and the sold stock survive every save, and the admin page reads the activity before it writes it back.
 
 - `packages/core/src/groupbuy/groupbuy.int.test.ts::the admin surface > keeps the sales counter across an edit`
-- `apps/web/app/admin/(shell)/groupbuy/activities/groupbuy-activities.test.tsx::拼团活动 > reads the activity before editing it, and sends the SKU rows back`
+- `apps/web/app/admin/(shell)/catalog/products/product-editor.test.tsx::integrated product promotion save > saves per-spec presale settings in the same product PUT and refreshes the saved configuration`
 
 ### RISK-D-008
 
@@ -2812,3 +2812,32 @@ A page holds at most one 悬浮客服 (`floatingContact`: a fixed button, so a s
 
 - `packages/contracts/src/decor/blocks.test.ts::the batch-2 blocks (G2) > allows one 悬浮客服 and one 关注公众号 per page — DECOR-018`
 - `packages/core/src/decor/decor.int.test.ts::the batch-2 blocks (G2) > DECOR-018: a page takes one 悬浮客服 and one 关注公众号, and publishing more is refused`
+
+## Product sale modes
+
+### PROMO-001
+
+A product has at most one current presale or group-buy campaign. Legacy conflicts require an
+explicit choice; switching mode closes old campaigns without deleting their history.
+
+- `packages/core/src/catalog/catalog.promotion.int.test.ts::PROMO-001 — one current promotion per product > serializes two legacy creates across promotion kinds`
+- `packages/core/src/catalog/catalog.promotion.int.test.ts::PROMO-001 — one current promotion per product > requires an explicit choice for legacy conflicts and ends the unselected campaigns`
+
+### PROMO-002
+
+Product, SKU and campaign settings are saved atomically. Concurrent editors cannot overwrite a
+sale-mode change made after their form was loaded. Product-only edits preserve campaign settings.
+Stock reservations and their inverses use the same product-before-SKU lock order as edits.
+
+- `packages/core/src/catalog/catalog.promotion.int.test.ts::PROMO-002 — atomic product edits and stale-editor protection > rolls back product changes when campaign validation fails`
+- `packages/core/src/catalog/catalog.promotion.int.test.ts::PROMO-002 — atomic product edits and stale-editor protection > lets only one concurrent editor change the mode`
+
+- `packages/core/src/catalog/catalog.promotion.int.test.ts::inventory serialization with product edits > reserves and restores stock while editors save without deadlock or stale counter writes`
+
+### PROMO-003
+
+An active presale product must use presale checkout. Normal preview, creation and cart writes
+cannot bypass its price or shipping terms. After expiry ordinary buying is available again.
+
+- `packages/core/src/catalog/catalog.promotion.int.test.ts::PROMO-003 — presale checkout cannot be bypassed > refuses normal preview, normal creation and adding to the cart`
+- `packages/core/src/catalog/catalog.promotion.int.test.ts::PROMO-003 — presale checkout cannot be bypassed > returns to ordinary buying on expiry and creates a new campaign when reenabled`

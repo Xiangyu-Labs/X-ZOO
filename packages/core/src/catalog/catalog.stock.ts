@@ -150,6 +150,10 @@ export const catalogStockPort: StockPort = {
   ): Promise<StockLine[]> {
     void orderId;
     const merged = mergeLines(lines).sort((a, b) => a.skuId - b.skuId);
+    await repo.lockStockProducts(
+      tx,
+      merged.map((line) => line.skuId),
+    );
     const failed: StockLine[] = [];
 
     for (const line of merged) {
@@ -179,6 +183,10 @@ export const catalogStockPort: StockPort = {
     if (!first) return;
 
     const merged = mergeLines(lines).sort((a, b) => a.skuId - b.skuId);
+    await repo.lockStockProducts(
+      tx,
+      merged.map((line) => line.skuId),
+    );
     for (const line of merged) {
       await repo.commitSkuSale(tx, line);
     }
@@ -217,6 +225,10 @@ export const catalogStockPort: StockPort = {
     if (!first) return;
 
     const merged = mergeLines(lines).sort((a, b) => a.skuId - b.skuId);
+    await repo.lockStockProducts(
+      tx,
+      merged.map((line) => line.skuId),
+    );
     for (const line of merged) {
       if (options?.committed === true) await repo.releaseSoldSkuStock(tx, line);
       else await repo.releaseSkuStock(tx, line);

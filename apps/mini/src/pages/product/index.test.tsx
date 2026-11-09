@@ -43,30 +43,7 @@ function serve(overrides: Routes = {}) {
     'GET /api/v1/catalog/products': () => ({
       body: pageOf([cardFixture(), cardFixture({ id: '31', name: '温感按摩油' })]),
     }),
-    'GET /api/v1/groupbuy/activities': () => ({
-      body: {
-        ...empty,
-        items: [
-          {
-            activityId: '7',
-            productId: '12',
-            title: '两人拼',
-            intro: null,
-            imageUrl: null,
-            price: '49.00',
-            originalPrice: '59.00',
-            seatsRequired: 2,
-            stock: 10,
-            sales: 0,
-            startAt: '2026-09-01T00:00:00+08:00',
-            endAt: '2026-12-01T00:00:00+08:00',
-            formingGroups: 0,
-            canBuy: true,
-          },
-        ],
-        total: 1,
-      },
-    }),
+    'GET /api/v1/groupbuy/activities': () => ({ body: empty }),
     'GET /api/v1/presale/activities': () => ({ body: empty }),
     'GET /api/v1/coupons': () => ({
       body: {
@@ -82,6 +59,30 @@ function serve(overrides: Routes = {}) {
     ...overrides,
   });
 }
+
+const promotionSku = {
+  skuId: '101',
+  specText: '默认规格',
+  specValues: {},
+  imageUrl: null,
+  price: '49.00',
+  originalPrice: '59.00',
+  stock: 10,
+};
+const promotionCard = {
+  activityId: '7',
+  productId: '12',
+  title: '优惠活动',
+  intro: null,
+  imageUrl: null,
+  price: '49.00',
+  originalPrice: '59.00',
+  stock: 10,
+  sales: 0,
+  startAt: '2020-01-01T00:00:00+08:00',
+  endAt: '2099-12-01T00:00:00+08:00',
+  canBuy: true,
+};
 
 async function signIn() {
   taroFake.storage.set('shop.session.token', 't1');
@@ -172,7 +173,32 @@ describe('商品详情', () => {
   });
 
   it('asks for this product’s activities and coupons, and shows them', async () => {
-    const seen = serve();
+    const seen = serve({
+      'GET /api/v1/groupbuy/activities': () => ({
+        body: {
+          ...empty,
+          items: [
+            {
+              activityId: '7',
+              productId: '12',
+              title: '两人拼',
+              intro: null,
+              imageUrl: null,
+              price: '49.00',
+              originalPrice: '59.00',
+              seatsRequired: 2,
+              stock: 10,
+              sales: 0,
+              startAt: '2026-09-01T00:00:00+08:00',
+              endAt: '2026-12-01T00:00:00+08:00',
+              formingGroups: 0,
+              canBuy: true,
+            },
+          ],
+          total: 1,
+        },
+      }),
+    });
     await renderPage(<ProductPage />);
 
     fireEvent.click(await screen.findByRole('link', { name: '拼团 ¥49.00，2 人团' }));
@@ -194,7 +220,32 @@ describe('商品详情', () => {
   });
 
   it('asks for the activities, coupons, reviews and recommendations while the product is on its way', async () => {
-    const seen = serve();
+    const seen = serve({
+      'GET /api/v1/groupbuy/activities': () => ({
+        body: {
+          ...empty,
+          items: [
+            {
+              activityId: '7',
+              productId: '12',
+              title: '两人拼',
+              intro: null,
+              imageUrl: null,
+              price: '49.00',
+              originalPrice: '59.00',
+              seatsRequired: 2,
+              stock: 10,
+              sales: 0,
+              startAt: '2026-09-01T00:00:00+08:00',
+              endAt: '2026-12-01T00:00:00+08:00',
+              formingGroups: 0,
+              canBuy: true,
+            },
+          ],
+          total: 1,
+        },
+      }),
+    });
     const held = holdRequests('/api/v1/catalog/products/12');
     // The app's 30 s staleTime: what the prefetch brought is not asked for again on mount.
     const client = new QueryClient({
@@ -603,5 +654,216 @@ describe('商品详情', () => {
       ).toBe(true),
     );
     expect(seen.some((r) => r.key === 'GET /api/v1/share/mini-codes')).toBe(false);
+  });
+  it('starts a group purchase directly from the product detail', async () => {
+    const card = { ...promotionCard, seatsRequired: 2, formingGroups: 0 };
+    serve({
+      'GET /api/v1/groupbuy/activities': () => ({ body: { ...empty, items: [card], total: 1 } }),
+      'GET /api/v1/groupbuy/activities/7': () => ({
+        body: {
+          ...card,
+          sliderImages: [],
+          groupTtlSeconds: 86400,
+          perOrderQuantity: 5,
+          description: null,
+          descriptionBlocks: [],
+          skus: [promotionSku],
+          myOpenGroupId: null,
+          myOpenGroupRole: null,
+        },
+      }),
+    });
+    await signIn();
+    await renderPage(<ProductPage />);
+    expect(await screen.findByText('2人拼团价')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /单独购买 ¥59.00/ })).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: '立即开团 ¥49.00' }));
+    fireEvent.click(await screen.findByRole('button', { name: '立即开团' }));
+    await waitFor(() =>
+      expect(useCheckoutDraft.getState().draft).toMatchObject({
+        kind: 'groupbuy',
+        kindMeta: { activityId: '7' },
+        source: 'buy-now',
+        item: { skuId: '101', quantity: 1 },
+      }),
+    );
+  });
+
+  it('shows the presale banner and checks out at the presale price', async () => {
+    const card = { ...promotionCard, shipAfterDays: 10 };
+    serve({
+      'GET /api/v1/presale/activities': () => ({ body: { ...empty, items: [card], total: 1 } }),
+      'GET /api/v1/presale/activities/7': () => ({
+        body: {
+          ...card,
+          sliderImages: [],
+          perOrderQuantity: 5,
+          description: null,
+          descriptionBlocks: [],
+          skus: [promotionSku],
+        },
+      }),
+    });
+    await signIn();
+    await renderPage(<ProductPage />);
+    expect(await screen.findByText('限时预售补贴')).toBeTruthy();
+    expect(document.querySelector('#product-name .product__presale-badge')?.textContent).toBe(
+      '预售',
+    );
+    expect(screen.queryByRole('button', { name: '加入购物车' })).toBeNull();
+    fireEvent.click(await screen.findByRole('button', { name: '立即预订 ¥49.00' }));
+    fireEvent.click(await screen.findByRole('button', { name: '立即预订' }));
+    await waitFor(() =>
+      expect(useCheckoutDraft.getState().draft).toMatchObject({
+        kind: 'presale',
+        kindMeta: { activityId: '7' },
+        source: 'buy-now',
+        item: { skuId: '101', quantity: 1 },
+      }),
+    );
+  });
+  it('uses the current campaign from the product response and updates both prices on a spec choice', async () => {
+    const product = productDetailFixture();
+    const skus = product.skus.map((sku, index) => ({
+      skuId: sku.id,
+      specText: sku.specText,
+      specValues: sku.specValues,
+      imageUrl: sku.imageUrl,
+      price: index === 3 ? '54.00' : '49.00',
+      originalPrice: sku.price,
+      stock: sku.stock,
+    }));
+    serve({
+      'GET /api/v1/catalog/products/12': () => ({
+        body: {
+          ...product,
+          promotion: {
+            kind: 'groupbuy',
+            activityId: '9',
+            price: '49.00',
+            originalPrice: '59.00',
+            endAt: '2099-12-31T23:59:59+08:00',
+            canBuy: true,
+            seatsRequired: 3,
+            shipAfterDays: null,
+            perOrderQuantity: 5,
+            skus,
+          },
+          promotionConflict: false,
+        },
+      }),
+    });
+    await signIn();
+    await renderPage(<ProductPage />);
+    expect(await screen.findByText('3人拼团价')).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: '立即开团 ¥49.00起' }));
+    fireEvent.click(await screen.findByRole('radio', { name: '黑 / L' }));
+    expect(screen.getByRole('button', { name: '立即开团 ¥54.00' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '单独购买 ¥65.00' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '立即开团' }));
+    await waitFor(() =>
+      expect(useCheckoutDraft.getState().draft).toMatchObject({
+        kind: 'groupbuy',
+        kindMeta: { activityId: '9' },
+        item: { skuId: '104', quantity: 1 },
+      }),
+    );
+  });
+
+  it('does not fall back to a secondary activity when the product explicitly has no current campaign', async () => {
+    serve({
+      'GET /api/v1/catalog/products/12': () => ({
+        body: productDetailFixture({ promotion: null, promotionConflict: false }),
+      }),
+    });
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 300_000 } },
+    });
+    client.setQueryData(
+      routeQueryKey('groupbuy.list', { query: { productId: '12', pageSize: 1 } }),
+      {
+        ...empty,
+        items: [{ ...promotionCard, seatsRequired: 2, formingGroups: 0 }],
+        total: 1,
+      },
+    );
+    await renderPage(<ProductPage />, client);
+    expect(await screen.findByRole('button', { name: '立即购买' })).toBeTruthy();
+    expect(screen.queryByText('限时预售补贴')).toBeNull();
+  });
+
+  it('blocks purchasing while legacy campaign conflicts await an operator choice', async () => {
+    serve({
+      'GET /api/v1/catalog/products/12': () => ({
+        body: productDetailFixture({ promotion: null, promotionConflict: true }),
+      }),
+    });
+    await renderPage(<ProductPage />);
+    const button = await screen.findByRole('button', { name: '暂不可购买' });
+    expect(
+      button.getAttribute('aria-disabled') === 'true' || (button as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(screen.queryByRole('button', { name: '立即购买' })).toBeNull();
+  });
+  it('refreshes the current sale mode after returning to the product page', async () => {
+    let active = true;
+    serve({
+      'GET /api/v1/catalog/products/12': () => ({
+        body: productDetailFixture({
+          promotion: active
+            ? {
+                kind: 'presale',
+                activityId: '7',
+                price: '49.00',
+                originalPrice: '59.00',
+                endAt: promotionCard.endAt,
+                canBuy: true,
+                seatsRequired: null,
+                shipAfterDays: 7,
+                perOrderQuantity: 5,
+                skus: [promotionSku],
+              }
+            : null,
+          promotionConflict: false,
+        }),
+      }),
+    });
+    await renderPage(<ProductPage />);
+    await screen.findByText('限时预售补贴');
+    act(() => taroFake.hidePage());
+    active = false;
+    act(() => taroFake.showPage());
+    expect(await screen.findByRole('button', { name: '立即购买' })).toBeTruthy();
+    expect(screen.queryByText('限时预售补贴')).toBeNull();
+  });
+
+  it('keeps a sold-out presale visible without offering ordinary checkout', async () => {
+    serve({
+      'GET /api/v1/catalog/products/12': () => ({
+        body: productDetailFixture({
+          promotion: {
+            kind: 'presale',
+            activityId: '7',
+            price: '49.00',
+            originalPrice: '59.00',
+            endAt: promotionCard.endAt,
+            canBuy: false,
+            seatsRequired: null,
+            shipAfterDays: 7,
+            perOrderQuantity: 5,
+            skus: [],
+          },
+          promotionConflict: false,
+        }),
+      }),
+    });
+    await renderPage(<ProductPage />);
+    expect(await screen.findByText('限时预售补贴')).toBeTruthy();
+    const button = screen.getByRole('button', { name: '已售罄' });
+    expect(
+      button.getAttribute('aria-disabled') === 'true' || (button as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(screen.queryByRole('button', { name: '立即购买' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '加入购物车' })).toBeNull();
   });
 });

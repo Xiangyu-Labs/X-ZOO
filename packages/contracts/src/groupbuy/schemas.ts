@@ -145,7 +145,7 @@ export const groupbuyActivityForm = z
     skus: z.array(groupbuyActivitySkuInput).max(200).default([]),
   })
   .superRefine((value, ctx) => {
-    if (value.endAt <= value.startAt) {
+    if (Date.parse(value.endAt) <= Date.parse(value.startAt)) {
       ctx.addIssue({ code: 'custom', path: ['endAt'], message: '结束时间必须晚于开始时间' });
     }
     const seen = new Set<string>();

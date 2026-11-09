@@ -120,7 +120,7 @@ export const presaleActivityForm = z
     skus: z.array(presaleActivitySkuInput).max(200).default([]),
   })
   .superRefine((value, ctx) => {
-    if (value.endAt <= value.startAt) {
+    if (Date.parse(value.endAt) <= Date.parse(value.startAt)) {
       ctx.addIssue({ code: 'custom', path: ['endAt'], message: '结束时间必须晚于开始时间' });
     }
     if (value.paymentMode === 'deposit') {

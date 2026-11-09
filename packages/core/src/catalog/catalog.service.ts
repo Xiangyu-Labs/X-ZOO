@@ -1,3 +1,5 @@
+import { adminProductPromotion, saveProductPromotion } from './catalog.promotion';
+import { lockPromotionProduct } from './catalog.promotion.repo';
 import type { PageQuery } from '@shop/contracts/conventions';
 import type {
   AdminProductDetail,
@@ -372,6 +374,14 @@ export async function adminProductCreate(
     await repo.rollupProduct(tx, row.id);
 
     const saved = await repo.findProduct(tx, row.id, { includeDeleted: true });
+    if (body.promotion) {
+      await saveProductPromotion(
+        ctx,
+        tx,
+        await buildProductDetail(ctx, saved!, tx),
+        body.promotion,
+      );
+    }
     return buildProductDetail(ctx, saved!, tx);
   });
 }
@@ -392,8 +402,8 @@ export async function adminProductUpdate(
 ): Promise<AdminProductDetail> {
   const id = Number(input.id);
   return ctx.withTx(async (tx) => {
-    const existing = await repo.findProduct(tx, id);
-    if (!existing) throw new DomainError('CATALOG_PRODUCT_NOT_FOUND');
+    const existing = await lockPromotionProduct(tx, id);
+    if (!existing || existing.deletedAt) throw new DomainError('CATALOG_PRODUCT_NOT_FOUND');
 
     await assertLinksExist(tx, body);
     if (body.spu) {
@@ -409,6 +419,14 @@ export async function adminProductUpdate(
     await repo.rollupProduct(tx, id);
 
     const saved = await repo.findProduct(tx, id);
+    if (body.promotion) {
+      await saveProductPromotion(
+        ctx,
+        tx,
+        await buildProductDetail(ctx, saved!, tx),
+        body.promotion,
+      );
+    }
     return buildProductDetail(ctx, saved!, tx);
   });
 }
@@ -1372,6 +1390,7 @@ async function buildProductDetail(
 
   return {
     ...listItem!,
+    promotion: await adminProductPromotion({ ...ctx, db: db as Ctx['db'] }, row.id),
     keyword: row.keyword,
     barCode: row.barCode,
     cardImageUrl: row.cardImageUrl,

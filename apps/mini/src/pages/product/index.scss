@@ -255,3 +255,42 @@
     }
   }
 }
+
+.product__promotion {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px;
+  gap: 16px;
+  color: #fff;
+  background: linear-gradient(110deg, #238cff, #437cf5);
+}
+.product__promotion--presale {
+  background: linear-gradient(110deg, #e9578c, #f58ca9);
+}
+.product__promotion-label {
+  margin-left: 12px;
+  font-weight: 600;
+}
+.product__promotion-note {
+  display: block;
+  margin-top: 8px;
+}
+.product__presale-badge {
+  margin-left: 10px;
+  padding: 2px 8px;
+  border: 1px solid #e9578c;
+  border-radius: 4px;
+  color: #c83d70;
+  font-size: 24px;
+}
+
+.product__promotion-price {
+  color: #fff;
+}
+
+.product__promotion-original {
+  color: #fff;
+  opacity: 0.8;
+  margin-top: 8px;
+}

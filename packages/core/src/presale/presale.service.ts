@@ -1,3 +1,9 @@
+import {
+  guardProductPromotionWrite,
+  associateProductPromotion,
+  lockProductPromotionForWrite,
+  touchProductPromotion,
+} from '../catalog';
 import type { PageQuery } from '@shop/contracts/conventions';
 import { storedDescriptionBlocks } from '@shop/contracts/catalog/description';
 import type {
@@ -65,6 +71,7 @@ export async function adminActivityCreate(
   body: PresaleActivityForm,
 ): Promise<PresaleActivityDetail> {
   return ctx.withTx(async (tx) => {
+    await guardProductPromotionWrite(ctx, tx, Number(body.productId), 'presale');
     assertFullPayment(body);
     await assertSkusBelongToProduct(tx, body);
     const now = ctx.clock.now();
@@ -74,6 +81,7 @@ export async function adminActivityCreate(
       updatedAt: now,
     });
     await repo.replaceActivitySkus(tx, { activityId: row.id, skus: skuValues(body) });
+    await associateProductPromotion(ctx, tx, Number(body.productId), 'presale', String(row.id));
     return toDetail(ctx, await mustFindActivity(ctx, row.id, tx), tx);
   });
 }
@@ -94,6 +102,12 @@ export async function adminActivityUpdate(
 ): Promise<PresaleActivityDetail> {
   const id = Number(input.id);
   return ctx.withTx(async (tx) => {
+    const original = await mustFindActivity(ctx, id, tx);
+    if (original.productId !== Number(body.productId))
+      throw new DomainError('CATALOG_PROMOTION_INVALID');
+    await lockProductPromotionForWrite(ctx, tx, original.productId);
+    if (body.status !== 'ended')
+      await guardProductPromotionWrite(ctx, tx, original.productId, 'presale', String(id));
     assertFullPayment(body);
     const locked = await repo.lockActivityStock(tx, id);
     if (!locked) throw new DomainError('PRESALE_ACTIVITY_NOT_FOUND');
@@ -130,6 +144,9 @@ export async function adminActivityUpdate(
       activityId: id,
       skus: skus.map((sku) => ({ ...sku, stock: stocks.skuStocks.get(sku.skuId) ?? sku.stock })),
     });
+    if (body.status !== 'ended')
+      await associateProductPromotion(ctx, tx, original.productId, 'presale', String(id));
+    else await touchProductPromotion(ctx, tx, original.productId, 'presale', String(id));
     return toDetail(ctx, await mustFindActivity(ctx, id, tx), tx);
   });
 }
@@ -141,6 +158,8 @@ export async function adminActivitySetStatus(
 ): Promise<PresaleActivityDetail> {
   const id = Number(input.id);
   return ctx.withTx(async (tx) => {
+    const original = await mustFindActivity(ctx, id, tx);
+    await guardProductPromotionWrite(ctx, tx, original.productId, 'presale', String(id));
     const moved = await repo.setActivityStatus(tx, {
       id,
       // `ended` is terminal: an expired campaign is not re-opened, it is copied.
@@ -155,6 +174,7 @@ export async function adminActivitySetStatus(
       if (!existing) throw new DomainError('PRESALE_ACTIVITY_NOT_FOUND');
       throw new DomainError('PRESALE_ACTIVITY_NOT_OPEN', { details: { status: existing.status } });
     }
+    await associateProductPromotion(ctx, tx, original.productId, 'presale', String(id));
     return toDetail(ctx, await mustFindActivity(ctx, id, tx), tx);
   });
 }

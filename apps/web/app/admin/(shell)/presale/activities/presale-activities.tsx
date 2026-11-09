@@ -1,23 +1,14 @@
 'use client';
 
 import { Button, Typography } from 'antd';
+import Link from 'next/link';
 import {
-  presaleAdminActivityCreate,
   presaleAdminActivityDelete,
-  presaleAdminActivityDetail,
   presaleAdminActivityList,
-  presaleAdminActivitySetStatus,
-  presaleAdminActivityUpdate,
 } from '@shop/contracts/presale/presale.admin.contract';
-import {
-  presaleActivityForm,
-  type PresaleActivityDetail,
-  type PresaleActivityListItem,
-} from '@shop/contracts/presale/schemas';
-import type { z } from 'zod';
+import { type PresaleActivityListItem } from '@shop/contracts/presale/schemas';
 
 import { ConfirmButton } from '@/admin/kit/confirm-button';
-import { ModalForm, useFormModal } from '@/admin/kit/form/modal-form';
 import { PageContainer } from '@/admin/kit/page-container';
 import {
   actionsColumn,
@@ -28,45 +19,15 @@ import {
   textColumn,
 } from '@/admin/kit/table/columns';
 import { CrudTable } from '@/admin/kit/table/crud-table';
-import { StatusToggleButton } from '@/admin/kit/status-toggle-button';
 import { Can } from '@/admin/session/can';
 
 import { ActivityStatusTag } from '../../groupbuy/activity-window';
-import { PRESALE_ACTIVITY_STATUS, PRESALE_PAYMENT_MODE, presaleFields } from '../presale-enums';
+import { PRESALE_ACTIVITY_STATUS, PRESALE_PAYMENT_MODE } from '../presale-enums';
 
-/**
- * 预售活动.
- *
- * Everything on this page comes from the kit and the contract: `CrudTable`
- * calls the route and keeps paging, sorting and filters in the URL; `ModalForm`
- * takes the contract's own body schema, including `endAt > startAt` and the
- * duplicate-SKU check; `<Can>` and `permission=` only hide things, and the
- * server re-checks the atom declared on each route.
- *
- * 启用/暂停 is one click because that is the operation an operator performs in a
- * hurry — a campaign priced wrong has to stop selling now, not after a modal.
- * 结束 is deliberately not offered: `ended` is terminal, it is what the window
- * sweep writes when the campaign's own end time passes, and an operator who
- * wants it gone sooner moves the end time or deletes it.
- */
+/** Activity history and order access. Configuration is owned by 商品编辑. */
 export function PresaleActivitiesPage() {
-  // `detail` is the kit's: the edit dialog loads the whole activity
-  // before it renders a single field. `presaleAdminActivityUpdate` takes a
-  // whole activity, and the list row carries neither `skus` nor
-  // `sliderImages` — a form opened on the row would submit an empty 规格 list
-  // and delete every presale price on the campaign.
-  const modal = useFormModal<PresaleActivityListItem, typeof presaleAdminActivityDetail>({
-    detail: {
-      route: presaleAdminActivityDetail,
-      params: (row) => ({ id: row.id }),
-      select: initialValuesOf,
-    },
-  });
-
-  const open = (row?: PresaleActivityListItem) => modal.show(row);
-
   return (
-    <PageContainer subTitle="全款预售：付款后按承诺天数发货；预售库存与商品库存各记各的">
+    <PageContainer subTitle="预售配置统一在商品编辑页设置；此处保留活动历史，预售订单可在订单列表查看">
       <CrudTable
         route={presaleAdminActivityList}
         scrollX={1500}
@@ -86,9 +47,11 @@ export function PresaleActivitiesPage() {
         ]}
         toolbar={
           <Can permission="presale:activity:write">
-            <Button type="primary" onClick={() => open()}>
-              新建预售活动
-            </Button>
+            <Can permission="catalog:product:write">
+              <Button type="primary" href="/admin/catalog/products">
+                到商品页设置
+              </Button>
+            </Can>
           </Can>
         }
         columns={[
@@ -149,23 +112,9 @@ export function PresaleActivitiesPage() {
             render: (row) => (
               <>
                 <Can permission="presale:activity:write">
-                  <Button type="link" size="small" onClick={() => open(row)}>
-                    编辑
-                  </Button>
-                  {row.status === 'ended' ? null : (
-                    <StatusToggleButton
-                      route={presaleAdminActivitySetStatus}
-                      on={row.status === 'active'}
-                      input={(next) => ({
-                        params: { id: row.id },
-                        body: { status: next ? ('active' as const) : ('paused' as const) },
-                      })}
-                      labels={['启用', '暂停']}
-                      confirmTitle={`暂停预售「${row.title}」？`}
-                      confirmDescription="暂停后商城下架这个预售，买家不能再下单。"
-                      invalidate={[presaleAdminActivityList]}
-                    />
-                  )}
+                  <Can permission="catalog:product:write">
+                    <Link href={`/admin/catalog/products/${row.productId}`}>编辑</Link>
+                  </Can>
                 </Can>
                 <ConfirmButton
                   route={presaleAdminActivityDelete}
@@ -184,63 +133,6 @@ export function PresaleActivitiesPage() {
           }),
         ]}
       />
-
-      <ModalForm
-        {...modal.props}
-        title={modal.record ? `编辑：${modal.record.title}` : '新建预售活动'}
-        size="large"
-        columns={2}
-        schema={presaleActivityForm}
-        fields={presaleFields}
-        route={modal.record ? presaleAdminActivityUpdate : presaleAdminActivityCreate}
-        toInput={(values) =>
-          modal.record ? { params: { id: modal.record.id }, body: values } : { body: values }
-        }
-        invalidate={[presaleAdminActivityList, presaleAdminActivityDetail]}
-        successMessage="已保存"
-      />
     </PageContainer>
   );
-}
-
-/**
- * The detail row as the form's values: the server's own fields minus the ones
- * it owns (`sales`, `productName`, `createdAt`), with `null` turned into
- * `undefined` — `exactOptionalPropertyTypes` means an optional field is either
- * absent or a real value, never `null`.
- *
- * The declared return type is what keeps it honest: `EntityFormLoad['select']`
- * is a plain record, because the controller that carries it does not know the
- * body schema, so this annotation is where a field that stops existing on the
- * form is a compile error rather than a value the form drops on save.
- */
-function initialValuesOf(row: PresaleActivityDetail): Partial<z.input<typeof presaleActivityForm>> {
-  return {
-    productId: row.productId,
-    title: row.title,
-    ...(row.intro === null ? {} : { intro: row.intro }),
-    ...(row.imageUrl === null ? {} : { imageUrl: row.imageUrl }),
-    sliderImages: row.sliderImages,
-    status: row.status,
-    paymentMode: 'full' as const,
-    price: row.price,
-    ...(row.originalPrice === null ? {} : { originalPrice: row.originalPrice }),
-    stock: row.stock,
-    expectedStock: row.stock,
-    ...(row.totalQuota === null ? {} : { totalQuota: row.totalQuota }),
-    perOrderQuantity: row.perOrderQuantity,
-    startAt: row.startAt,
-    endAt: row.endAt,
-    shipAfterDays: row.shipAfterDays,
-    ...(row.shippingTemplateId === null ? {} : { shippingTemplateId: row.shippingTemplateId }),
-    sortOrder: row.sortOrder,
-    skus: row.skus.map((sku) => ({
-      skuId: sku.skuId,
-      price: sku.price,
-      stock: sku.stock,
-      expectedStock: sku.stock,
-      ...(sku.quota === null ? {} : { quota: sku.quota }),
-      isEnabled: sku.isEnabled,
-    })),
-  };
 }

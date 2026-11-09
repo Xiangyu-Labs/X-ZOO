@@ -10,6 +10,7 @@ import { holdPhone, newWechatUser, test, expect, type EmulatedWechatUser } from 
 import { currentQuery } from '../src/mini-pages/order-pages';
 import { expectOrderStatus, payAtMiniCashier } from '../src/mini-pages/order-shopper';
 import {
+  ActivitySkuSheet,
   CouponCenterPage,
   GroupbuyActivityPage,
   GroupbuyTeamPage,
@@ -294,6 +295,97 @@ test('a coupon claimed at 领券中心 waits in 我的优惠券 and comes off at
   await wallet.open('unused');
   await expect(wallet.list('unused')).not.toContainText('E2E 满减券');
 
+  await shopper.api.dispose();
+  expect(consoleErrors).toEqual([]);
+  expect(failedRequests).toEqual([]);
+});
+
+test('product detail offers single-buy and group-buy prices and starts a real group order', async ({
+  miniPage: page,
+  wechatUser,
+  shop,
+  playwright,
+  consoleErrors,
+  failedRequests,
+}, testInfo) => {
+  const shopper = await returningShopper(page, wechatUser, shop, playwright);
+  const activity = await shopper.api.get(
+    `/api/v1/groupbuy/activities/${shop.fixtures.groupBuyActivityId}`,
+  );
+  expect(activity.status()).toBe(200);
+  const data = (await activity.json()) as { productId: string };
+  const product = new ProductPage(page);
+  await product.open(data.productId);
+  const shownPage = shown(page);
+  await expect(shownPage.getByText('2人拼团价', { exact: true })).toBeVisible();
+  await expect(shownPage.getByRole('timer')).toBeVisible();
+  await expect(
+    shownPage.getByRole('button', { name: '单独购买 ¥88.00', exact: true }),
+  ).toBeVisible();
+  await expect(
+    shownPage.getByRole('button', { name: '立即开团 ¥68.00', exact: true }),
+  ).toBeVisible();
+  await shownPage.locator('.product__promotion').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath('groupbuy-product.png') });
+
+  await shownPage.getByRole('button', { name: '单独购买 ¥88.00', exact: true }).click();
+  await product.sheetButton('立即购买').click();
+  const checkout = new CheckoutPage(page);
+  await checkout.expectShown();
+  await expect(checkout.bar()).toContainText('88.00');
+
+  await product.open(data.productId);
+  await shown(page).getByRole('button', { name: '立即开团 ¥68.00', exact: true }).click();
+  await new ActivitySkuSheet(page).confirm('立即开团');
+  await checkout.expectShown();
+  await expect(checkout.bar()).toContainText('68.00');
+  await checkout.submit();
+  await new CashierPage(page).expectShown();
+  const orderId = currentQuery(page).get('orderId')!;
+  await payAtMiniCashier(page);
+  await expectOrderStatus(shopper, orderId, ['paid']);
+  const [saved] = await shop.db
+    .select({ kind: orders.kind, amount: orders.payableAmount })
+    .from(orders)
+    .where(eq(orders.id, Number(orderId)));
+  expect(saved).toEqual({ kind: 'groupbuy', amount: '68.00' });
+  await shopper.api.dispose();
+  expect(consoleErrors).toEqual([]);
+  expect(failedRequests).toEqual([]);
+});
+
+test('product detail shows the pink presale banner, tag and shipping promise and buys at the presale price', async ({
+  miniPage: page,
+  wechatUser,
+  shop,
+  playwright,
+  consoleErrors,
+  failedRequests,
+}, testInfo) => {
+  const shopper = await returningShopper(page, wechatUser, shop, playwright);
+  const product = new ProductPage(page);
+  await product.open(shop.fixtures.activityProductId);
+  await expect(shown(page).locator('#product-name .product__presale-badge')).toHaveText('预售');
+  await expect(shown(page).locator('.product__promotion--presale')).toContainText('限时预售补贴');
+  await expect(shown(page).locator('.product__promotion-note')).toHaveText('付款后 7 天内发货');
+  await expect(shown(page).getByRole('timer')).toBeVisible();
+  await shown(page).locator('.product__promotion').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath('presale-product.png') });
+  await shown(page).getByRole('button', { name: '立即预订 ¥78.00', exact: true }).click();
+  await new ActivitySkuSheet(page).confirm('立即预订');
+  const checkout = new CheckoutPage(page);
+  await checkout.expectShown();
+  await expect(checkout.bar()).toContainText('78.00');
+  await checkout.submit();
+  await new CashierPage(page).expectShown();
+  const orderId = currentQuery(page).get('orderId')!;
+  await payAtMiniCashier(page);
+  await expectOrderStatus(shopper, orderId, ['paid']);
+  const [saved] = await shop.db
+    .select({ kind: orders.kind, amount: orders.payableAmount })
+    .from(orders)
+    .where(eq(orders.id, Number(orderId)));
+  expect(saved).toEqual({ kind: 'presale', amount: '78.00' });
   await shopper.api.dispose();
   expect(consoleErrors).toEqual([]);
   expect(failedRequests).toEqual([]);

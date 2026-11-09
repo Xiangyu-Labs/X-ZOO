@@ -7,7 +7,7 @@ import { useCartCount } from '@/data/cart';
 import { useRecordVisit } from '@/data/visits';
 import { DescriptionBlocks, hasDescription } from '@/features/content/description-blocks';
 import { useCheckoutDraft } from '@/features/checkout/draft';
-import { useProductActivities } from '@/features/product/activities';
+import { useProductActivities, type ProductActivity } from '@/features/product/activities';
 import { ProductCoupons } from '@/features/product/product-coupons';
 import { ReviewItem } from '@/features/product/review-item';
 import {
@@ -22,6 +22,11 @@ import { PosterHost, openPoster, useProductPosterEnabled } from '@/features/shar
 import { assetUrl } from '@/lib/asset-url';
 import { navigate, previewImages, useRouteParams, useShare } from '@/platform';
 import { requireLogin, useSignedIn } from '@/session/session';
+import { Countdown } from '@/ui/countdown';
+import { ActivitySkuSheet } from '@/features/promo/activity-sku-sheet';
+import { startActivityCheckout } from '@/features/promo/checkout';
+import { useDidShow } from '@tarojs/taro';
+import { serverNow } from '@/lib/server-clock';
 import { ActionBar, type ActionBarIcon } from '@/ui/action-bar';
 import { Button } from '@/ui/button';
 import { Card } from '@/ui/card';
@@ -72,6 +77,14 @@ export default function ProductPage() {
   const signedIn = useSignedIn();
   const favoriteUnknown = product.data?.favorited === null;
   const { refetch } = product;
+  const shown = useRef(false);
+  useDidShow(() => {
+    if (!shown.current) {
+      shown.current = true;
+      return;
+    }
+    if (id) return refetch();
+  });
   useEffect(() => {
     if (signedIn && favoriteUnknown) void refetch();
   }, [signedIn, favoriteUnknown, refetch]);
@@ -129,7 +142,67 @@ function Detail({
   const setDraft = useCheckoutDraft((state) => state.setDraft);
   const cartCount = useCartCount();
   const contact = useContactIcon(sessionFromOf('product', product.id));
-  const activities = useProductActivities(product.id);
+  // Older server responses have no promotion field. A current server's explicit null
+  // is authoritative: never choose a different campaign from a secondary list.
+  const legacyActivities = useProductActivities(product.id, product.promotion === undefined);
+  const currentPromotion = product.promotion;
+  const activities: ProductActivity[] =
+    product.promotion === undefined
+      ? legacyActivities
+      : currentPromotion
+        ? [
+            {
+              kind: currentPromotion.kind,
+              activityId: currentPromotion.activityId,
+              price: currentPromotion.price,
+              endAt: currentPromotion.endAt,
+              canBuy: currentPromotion.canBuy,
+              ...(currentPromotion.seatsRequired === null
+                ? {}
+                : { seatsRequired: currentPromotion.seatsRequired }),
+              note:
+                currentPromotion.kind === 'presale'
+                  ? `付款后 ${currentPromotion.shipAfterDays} 天内发货`
+                  : `${currentPromotion.seatsRequired} 人团`,
+            },
+          ]
+        : [];
+  const [, setActivityVersion] = useState(0);
+  const activity = activities.find((item) => Date.parse(item.endAt) > serverNow());
+  const [activitySheet, setActivitySheet] = useState(false);
+  const [skuId, setSkuId] = useState<string | undefined>(undefined);
+  const presaleDetail = useRouteQuery(
+    'presale.detail',
+    { params: { id: activity?.activityId ?? '' } },
+    { enabled: !currentPromotion && activitySheet && activity?.kind === 'presale' },
+  );
+  const groupbuyDetail = useRouteQuery(
+    'groupbuy.detail',
+    { params: { id: activity?.activityId ?? '' } },
+    { enabled: !currentPromotion && activitySheet && activity?.kind === 'groupbuy' },
+  );
+  const activityRead = activity?.kind === 'presale' ? presaleDetail : groupbuyDetail;
+  const activityDetail =
+    currentPromotion ?? (activity?.kind === 'presale' ? presaleDetail.data : groupbuyDetail.data);
+  const selectedActivitySku = activityDetail?.skus.find((sku) => sku.skuId === skuId);
+  const activityPrice = selectedActivitySku?.price ?? activity?.price;
+  const activityFrom =
+    !selectedActivitySku && new Set(activityDetail?.skus.map((sku) => sku.price) ?? []).size > 1;
+  const singlePrice = product.skus.find((sku) => sku.id === skuId)?.price ?? product.price;
+  const activityStrike = activityPrice ? strikePrice(activityPrice, singlePrice) : null;
+  const openActivity = async () => {
+    if (!(await requireLogin(route))) return;
+    if (!activity || Date.parse(activity.endAt) <= serverNow()) {
+      toast.text('活动已结束，请刷新后重试');
+      await reload();
+      return;
+    }
+    setActivitySheet(true);
+  };
+  useDidShow(() => {
+    setActivityVersion((value) => value + 1);
+  });
+
   const display = useDisplay();
   const posterEnabled = useProductPosterEnabled();
   const addItem = useRouteMutation('cart.addItem', { invalidate: ['cart.list', 'cart.count'] });
@@ -145,7 +218,6 @@ function Detail({
 
   const [sheet, setSheet] = useState<'sku' | 'service' | 'params' | 'share' | null>(null);
   const [actions, setActions] = useState<readonly SkuAction[]>(['cart', 'buy']);
-  const [skuId, setSkuId] = useState<string | undefined>(undefined);
   const [favorited, setFavorited] = useState<boolean | null>(null);
   const [slide, setSlide] = useState(0);
 
@@ -158,7 +230,7 @@ function Detail({
   const slides = urls.length + (video ? 1 : 0);
   const soldOut = product.stock <= 0 || product.skus.every((sku) => sku.stock <= 0);
   const strike = strikePrice(product.price, product.originalPrice);
-  const canCart = product.canAddToCart && !soldOut;
+  const canCart = product.canAddToCart && !soldOut && activity === undefined;
   const isFavorite = favorited ?? product.favorited === true;
   const matrix = { specs: product.specs, skus: product.skus };
   const picked = skuId ? initialSelection(matrix, skuId) : {};
@@ -273,8 +345,44 @@ function Detail({
         {soldOut ? <Text className="product__sold-out">已售罄</Text> : null}
       </View>
 
+      {activity ? (
+        <View className={`product__promotion product__promotion--${activity.kind}`}>
+          <View>
+            <Price
+              value={activityPrice ?? activity.price}
+              prefix={activityFrom ? '起' : undefined}
+              size="lg"
+              className="product__promotion-price"
+            />
+            <Text className="product__promotion-label">
+              {activity.kind === 'presale' ? '限时预售补贴' : `${activity.seatsRequired}人拼团价`}
+            </Text>
+            <Text className="product__promotion-note">{activity.note}</Text>
+            {activityStrike ? (
+              <Price
+                value={activityStrike}
+                size="sm"
+                strike
+                className="product__promotion-original"
+              />
+            ) : null}
+          </View>
+          <View>
+            <Text>距结束剩</Text>
+            <Countdown
+              endsAt={activity.endAt}
+              format="dhms"
+              variant="boxed"
+              onEnd={() => {
+                setActivityVersion((value) => value + 1);
+                return reload();
+              }}
+            />
+          </View>
+        </View>
+      ) : null}
       <View className="product__summary">
-        <View className="product__price-row">
+        <View className="product__price-row" hidden={activity !== undefined}>
           <Price value={product.price} size="lg" />
           {strike ? <Price value={strike} size="sm" strike /> : null}
           {product.salesDisplay > 0 ? (
@@ -284,6 +392,9 @@ function Detail({
         <View className="product__title-row">
           <Text className="product__name" id="product-name" userSelect>
             {product.name}
+            {activity?.kind === 'presale' ? (
+              <Text className="product__presale-badge">预售</Text>
+            ) : null}
           </Text>
           <Pressable label="分享" className="product__share" onClick={() => setSheet('share')}>
             <Icon name="share" />
@@ -295,27 +406,29 @@ function Detail({
 
       {activities.length > 0 ? (
         <View className="product__activities">
-          {activities.map((activity) => (
-            <Pressable
-              key={`${activity.kind}-${activity.activityId}`}
-              role="link"
-              label={`${activity.kind === 'groupbuy' ? '拼团' : '预售'} ¥${activity.price}，${activity.note}`}
-              className="product__activity"
-              onClick={() =>
-                navigate({ route: activity.kind, params: { id: activity.activityId } })
-              }
-            >
-              <Text className="product__activity-kind">
-                {activity.kind === 'groupbuy' ? '拼团' : '预售'}
-              </Text>
-              <Price value={activity.price} size="sm" />
-              <Text className="product__activity-note">{activity.note}</Text>
-              <Text className="product__activity-go">
-                {activity.kind === 'groupbuy' ? '去拼团' : '去预订'}
-              </Text>
-              <Icon name="chevron-right" />
-            </Pressable>
-          ))}
+          {activities
+            .filter((activity) => activity.canBuy && Date.parse(activity.endAt) > serverNow())
+            .map((activity) => (
+              <Pressable
+                key={`${activity.kind}-${activity.activityId}`}
+                role="link"
+                label={`${activity.kind === 'groupbuy' ? '拼团' : '预售'} ¥${activity.price}，${activity.note}`}
+                className="product__activity"
+                onClick={() =>
+                  navigate({ route: activity.kind, params: { id: activity.activityId } })
+                }
+              >
+                <Text className="product__activity-kind">
+                  {activity.kind === 'groupbuy' ? '拼团' : '预售'}
+                </Text>
+                <Price value={activity.price} size="sm" />
+                <Text className="product__activity-note">{activity.note}</Text>
+                <Text className="product__activity-go">
+                  {activity.kind === 'groupbuy' ? '去拼团' : '去预订'}
+                </Text>
+                <Icon name="chevron-right" />
+              </Pressable>
+            ))}
         </View>
       ) : null}
 
@@ -325,8 +438,8 @@ function Detail({
           title="已选"
           label={`选择规格，${chosenText}`}
           value={chosenText}
-          onClick={() => openSku(canCart ? ['cart', 'buy'] : ['buy'])}
-          disabled={soldOut}
+          onClick={() => (activity ? openActivity() : openSku(canCart ? ['cart', 'buy'] : ['buy']))}
+          disabled={soldOut || product.promotionConflict === true}
         />
         {display.productServiceTags && product.protections.length > 0 ? (
           <Cell
@@ -362,7 +475,30 @@ function Detail({
       {display.productRecommendations ? <Recommended productId={product.id} /> : null}
 
       <ActionBar icons={icons}>
-        {soldOut ? (
+        {product.promotionConflict ? (
+          <Button size="lg" block disabled>
+            暂不可购买
+          </Button>
+        ) : activity ? (
+          <>
+            {activity.kind === 'groupbuy' ? (
+              <Button
+                size="lg"
+                variant="secondary"
+                block
+                disabled={soldOut}
+                onClick={() => openSku(['buy'])}
+              >
+                单独购买 ¥{singlePrice}
+              </Button>
+            ) : null}
+            <Button size="lg" block disabled={!activity.canBuy} onClick={openActivity}>
+              {activity.canBuy
+                ? `${activity.kind === 'groupbuy' ? '立即开团' : '立即预订'} ¥${activityPrice}${activityFrom ? '起' : ''}`
+                : '已售罄'}
+            </Button>
+          </>
+        ) : soldOut ? (
           <Button size="lg" block disabled>
             已售罄
           </Button>
@@ -380,6 +516,40 @@ function Detail({
         )}
       </ActionBar>
 
+      {activity && !activityDetail ? (
+        <Sheet visible={activitySheet} onClose={() => setActivitySheet(false)} title="选择规格">
+          {activityRead.isError ? (
+            <ErrorBlock error={activityRead.error} onRetry={() => activityRead.refetch()} />
+          ) : (
+            <Skeleton />
+          )}
+        </Sheet>
+      ) : null}
+      {activity && activityDetail ? (
+        <ActivitySkuSheet
+          visible={activitySheet}
+          initialSkuId={skuId}
+          onSelect={(sku) => {
+            setSkuId(sku.skuId);
+          }}
+          onClose={() => setActivitySheet(false)}
+          title={product.name}
+          imageUrl={product.imageUrl}
+          skus={activityDetail.skus}
+          perOrderQuantity={activityDetail.perOrderQuantity}
+          confirmText={activity.kind === 'groupbuy' ? '立即开团' : '立即预订'}
+          onConfirm={(sku, quantity) => {
+            setSkuId(sku.skuId);
+            setActivitySheet(false);
+            return startActivityCheckout({
+              kind: activity.kind,
+              activityId: activity.activityId,
+              skuId: sku.skuId,
+              quantity,
+            });
+          }}
+        />
+      ) : null}
       <SkuSheet
         visible={sheet === 'sku'}
         onClose={() => setSheet(null)}
