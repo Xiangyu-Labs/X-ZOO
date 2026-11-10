@@ -1,9 +1,11 @@
 import { defineRoute } from '@shop/contracts';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
+import { createAdminQueryClient } from '@/admin/api/query-client';
+import { setApiFeedback } from '@/admin/api/error-presenter';
 import { resetApiConfig } from '@/admin/api/config';
 import { on, respondWithError, stubRoutes } from '@/test/api';
 import { withStubAssets } from '@/test/asset-source';
@@ -64,7 +66,10 @@ function stubSave(): { bodies: unknown[] } {
   return { bodies };
 }
 
-afterEach(() => resetApiConfig());
+afterEach(() => {
+  resetApiConfig();
+  setApiFeedback(null);
+});
 
 describe('buildConfigPayload', () => {
   it('omits a secret the operator did not retype', () => {
@@ -211,6 +216,35 @@ describe('<ConfigGroupForm> secrets', () => {
 });
 
 describe('<ConfigGroupForm> server errors', () => {
+  it('presents save failures once, preserves changes and secrets, and can retry', async () => {
+    let failed = true;
+    const error = vi.fn();
+    const success = vi.fn();
+    setApiFeedback({ error, success });
+    const calls = stubRoutes([
+      on(saveRoute, () =>
+        failed
+          ? respondWithError(500, { code: 'INTERNAL', message: '服务器开小差了，请稍后再试' })
+          : { ok: true },
+      ),
+    ]);
+    renderAdmin(<ConfigGroupForm descriptor={descriptor} values={values} route={saveRoute} />, {
+      queryClient: createAdminQueryClient(),
+    });
+    await userEvent.type(screen.getByLabelText('站点名称'), '新');
+    await userEvent.type(screen.getByTestId('secret-input-apiSecret'), 'new-secret');
+    await userEvent.click(screen.getByRole('button', { name: zhName('保存') }));
+    await waitFor(() => expect(error).toHaveBeenCalledTimes(1));
+    expect(screen.getByLabelText('站点名称')).toHaveValue('示例商城新');
+    expect(screen.getByTestId('secret-input-apiSecret')).toHaveValue('new-secret');
+    failed = false;
+    await userEvent.keyboard('{Control>}s{/Control}');
+    await waitFor(() => expect(success).toHaveBeenCalledTimes(1));
+    expect(error).toHaveBeenCalledTimes(1);
+    expect(calls.filter((call) => call.method === 'PUT')).toHaveLength(2);
+    expect(screen.getByTestId('secret-input-apiSecret')).toHaveValue('');
+  });
+
   function stubRejection(details: unknown) {
     stubRoutes([
       on(saveRoute, () =>
@@ -223,17 +257,22 @@ describe('<ConfigGroupForm> server errors', () => {
 
   async function save(): Promise<void> {
     const user = userEvent.setup();
-    renderAdmin(<ConfigGroupForm descriptor={descriptor} values={values} route={saveRoute} />);
+    renderAdmin(<ConfigGroupForm descriptor={descriptor} values={values} route={saveRoute} />, {
+      queryClient: createAdminQueryClient(),
+    });
     await user.click(screen.getByRole('button', { name: zhName('保存') }));
   }
 
   it('shows an error on a saved value under its field, without a banner', async () => {
+    const shown = vi.fn();
+    setApiFeedback({ error: shown, success: () => {} });
     stubRejection([{ field: 'values.siteName', message: '站点名称过长' }]);
     await save();
 
     const item = screen.getByLabelText('站点名称').closest('.ant-form-item');
     await waitFor(() => expect(item).toHaveTextContent('站点名称过长'));
     expect(banner()).toBeNull();
+    expect(shown).toHaveBeenCalledTimes(1);
   });
 
   it('shows an error no field renders as a banner, with its message', async () => {

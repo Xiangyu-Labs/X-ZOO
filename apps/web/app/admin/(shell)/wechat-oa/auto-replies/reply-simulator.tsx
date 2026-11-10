@@ -32,7 +32,7 @@ export function ReplySimulator() {
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<Kind>('text');
   const [text, setText] = useState('');
-  const simulate = useRouteMutation(wechatOaReplySimulate, { presentError: false });
+  const simulate = useRouteMutation(wechatOaReplySimulate);
   // The server fills the payload's defaults, so the response is the parsed shape.
   const result = simulate.data as WechatReplySimulateResult | undefined;
 

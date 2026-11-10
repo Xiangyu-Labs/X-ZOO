@@ -36,6 +36,7 @@ import {
   groupbuyAdminActivityDetail,
 } from '@shop/contracts/groupbuy/groupbuy.admin.contract';
 import { ProductPromotionField } from './product-promotion-field';
+import { ApiError } from '@/admin/api/errors';
 import { LoadFailure } from '@/admin/kit/load-failure';
 import { useRouteMutation, useRouteQuery } from '@/admin/api/hooks';
 import { useCan } from '@/admin/session/session-provider';
@@ -127,7 +128,6 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
   const leave = useLeaveGuard(dirty && mayWrite);
 
   const create = useRouteMutation(catalogAdminProductCreate, {
-    presentError: false,
     invalidate: [catalogAdminProductList, presaleAdminActivityList, groupbuyAdminActivityList],
     successMessage: '已创建',
     onSuccess: (data) => {
@@ -136,7 +136,6 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
     },
   });
   const update = useRouteMutation(catalogAdminProductUpdate, {
-    presentError: false,
     invalidate: [
       catalogAdminProductList,
       catalogAdminProductDetail,
@@ -387,7 +386,11 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
                 });
                 return;
               }
-              return send();
+              return send().catch((error: unknown) => {
+                // The mutation presents API failures and keeps them on the form.
+                // Form.submit does not consume a rejected onFinish promise.
+                if (!ApiError.is(error)) throw error;
+              });
             }}
           />
         </Col>

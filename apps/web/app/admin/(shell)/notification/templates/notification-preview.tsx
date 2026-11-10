@@ -102,7 +102,7 @@ export function NotificationPreviewButton({
   const [open, setOpen] = useState(false);
   const [data, setData] = useState(() => samplesFor(template.variables));
   const [invalid, setInvalid] = useState<string | null>(null);
-  const preview = useRouteMutation(notificationAdminTemplatePreview, { presentError: false });
+  const preview = useRouteMutation(notificationAdminTemplatePreview);
   const { mutate, reset } = preview;
 
   const readChannels = (): NotificationChannels | null => {
@@ -319,7 +319,7 @@ function TestSend({
   const can = useCan();
   const [channel, setChannel] = useState<NotificationTestChannel | null>(channels[0] ?? null);
   const [userId, setUserId] = useState<number | null>(null);
-  const send = useRouteMutation(notificationAdminTemplateTestSend, { presentError: false });
+  const send = useRouteMutation(notificationAdminTemplateTestSend);
 
   if (channels.length === 0 || !can('notification:template:write')) return null;
 

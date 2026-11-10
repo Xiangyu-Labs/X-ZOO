@@ -114,7 +114,7 @@ export default function CouponListPage() {
 | `ApiError`                                                               | `{ status, code, message, details }`，外加 `fieldErrors` 取 422 的字段错误。分支判断请用 `code`，不要用 `message`。                                                                                                                                                                                                                         |
 | `configureApi({ baseUrl, fetch, onUnauthenticated, validateResponses })` | 测试与演示页用；`validateResponses` 开发环境默认开，会用契约校验响应。                                                                                                                                                                                                                                                                      |
 
-错误提示是全局的：TanStack Query 的 cache 级 `onError` 统一弹 `message`/`notification`，401 和被取消的请求不弹。单次调用可用 `presentError: false` 退出（表单默认就是 `false`，自己展示字段错误）。
+错误提示是全局的：TanStack Query 的 cache 级 `onError` 统一弹 `message`/`notification`，401 和被取消的请求不弹。写操作保留全局浮层提示，确保滚动到任意位置都能看到失败；表单同时展示字段错误和错误横幅。单次调用仅在已有可见的错误反馈时使用 `presentError: false` 退出（如装修编辑器的冲突弹窗、详情加载失败页和轮询）。
 
 **上传文件。** `multipart/form-data` 的分隔符只能由浏览器生成，所以传
 `input.formData`（一个 `FormData`）而不是 `body`：请求**不带 `Content-Type`**，

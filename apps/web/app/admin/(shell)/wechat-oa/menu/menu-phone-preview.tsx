@@ -87,7 +87,7 @@ export function MenuPhonePreview({ buttons }: { buttons: readonly WechatMenuButt
   const can = useCan();
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
-  const simulate = useRouteMutation(wechatOaReplySimulate, { presentError: false });
+  const simulate = useRouteMutation(wechatOaReplySimulate);
 
   const tap = (button: WechatMenuButtonShape, index: number | null): void => {
     const action = actionOf(button);
