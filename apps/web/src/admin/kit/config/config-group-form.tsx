@@ -137,7 +137,6 @@ export function ConfigGroupForm<R extends AnyRouteDef, T extends AnyRouteDef = A
   const current = watched ?? values ?? {};
 
   const mutation = useRouteMutation(route, {
-    presentError: false,
     ...(invalidate ? { invalidate } : {}),
     successMessage,
     onSuccess(data) {
@@ -227,7 +226,6 @@ export function ConfigGroupForm<R extends AnyRouteDef, T extends AnyRouteDef = A
   const [outcome, setOutcome] = useState<ConfigTestOutcome | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
   const testMutation = useRouteMutation((testRoute ?? route) as T, {
-    presentError: false,
     ...(testInvalidate ? { invalidate: testInvalidate } : {}),
   });
   const runTest = async (input: ConfigValues): Promise<void> => {

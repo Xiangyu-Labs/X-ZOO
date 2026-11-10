@@ -230,9 +230,7 @@ function useEntityForm<S extends AnyObjectSchema, R extends AnyRouteDef>(
   const targets = [...(invalidate ?? []), ...(load ? [load.route] : [])];
 
   const mutation = useRouteMutation(route, {
-    // The form shows 422 field errors and the error banner itself; a toast on
-    // top of that is noise.
-    presentError: false,
+    // Keep save failures visible even when the field or banner is off screen.
     ...(targets.length > 0 ? { invalidate: targets } : {}),
     ...(successMessage ? { successMessage } : {}),
     onSuccess(data) {

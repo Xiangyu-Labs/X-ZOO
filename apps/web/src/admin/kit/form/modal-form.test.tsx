@@ -2,9 +2,11 @@ import { defineRoute, id } from '@shop/contracts';
 import { QueryClient } from '@tanstack/react-query';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
+import { createAdminQueryClient } from '@/admin/api/query-client';
+import { setApiFeedback } from '@/admin/api/error-presenter';
 import { resetApiConfig } from '@/admin/api/config';
 import { on, respondWithError, stubRoutes } from '@/test/api';
 import { renderAdmin, zhName } from '@/test/render';
@@ -131,6 +133,7 @@ function Harness({ row }: { row?: Row }) {
 
 afterEach(() => {
   resetApiConfig();
+  setApiFeedback(null);
 });
 
 describe('<ModalForm> load', () => {
@@ -196,6 +199,8 @@ describe('<ModalForm> load', () => {
 
 describe('<ModalForm> save', () => {
   it('keeps the dialog open and shows a server 422 under the field it names', async () => {
+    const shown = vi.fn();
+    setApiFeedback({ error: shown, success: () => {} });
     stubRoutes([
       on(detailRoute, { id: '7', name: '已加载的名称', note: '已加载的备注' }),
       on(updateRoute, () =>
@@ -207,7 +212,9 @@ describe('<ModalForm> save', () => {
       ),
     ]);
     const user = userEvent.setup();
-    renderAdmin(<Harness row={{ id: '7', name: '列表里的名称' }} />);
+    renderAdmin(<Harness row={{ id: '7', name: '列表里的名称' }} />, {
+      queryClient: createAdminQueryClient(),
+    });
 
     await user.click(screen.getByRole('button', { name: zhName('打开') }));
     await screen.findByDisplayValue('已加载的名称');
@@ -217,6 +224,7 @@ describe('<ModalForm> save', () => {
     await waitFor(() => expect(item).toHaveTextContent('该名称已被占用'));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByRole('dialog').querySelector('.ant-alert')).toBeNull();
+    expect(shown).toHaveBeenCalledTimes(1);
   });
 });
 

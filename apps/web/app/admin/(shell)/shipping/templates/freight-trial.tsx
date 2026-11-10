@@ -51,7 +51,7 @@ export function FreightTrialButton({ form }: { form: FormInstance }) {
   const [open, setOpen] = useState(false);
   const [inputs] = Form.useForm<TrialInput>();
   const [invalid, setInvalid] = useState<string | null>(null);
-  const trial = useRouteMutation(shippingTemplateTrial, { presentError: false });
+  const trial = useRouteMutation(shippingTemplateTrial);
   const chargeMode =
     (Form.useWatch('chargeMode', form) as ShippingChargeMode | undefined) ?? 'quantity';
 

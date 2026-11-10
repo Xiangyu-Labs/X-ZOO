@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { catalogAdminCategoryTree } from '@shop/contracts/catalog/catalog.category.admin.contract';
 import {
   catalogAdminProductDetail,
@@ -19,8 +19,10 @@ import {
 } from '@shop/contracts/catalog/catalog.taxonomy.admin.contract';
 import { shippingTemplateOptionList } from '@shop/contracts/shipping/shipping.template.admin.contract';
 
+import { setApiFeedback } from '@/admin/api/error-presenter';
+import { createAdminQueryClient } from '@/admin/api/query-client';
 import { resetApiConfig } from '@/admin/api/config';
-import { on, stubRoutes, type StubCall } from '@/test/api';
+import { on, respondWith, respondWithError, stubRoutes, type StubCall } from '@/test/api';
 import { withStubAssets } from '@/test/asset-source';
 import { renderAdmin, testIdentity, zhName } from '@/test/render';
 
@@ -145,6 +147,7 @@ const neighbourList = on(catalogAdminProductList, (call) => {
 function stubApi(
   product: AdminProductDetail = detail,
   updated: AdminProductDetail = product,
+  failure?: (() => Response) | undefined,
 ): StubCall[] {
   let latest = product;
   const empty = { items: [], total: 0, page: 1, pageSize: 100 };
@@ -161,6 +164,7 @@ function stubApi(
     on(catalogAdminParamTemplateList, empty),
     on(catalogAdminProductDetail, () => latest),
     on(catalogAdminProductUpdate, () => {
+      if (failure) return failure();
       latest = updated;
       return latest;
     }),
@@ -170,11 +174,58 @@ function stubApi(
 
 afterEach(() => {
   resetApiConfig();
+  setApiFeedback(null);
 });
 
 const editor = { ...testIdentity, permissions: ['catalog:product:read', 'catalog:product:write'] };
 
 describe('商品编辑器', () => {
+  it.each([
+    { status: 500, code: 'INTERNAL', message: '服务器开小差了，请稍后再试' },
+    { status: 409, code: 'CATALOG_SKU_STOCK_CHANGED', message: '库存已变化，请刷新后重试' },
+    { status: 422, code: 'VALIDATION_FAILED', message: '提交的数据有误' },
+    { status: 0, code: 'NETWORK', message: '网络连接失败' },
+  ] as const)(
+    'presents a failed save globally ($status) and keeps edits for retry',
+    async ({ status, code, message }) => {
+      const shown = vi.fn();
+      const success = vi.fn();
+      setApiFeedback({ error: shown, success });
+      let failed = true;
+      const calls = stubApi(detail, { ...detail, name: '修改后的商品' }, () => {
+        if (!failed)
+          return respondWith(catalogAdminProductUpdate, { ...detail, name: '修改后的商品' });
+        if (status === 0) throw new TypeError('Failed to fetch');
+        return respondWithError(status, {
+          code,
+          message,
+          ...(status === 422 ? { details: [{ field: 'name', message: '商品名称不可用' }] } : {}),
+        });
+      });
+      renderAdmin(withStubAssets(<ProductEditorPage productId="1" />), {
+        identity: editor,
+        queryClient: createAdminQueryClient(),
+      });
+      const name = await screen.findByLabelText('商品名称');
+      await userEvent.clear(name);
+      await userEvent.type(name, '修改后的商品');
+      await userEvent.click(screen.getByRole('button', { name: zhName('保存') }));
+      await waitFor(() => expect(shown).toHaveBeenCalledTimes(1));
+      expect(shown.mock.calls[0]?.[0]).toMatchObject({ status });
+      expect(name).toHaveValue('修改后的商品');
+      expect(screen.getByText('有未保存的修改')).toBeInTheDocument();
+      if (status === 422) expect(await screen.findByText('商品名称不可用')).toBeInTheDocument();
+      failed = false;
+      // Changing the rejected field clears its validation error before retry.
+      await userEvent.type(name, '新');
+      await userEvent.keyboard('{Control>}s{/Control}');
+      await waitFor(() => expect(success).toHaveBeenCalledWith('已保存'));
+      expect(shown).toHaveBeenCalledTimes(1);
+      expect(calls.filter((call) => call.method === 'PUT')).toHaveLength(2);
+      expect(screen.getByText('没有未保存的修改')).toBeInTheDocument();
+    },
+  );
+
   it('turns the detail response into form input without a single null', () => {
     const values = formValuesOf(detail);
 
