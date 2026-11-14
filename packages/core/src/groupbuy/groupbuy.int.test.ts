@@ -698,6 +698,29 @@ describe('beforeCreate', () => {
     const other = await makeActivity({ stock: 10 });
     await expect(placeOrder({ userId: joiner, fixture: other })).resolves.toBeTruthy();
   });
+
+  it('refuses 参团 to a shopper already in another live team of the activity, until that one ends', async () => {
+    const fixture = await makeActivity({ seatsRequired: 3, stock: 10 });
+    const shopper = await makeUser();
+    const stranger = await makeUser();
+    const mine = await placeOrder({ userId: shopper, fixture });
+    const theirs = await placeOrder({ userId: stranger, fixture });
+    await pay(theirs.orderId);
+
+    await expect(
+      placeOrder({ userId: shopper, fixture, groupId: theirs.groupId }),
+    ).rejects.toMatchObject({
+      code: 'GROUPBUY_ALREADY_HAS_OPEN_GROUP',
+      details: { groupId: String(mine.groupId) },
+    });
+    // Refused before a row exists: two orders hold stock, the paid one has sold.
+    expect((await readActivityCounters(fixture)).activity).toEqual({ stock: 8, sales: 1 });
+
+    await cancel(mine.orderId);
+    await expect(
+      placeOrder({ userId: shopper, fixture, groupId: theirs.groupId }),
+    ).resolves.toBeTruthy();
+  });
 });
 
 describe('placing an order', () => {

@@ -493,15 +493,18 @@ function Detail({
         />
       ) : null}
 
-      {currentPromotion?.kind === 'presale' ? (
+      {/* `activity`, not `currentPromotion`: once the presale has ended the page sells at the
+          product price, and the card must go with the presale price. */}
+      {activity?.kind === 'presale' && currentPromotion?.kind === 'presale' ? (
         <PresaleRules
           shipAfterDays={currentPromotion.shipAfterDays ?? 0}
           perOrderQuantity={currentPromotion.perOrderQuantity}
         />
       ) : null}
 
-      {activity?.kind === 'groupbuy' && activity.canBuy && !product.promotionConflict ? (
-        <OpenTeams activityId={activity.activityId} exclude={myTeam} onOpen={openTeam} />
+      {/* One live team per shopper per activity: with a team of their own, there is nothing to join. */}
+      {activity?.kind === 'groupbuy' && activity.canBuy && !product.promotionConflict && !myTeam ? (
+        <OpenTeams activityId={activity.activityId} onOpen={openTeam} />
       ) : null}
 
       {display.productReviews ? <Reviews product={product} /> : null}

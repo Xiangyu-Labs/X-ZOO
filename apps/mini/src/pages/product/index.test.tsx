@@ -706,8 +706,9 @@ describe('商品详情', () => {
     await renderPage(<ProductPage />);
     expect(await screen.findByText('你参加的团正在拼')).toBeTruthy();
     expect(screen.queryByText('你发起的团正在拼')).toBeNull();
-    // Their own team is not offered again among the open ones.
-    await waitFor(() => expect(screen.getAllByText('还差 1 人成团')).toHaveLength(1));
+    // One live team per shopper per activity: no other team is offered to join.
+    await waitFor(() => expect(screen.queryByText('正在拼的团')).toBeNull());
+    expect(screen.queryByText('还差 1 人成团')).toBeNull();
     expect(screen.queryByRole('button', { name: /立即开团/ })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '查看我的团' }));
     await waitFor(() =>
@@ -906,6 +907,32 @@ describe('商品详情', () => {
     act(() => taroFake.showPage());
     expect(await screen.findByRole('button', { name: '立即购买' })).toBeTruthy();
     expect(screen.queryByText('限时预售补贴')).toBeNull();
+  });
+
+  it('drops 预售说明 with the presale price once the presale has ended', async () => {
+    serve({
+      'GET /api/v1/catalog/products/12': () => ({
+        body: productDetailFixture({
+          promotion: {
+            kind: 'presale',
+            activityId: '7',
+            price: '49.00',
+            originalPrice: '59.00',
+            endAt: '2020-01-01T00:00:00+08:00',
+            canBuy: true,
+            seatsRequired: null,
+            shipAfterDays: 7,
+            perOrderQuantity: 5,
+            skus: [],
+          },
+          promotionConflict: false,
+        }),
+      }),
+    });
+    await renderPage(<ProductPage />);
+    expect(await screen.findByRole('button', { name: '立即购买' })).toBeTruthy();
+    expect(document.querySelector('#presale-rules')).toBeNull();
+    expect(screen.queryByText(/全款预订/)).toBeNull();
   });
 
   it('keeps a sold-out presale visible without offering ordinary checkout', async () => {

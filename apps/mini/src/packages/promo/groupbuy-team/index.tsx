@@ -157,10 +157,20 @@ function Team({ view, onStale }: { view: TeamView; onStale: () => void }) {
 
   const run = async (action: TeamAction) => {
     switch (action.kind) {
-      case 'join':
+      case 'join': {
         if (!(await requireLogin(route))) return;
+        // One live team per shopper per activity: one who has their own goes to it instead of
+        // picking a SKU for an order the server would refuse. Read fresh, since signing in just
+        // now changes the answer.
+        const mine = (await activity.refetch()).data?.myOpenGroupId ?? null;
+        if (mine !== null && mine !== view.groupId) {
+          toast.text('你在这个活动里已有一个团正在拼');
+          await navigate({ route: 'groupbuyTeam', params: { id: mine } }, { replace: true });
+          return;
+        }
         setSheet('sku');
         return;
+      }
       case 'pay':
         await navigate({ route: 'cashier', params: { orderId: action.orderId } });
         return;

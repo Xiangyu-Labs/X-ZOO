@@ -8,23 +8,21 @@ import './open-teams.scss';
 /**
  * Teams on a 拼团 activity still looking for members (商品详情). Only the seats and the time left
  * are shown: a stranger's name and face have no place on a public page of this shop. 去参团
- * opens the team page, which asks for the SKU there.
+ * opens the team page, which asks for the SKU there. Not shown to a shopper who already has a
+ * live team on the activity: the server allows one team per shopper per activity.
  */
 export function OpenTeams({
   activityId,
-  exclude,
   onOpen,
 }: {
   activityId: string;
-  /** The shopper's own open team, shown on its own row instead. */
-  exclude: string | null;
   onOpen: (groupId: string) => void | Promise<unknown>;
 }) {
   const teams = useRouteQuery('groupbuy.openGroups', {
     params: { id: activityId },
     query: { pageSize: 5 },
   });
-  const items = (teams.data?.items ?? []).filter((team) => team.groupId !== exclude);
+  const items = teams.data?.items ?? [];
   if (items.length === 0) return null;
   return (
     <Card title="正在拼的团" className="open-teams" id="groupbuy-open-teams">
