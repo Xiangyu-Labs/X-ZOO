@@ -26,6 +26,8 @@ import { requireLogin, useSignedIn } from '@/session/session';
 import { Countdown } from '@/ui/countdown';
 import { ActivitySkuSheet } from '@/features/promo/activity-sku-sheet';
 import { startActivityCheckout } from '@/features/promo/checkout';
+import { shipText } from '@/features/promo/activity';
+import { GroupbuyRules, PresaleRules } from '@/features/promo/promo-rules';
 import { OpenTeams } from '@/features/promo/open-teams';
 import { useDidShow } from '@tarojs/taro';
 import { serverNow } from '@/lib/server-clock';
@@ -56,8 +58,8 @@ type Product = ResponseOf<'catalog.productDetail'>;
 /**
  * 商品详情 (`product { id }`, pages.md §2.1): a fixed design (no longer decorated). Gallery,
  * price and sales (under a 拼团 / 预售, its coloured box instead, with the sales in it), 领券,
- * 已选 (the SkuSheet), 服务 and 参数, under a 拼团 the shopper's own open team and the teams
- * still open (去参团), the review summary with the first reviews, the description, 为你推荐, and
+ * 已选 (the SkuSheet), 服务 and 参数, under a 拼团 the shopper's own open team, its rules and the
+ * teams still open (去参团), the review summary with the first reviews, the description, 为你推荐, and
  * the action bar: 客服, 购物车, 收藏, 加入购物车, 立即购买 (under an activity, 立即预订, or
  * 单独购买 and 立即开团 / 查看我的团, in the box's colours).
  *
@@ -166,7 +168,7 @@ function Detail({
                 : { seatsRequired: currentPromotion.seatsRequired }),
               note:
                 currentPromotion.kind === 'presale'
-                  ? `付款后 ${currentPromotion.shipAfterDays} 天内发货`
+                  ? shipText(currentPromotion.shipAfterDays ?? 0)
                   : `${currentPromotion.seatsRequired} 人团`,
             },
           ]
@@ -180,15 +182,13 @@ function Detail({
     { params: { id: activity?.activityId ?? '' } },
     { enabled: !currentPromotion && activitySheet && activity?.kind === 'presale' },
   );
-  // Signed in, a 拼团 is read for the shopper's own open team on it (`myOpenGroupId`): a member
-  // sent here from a shared link goes to their team instead of starting a second one.
+  // A 拼团 is read for its rules (how long a team stays open) and, signed in, for the shopper's
+  // own open team on it (`myOpenGroupId`): they go to it instead of starting a second one.
   const signedIn = useSignedIn();
   const groupbuyDetail = useRouteQuery(
     'groupbuy.detail',
     { params: { id: activity?.activityId ?? '' } },
-    {
-      enabled: activity?.kind === 'groupbuy' && (signedIn || (!currentPromotion && activitySheet)),
-    },
+    { enabled: activity?.kind === 'groupbuy' },
   );
   // Back from 确认订单 / 收银台 / an order or the team page: whether the shopper now has a team.
   useRefetchOnShow(routeKey('groupbuy.detail'));
@@ -483,6 +483,21 @@ function Detail({
           />
         ) : null}
       </View>
+
+      {activity?.kind === 'groupbuy' && groupbuyDetail.data ? (
+        <GroupbuyRules
+          seatsRequired={groupbuyDetail.data.seatsRequired}
+          groupTtlSeconds={groupbuyDetail.data.groupTtlSeconds}
+          perOrderQuantity={groupbuyDetail.data.perOrderQuantity}
+        />
+      ) : null}
+
+      {currentPromotion?.kind === 'presale' ? (
+        <PresaleRules
+          shipAfterDays={currentPromotion.shipAfterDays ?? 0}
+          perOrderQuantity={currentPromotion.perOrderQuantity}
+        />
+      ) : null}
 
       {activity?.kind === 'groupbuy' && activity.canBuy && !product.promotionConflict ? (
         <OpenTeams activityId={activity.activityId} exclude={myTeam} onOpen={openTeam} />

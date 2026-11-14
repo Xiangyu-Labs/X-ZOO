@@ -65,11 +65,14 @@ test('a shopper opens a group buy, a friend joins on another phone, and the team
 }) => {
   const leader = await returningShopper(page, wechatUser, shop, playwright);
 
-  // 商品详情 shows the 拼团 price and team size.
+  // 商品详情 shows the 拼团 price, and how the team works, including what happens if it does
+  // not fill.
   const activity = new GroupbuyProductPage(page);
   await activity.open(shop.fixtures.groupbuyProductId);
   await expect(activity.title()).toHaveText('E2E 拼单商品');
   await expect(activity.promotion()).toContainText('2人拼团价');
+  await expect(activity.rules()).toContainText('2 人成团');
+  await expect(activity.rules()).toContainText('到时间未凑齐，拼团自动取消，已付款项原路退回');
 
   // 立即开团 → 确认订单 → 收银台.
   await activity.startTeam();
@@ -223,11 +226,13 @@ test('a presale is booked and paid in full, and says when it ships', async ({
 }) => {
   const shopper = await returningShopper(page, wechatUser, shop, playwright);
 
-  // 商品详情 says when the 预售 ships.
+  // 商品详情 says when the 预售 ships, and that it is paid in full: no balance later.
   const presale = new PresaleProductPage(page);
   await presale.open(shop.fixtures.activityProductId);
   await expect(presale.title()).toContainText('E2E 活动商品');
   await expect(presale.promotion()).toContainText('付款后 7 天内发货');
+  await expect(presale.rules()).toContainText('全款预订，付款后 7 天内发货');
+  await expect(presale.rules()).toContainText('下单时支付全部货款，无需另付尾款');
 
   await presale.book();
   const checkout = new CheckoutPage(page);

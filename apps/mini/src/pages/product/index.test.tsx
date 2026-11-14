@@ -45,7 +45,8 @@ function serve(overrides: Routes = {}) {
     }),
     'GET /api/v1/groupbuy/activities': () => ({ body: empty }),
     'GET /api/v1/presale/activities': () => ({ body: empty }),
-    // The teams still open on a 拼团 (activities 7 and 9 below), asked for beside its box.
+    // A 拼团 (activities 7 and 9 below) is read for its rules and the teams still open.
+    'GET /api/v1/groupbuy/activities/7': () => ({ body: groupbuyDetail() }),
     'GET /api/v1/groupbuy/activities/7/groups': () => ({ body: { ...empty, pageSize: 5 } }),
     'GET /api/v1/groupbuy/activities/9/groups': () => ({ body: { ...empty, pageSize: 5 } }),
     'GET /api/v1/coupons': () => ({
@@ -723,8 +724,8 @@ describe('商品详情', () => {
     );
   });
 
-  it('shows the teams still open to a guest, without names or faces, and 去参团 opens one', async () => {
-    const seen = serve({
+  it('shows a guest the 拼团 rules and the teams still open, without names or faces', async () => {
+    serve({
       'GET /api/v1/groupbuy/activities': () => ({
         body: { ...empty, items: [groupbuyCard], total: 1 },
       }),
@@ -737,8 +738,12 @@ describe('商品详情', () => {
     expect(screen.getByText('可直接参与，人满即成团')).toBeTruthy();
     expect(screen.queryByText(/小\*/)).toBeNull();
     expect(document.querySelectorAll('img[src="leader.png"]').length).toBe(0);
-    // A guest has no team of their own: the activity is not read for one.
-    expect(seen.some((r) => r.key === 'GET /api/v1/groupbuy/activities/7')).toBe(false);
+    // The honest rule: no 虚拟成团, an unfilled team is refunded.
+    const rules = document.querySelector('#groupbuy-rules') as HTMLElement;
+    expect(within(rules).getByText('2 人成团，开团后 1 天内有效')).toBeTruthy();
+    expect(within(rules).getByText('到时间未凑齐，拼团自动取消，已付款项原路退回')).toBeTruthy();
+    expect(within(rules).getByText('同一活动每人同时只能有一个团在拼')).toBeTruthy();
+    expect(within(rules).getByText('每单限购 5 件')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '去参团，还差 1 人' }));
     await waitFor(() =>
       expect(taroFake.calls).toContainEqual({
@@ -928,6 +933,7 @@ describe('商品详情', () => {
     await renderPage(<ProductPage />, client);
     expect(await screen.findByRole('button', { name: '立即购买' })).toBeTruthy();
     expect(screen.queryByText('限时预售补贴')).toBeNull();
+    expect(document.querySelector('#presale-rules')).toBeNull();
   });
 
   it('blocks purchasing while legacy campaign conflicts await an operator choice', async () => {
@@ -968,6 +974,11 @@ describe('商品详情', () => {
     });
     await renderPage(<ProductPage />);
     await screen.findByText('限时预售补贴');
+    // 预售说明: full payment only, when it ships, the per-order limit.
+    const rules = document.querySelector('#presale-rules') as HTMLElement;
+    expect(within(rules).getByText('全款预订，付款后 7 天内发货')).toBeTruthy();
+    expect(within(rules).getByText('下单时支付全部货款，无需另付尾款')).toBeTruthy();
+    expect(within(rules).getByText('每单限购 5 件')).toBeTruthy();
     act(() => taroFake.hidePage());
     active = false;
     act(() => taroFake.showPage());

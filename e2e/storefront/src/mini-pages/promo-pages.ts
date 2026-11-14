@@ -54,6 +54,11 @@ export class GroupbuyProductPage {
     return shown(this.page).locator('.product__promotion');
   }
 
+  /** 拼团规则: team size and time limit, what happens if it does not fill. */
+  rules(): Locator {
+    return shown(this.page).locator('#groupbuy-rules');
+  }
+
   button(label: '立即开团' | '单独购买' | '查看我的团'): Locator {
     return barButton(this.page, label);
   }
@@ -152,6 +157,11 @@ export class PresaleProductPage {
   /** The 预售 box at the top: its price, when it ships and the countdown. */
   promotion(): Locator {
     return shown(this.page).locator('.product__promotion');
+  }
+
+  /** 预售说明: full payment only, and when it ships. */
+  rules(): Locator {
+    return shown(this.page).locator('#presale-rules');
   }
 
   /** 立即预订 ¥78.00 → the SKU sheet → its 立即预订: on to 确认订单. */
