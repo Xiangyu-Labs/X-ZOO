@@ -1,6 +1,7 @@
 import type { AuditLogItem, AuditLogListQuery } from '@shop/contracts/system/schemas';
 import type { Ctx } from '../kernel/context';
 import { fromId, toId, toIdOrNull } from '../kernel/ids';
+import { operationName, routeIdsNamed, targetText } from './audit-labels';
 import * as repo from './system.repo';
 
 /**
@@ -27,6 +28,7 @@ export async function auditLogList(
     adminId: query.adminId === undefined ? undefined : fromId(query.adminId),
     userId: query.userId === undefined ? undefined : fromId(query.userId),
     keyword: query.keyword,
+    keywordRouteIds: query.keyword ? routeIdsNamed(query.keyword) : [],
     routeId: query.routeId,
     method: query.method,
     outcome: query.outcome,
@@ -45,9 +47,11 @@ export async function auditLogList(
       userId: toIdOrNull(row.userId),
       adminAccount: row.adminAccount,
       routeId: row.routeId,
+      operation: operationName(row.routeId),
       method: row.method,
       path: row.path,
       target: row.target,
+      targetText: targetText(row.target, row.path),
       status: row.status,
       errorCode: row.errorCode,
       errorMessage: row.errorMessage,

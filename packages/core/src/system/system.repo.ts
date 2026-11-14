@@ -516,6 +516,8 @@ export interface AuditListArgs {
   adminId?: number | undefined;
   userId?: number | undefined;
   keyword?: string | undefined;
+  /** Route ids whose name holds `keyword`, matched alongside the columns. */
+  keywordRouteIds?: readonly string[] | undefined;
   routeId?: string | undefined;
   method?: string | undefined;
   outcome?: 'succeeded' | 'failed' | undefined;
@@ -545,6 +547,9 @@ export async function listAuditLogs(
           ilike(auditLogs.routeId, containsPattern(args.keyword)),
           ilike(auditLogs.path, containsPattern(args.keyword)),
           ilike(auditLogs.target, containsPattern(args.keyword)),
+          args.keywordRouteIds?.length
+            ? inArray(auditLogs.routeId, [...args.keywordRouteIds])
+            : undefined,
         )
       : undefined,
   );

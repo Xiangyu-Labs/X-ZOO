@@ -453,6 +453,8 @@ describe('a failed write is in the 操作日志 too', () => {
     ).json();
     expect(failed.total).toBe(1);
     expect(failed.items[0]).toMatchObject({
+      operation: '删除优惠券',
+      targetText: '#987654',
       method: 'DELETE',
       path: '/admin-api/coupons/987654',
       status: refused.status,
@@ -473,5 +475,16 @@ describe('a failed write is in the 操作日志 too', () => {
     expect(
       succeeded.items.some((item: { routeId: string }) => item.routeId === 'auth.adminLogin'),
     ).toBe(true);
+    const named = await (
+      await list(
+        new Request(
+          `https://shop.example/admin-api/audit-logs?page=1&pageSize=20&keyword=${encodeURIComponent('删除优惠券')}`,
+          { headers },
+        ),
+      )
+    ).json();
+    expect(named.items.map((item: { routeId: string }) => item.routeId)).toEqual([
+      'coupon.adminDelete',
+    ]);
   });
 });

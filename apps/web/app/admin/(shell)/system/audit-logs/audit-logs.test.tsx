@@ -14,9 +14,11 @@ const broke: AuditLogItem = {
   ...auditLogItemExample,
   id: '9002',
   routeId: 'catalog.adminProductUpdate',
+  operation: '编辑商品',
   method: 'PUT',
   path: '/admin-api/products/12',
-  target: null,
+  target: 'product:12',
+  targetText: '商品 #12',
   status: 500,
   errorCode: 'INTERNAL',
   errorMessage: '服务器开小差了，请稍后再试',
@@ -30,7 +32,7 @@ afterEach(() => {
 });
 
 describe('操作日志', () => {
-  it('lists a failed save with what the person saw, and the inside story only in 详情', async () => {
+  it('lists a failed save in words, with the inside story only in 详情', async () => {
     stubRoutes([
       on(systemAuditLogList, {
         items: [broke, auditLogItemExample],
@@ -44,12 +46,17 @@ describe('操作日志', () => {
     expect(await screen.findByText('服务器开小差了，请稍后再试')).toBeInTheDocument();
     expect(screen.getByText('失败')).toBeInTheDocument();
     expect(screen.getByText('成功')).toBeInTheDocument();
+    expect(screen.getByText('编辑商品')).toBeInTheDocument();
+    expect(screen.getByText('商品 #12')).toBeInTheDocument();
     expect(screen.queryByText(/TypeError/)).toBeNull();
+    expect(screen.queryByText(/catalog\.adminProductUpdate|\/admin-api\/|product:12/)).toBeNull();
 
     const row = screen.getByText('服务器开小差了，请稍后再试').closest('tr') as HTMLElement;
     await userEvent.click(within(row).getByRole('button', { name: '详情' }));
     expect(
-      await screen.findByText(/500 INTERNAL\s+TypeError: Cannot read properties of undefined/),
+      await screen.findByText(
+        /PUT \/admin-api\/products\/12（catalog\.adminProductUpdate）\s+对象：product:12\s+500 INTERNAL\s+TypeError: Cannot read properties of undefined/,
+      ),
     ).toBeInTheDocument();
     expect(screen.getByText(broke.requestId, { selector: '.ant-drawer *' })).toBeInTheDocument();
   });
