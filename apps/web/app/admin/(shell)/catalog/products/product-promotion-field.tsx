@@ -19,6 +19,7 @@ import type {
   ProductPromotionSettings,
 } from '@shop/contracts/catalog/promotion';
 import type { ProductSkuInput } from '@shop/contracts/catalog/schemas';
+import { PER_ORDER_UNLIMITED, hasPerOrderLimit } from '@shop/contracts/catalog/per-order';
 import { DateField } from '@/admin/kit/form/date-fields';
 import { MoneyInput } from '@/admin/kit/form/money-input';
 import type { SelectOption } from '@/admin/kit/form/types';
@@ -377,12 +378,21 @@ export function ProductPromotionField({
                         <InputNumber<number>
                           aria-label="每单限购"
                           min={1}
-                          max={999}
+                          max={PER_ORDER_UNLIMITED}
                           precision={0}
-                          value={settings.perOrderQuantity ?? 999}
+                          placeholder="留空不限购"
+                          value={
+                            hasPerOrderLimit(settings.perOrderQuantity)
+                              ? settings.perOrderQuantity
+                              : null
+                          }
                           disabled={!mayEdit}
                           onChange={(perOrderQuantity) =>
-                            changeSettings({ perOrderQuantity: perOrderQuantity ?? undefined })
+                            changeSettings({
+                              perOrderQuantity: hasPerOrderLimit(perOrderQuantity)
+                                ? perOrderQuantity
+                                : null,
+                            })
                           }
                         />,
                       )}

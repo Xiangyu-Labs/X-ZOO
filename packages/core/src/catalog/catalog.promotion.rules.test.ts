@@ -54,4 +54,19 @@ describe('product promotion defaults', () => {
     expect(form.totalQuota).toBeUndefined();
     expect(form.skus.every((sku) => sku.quota === undefined && sku.stock === 4)).toBe(true);
   });
+
+  it('stores a cleared 每单限购 as 不限, and keeps the saved limit when it is not sent', () => {
+    const now = new Date('2026-09-01T00:00:00Z');
+    const limited = { ...previous, perOrderQuantity: 3 };
+    expect(productPromotionForm(product, settings, limited, now).perOrderQuantity).toBe(3);
+    expect(
+      productPromotionForm(product, { ...settings, perOrderQuantity: null }, limited, now)
+        .perOrderQuantity,
+    ).toBe(999);
+    expect(
+      productPromotionForm(product, { ...settings, perOrderQuantity: 5 }, limited, now)
+        .perOrderQuantity,
+    ).toBe(5);
+    expect(productPromotionForm(product, settings, null, now).perOrderQuantity).toBe(999);
+  });
 });

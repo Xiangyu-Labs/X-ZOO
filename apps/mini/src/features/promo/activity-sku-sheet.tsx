@@ -7,6 +7,7 @@ import { Pressable } from '@/ui/pressable';
 import { Price } from '@/ui/price';
 import { Sheet } from '@/ui/sheet';
 import { Stepper } from '@/ui/stepper';
+import { hasPerOrderLimit } from '@shop/contracts/catalog/per-order';
 import './activity-sku-sheet.scss';
 
 /** A 拼团 / 预售 SKU (`groupbuyStorefrontSku`, `presaleStorefrontSku`: the same shape). */
@@ -151,7 +152,9 @@ export function ActivitySkuSheet({
       ) : null}
       <View className="activity-sku__quantity">
         <Text className="activity-sku__name">数量</Text>
-        <Text className="activity-sku__meta">每单限 {perOrderQuantity} 件</Text>
+        {hasPerOrderLimit(perOrderQuantity) ? (
+          <Text className="activity-sku__meta">每单限 {perOrderQuantity} 件</Text>
+        ) : null}
         <View className="activity-sku__stepper">
           <Stepper
             value={count}

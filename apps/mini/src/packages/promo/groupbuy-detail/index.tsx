@@ -31,6 +31,7 @@ import { Countdown } from '@/ui/countdown';
 import { Empty } from '@/ui/empty';
 import { ErrorBlock } from '@/ui/error-block';
 import { PageShell } from '@/ui/page-shell';
+import { hasPerOrderLimit } from '@shop/contracts/catalog/per-order';
 import './index.scss';
 
 type Activity = ResponseOf<'groupbuy.detail'>;
@@ -161,7 +162,9 @@ function Detail({ activity, onStale }: { activity: Activity; onStale: () => void
           `${activity.seatsRequired} 人成团，开团后 ${ttlText(activity.groupTtlSeconds)}内有效`,
           '付款后即占一个名额，人满即成团，商家随后发货',
           '到时间未凑齐，拼团自动取消，已付款项原路退回',
-          `每单限购 ${activity.perOrderQuantity} 件`,
+          ...(hasPerOrderLimit(activity.perOrderQuantity)
+            ? [`每单限购 ${activity.perOrderQuantity} 件`]
+            : []),
         ]}
       />
 

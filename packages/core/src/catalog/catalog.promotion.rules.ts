@@ -2,6 +2,7 @@ import type { AdminProductDetail } from '@shop/contracts/catalog/schemas';
 import type { ProductPromotionSettings } from '@shop/contracts/catalog/promotion';
 import type { PresaleActivityDetail } from '@shop/contracts/presale/schemas';
 import type { GroupbuyActivityDetail } from '@shop/contracts/groupbuy/schemas';
+import { PER_ORDER_UNLIMITED } from '@shop/contracts/catalog/per-order';
 import { comboKey } from './catalog.rules';
 import { Money } from '../kernel/money';
 import { DomainError } from '../kernel/errors';
@@ -72,7 +73,10 @@ export function productPromotionForm(
       settings.totalQuota === undefined
         ? (previous?.totalQuota ?? undefined)
         : (settings.totalQuota ?? undefined),
-    perOrderQuantity: settings.perOrderQuantity ?? previous?.perOrderQuantity ?? 999,
+    perOrderQuantity:
+      settings.perOrderQuantity === null
+        ? PER_ORDER_UNLIMITED
+        : (settings.perOrderQuantity ?? previous?.perOrderQuantity ?? PER_ORDER_UNLIMITED),
     startAt:
       settings.startAt === null
         ? now.toISOString()
