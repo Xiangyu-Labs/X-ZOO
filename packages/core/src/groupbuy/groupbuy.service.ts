@@ -736,6 +736,7 @@ async function buildGroupView(ctx: Ctx, groupId: number): Promise<GroupbuyGroupV
   return {
     groupId: toId(groupId),
     activityId: toId(row.activityId),
+    productId: toId(row.activityProductId),
     title: row.activityTitle,
     imageUrl: row.activityImageUrl,
     price: row.activityPrice,

@@ -13,6 +13,7 @@ import GroupbuyTeamPage from './index';
 const view = (patch: Partial<TeamView> = {}): TeamView => ({
   groupId: '501',
   activityId: '1',
+  productId: '11',
   title: '双人团 · 护理套装',
   imageUrl: null,
   price: '59.00',
@@ -224,12 +225,10 @@ describe('拼团进度', () => {
     fireEvent.click(screen.getByRole('button', { name: '查看订单' }));
     await waitFor(() => expect(redirectedTo().at(-1)).toBe('/packages/order/detail/index?id=70'));
     fireEvent.click(screen.getByRole('button', { name: '再开一团' }));
-    await waitFor(() =>
-      expect(redirectedTo().at(-1)).toBe('/packages/promo/groupbuy-detail/index?id=1'),
-    );
+    await waitFor(() => expect(redirectedTo().at(-1)).toBe('/pages/product/index?id=11'));
   });
 
-  it('goes back to the 订单详情 or activity it was opened from, not to a second copy', async () => {
+  it('goes back to the 订单详情 or product it was opened from, not to a second copy', async () => {
     serve(
       view({
         status: 'failed',
@@ -250,7 +249,7 @@ describe('拼团进度', () => {
 
     taroFake.calls.length = 0;
     taroFake.pageStack = [
-      { route: 'packages/promo/groupbuy-detail/index', options: { id: '1' } },
+      { route: 'pages/product/index', options: { id: '11' } },
       { route: 'packages/promo/groupbuy-team/index', options: { id: '501' } },
     ];
     fireEvent.click(screen.getByRole('link', { name: '双人团 · 护理套装，查看拼团商品' }));

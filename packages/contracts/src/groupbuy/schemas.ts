@@ -390,6 +390,8 @@ export const pagedGroupbuyOpenGroups = paged(groupbuyOpenGroup);
 export const groupbuyGroupView = z.object({
   groupId: id,
   activityId: id,
+  /** The product the activity sells: 再开一团 and the product row open its page. */
+  productId: id,
   title: z.string(),
   imageUrl: z.string().nullable(),
   price: money,
@@ -633,6 +635,7 @@ export const groupbuyOpenGroupExample: GroupbuyOpenGroup = {
 export const groupbuyGroupViewExample: GroupbuyGroupView = {
   groupId: '501',
   activityId: '1',
+  productId: '11',
   title: '三人成团 · 坚果礼盒',
   imageUrl: 'https://cdn.example.com/p/11.jpg',
   price: '59.00',

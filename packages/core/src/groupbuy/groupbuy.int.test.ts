@@ -1249,6 +1249,8 @@ describe('the storefront surface', () => {
     await placeOrder({ userId: joiner, fixture, groupId: opened.groupId });
 
     const view = await service.groupDetail(asUser(joiner), { id: String(opened.groupId) });
+    // 再开一团 and the product row open the product page.
+    expect(view.productId).toBe(String(fixture.productId));
     expect(view.members.map((m) => m.nickname)).toEqual(['小*']);
     expect(view.me).toMatchObject({ role: 'member', status: 'joined', paid: false });
     expect(view.canJoin).toBe(false);

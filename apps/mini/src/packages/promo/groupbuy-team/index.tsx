@@ -195,8 +195,9 @@ function Team({ view, onStale }: { view: TeamView; onStale: () => void }) {
       case 'order':
         await leaveFor({ route: 'order', params: { id: action.orderId } });
         return;
+      // The product page is where an activity is bought now; the old activity page is gone.
       case 'again':
-        await leaveFor({ route: 'groupbuy', params: { id: view.activityId } });
+        await leaveFor({ route: 'product', params: { id: view.productId } });
         return;
       case 'refresh':
         onStale();
@@ -216,7 +217,7 @@ function Team({ view, onStale }: { view: TeamView; onStale: () => void }) {
             role="link"
             label={`${view.title}，查看拼团商品`}
             className="groupbuy-team__product-row"
-            onClick={() => leaveFor({ route: 'groupbuy', params: { id: view.activityId } })}
+            onClick={() => leaveFor({ route: 'product', params: { id: view.productId } })}
           >
             <View className="groupbuy-team__image">
               <Image src={view.imageUrl} label={view.title} radius="sm" lazy={false} size="small" />
