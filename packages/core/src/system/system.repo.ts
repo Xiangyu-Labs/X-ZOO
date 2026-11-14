@@ -537,7 +537,11 @@ export async function listAuditLogs(
     args.adminId === undefined ? undefined : eq(auditLogs.adminId, args.adminId),
     args.userId === undefined ? undefined : eq(auditLogs.userId, args.userId),
     args.routeId ? eq(auditLogs.routeId, args.routeId) : undefined,
-    args.method ? eq(auditLogs.method, args.method) : undefined,
+    args.method === 'PUT' || args.method === 'PATCH'
+      ? inArray(auditLogs.method, ['PUT', 'PATCH'])
+      : args.method
+        ? eq(auditLogs.method, args.method)
+        : undefined,
     args.outcome === 'failed' ? gte(auditLogs.status, 400) : undefined,
     args.outcome === 'succeeded' ? lt(auditLogs.status, 400) : undefined,
     args.from ? gte(auditLogs.createdAt, args.from) : undefined,

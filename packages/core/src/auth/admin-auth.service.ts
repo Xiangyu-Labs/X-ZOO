@@ -137,10 +137,18 @@ export class AdminAuthService {
       await this.recordOutcome(ctx, input.account, seen.adminId, 'success', 200, null, meta);
       return result;
     } catch (error) {
-      const code = DomainError.is(error) ? error.code : null;
-      const status = DomainError.is(error) ? error.status : 500;
-      const outcome: AdminLoginOutcome = (code ? OUTCOME_BY_CODE[code] : undefined) ?? 'error';
-      await this.recordOutcome(ctx, input.account, seen.adminId, outcome, status, code, meta);
+      // The 操作日志 shows why: the refusal's own Chinese message, or 系统内部错误.
+      const refusal = DomainError.is(error) ? error : new DomainError('INTERNAL');
+      const outcome: AdminLoginOutcome = OUTCOME_BY_CODE[refusal.code] ?? 'error';
+      await this.recordOutcome(
+        ctx,
+        input.account,
+        seen.adminId,
+        outcome,
+        refusal.status,
+        refusal,
+        meta,
+      );
       throw error;
     }
   }
@@ -151,7 +159,7 @@ export class AdminAuthService {
     adminId: number | null,
     result: AdminLoginOutcome,
     status: number,
-    code: string | null,
+    refusal: DomainError | null,
     meta: LoginMeta | undefined,
   ): Promise<void> {
     const account = rawAccount.trim().slice(0, 64);
@@ -164,10 +172,11 @@ export class AdminAuthService {
         path: '/admin-api/auth/login',
         target: adminId === null ? null : `admin:${adminId}`,
         status,
+        errorCode: refusal?.code ?? null,
+        errorMessage: refusal?.message ?? null,
         payload: {
           account,
           result,
-          ...(code ? { code } : {}),
           userAgent: meta?.userAgent?.slice(0, 512) ?? null,
         },
         requestId: ctx.requestId.slice(0, 64),

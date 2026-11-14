@@ -97,7 +97,15 @@ describe('what a password-guessing run leaves behind', () => {
       'invalid_credentials',
     ]);
     // The unknown account has no admin id; the real one does.
-    expect(rows[0]).toMatchObject({ adminId: null, adminAccount: 'nobody', status: 401 });
+    expect(rows[0]).toMatchObject({
+      adminId: null,
+      adminAccount: 'nobody',
+      status: 401,
+      errorCode: 'AUTH_INVALID_CREDENTIALS',
+    });
+    // The viewer's 失败原因 is the refusal's own Chinese message.
+    expect(rows[0]!.errorMessage).toMatch(/[\u4e00-\u9fa5]/);
+    expect(rows[2]).toMatchObject({ errorCode: null, errorMessage: null });
     expect(rows[1]!.adminId).not.toBeNull();
     expect(rows[2]).toMatchObject({ status: 200, target: `admin:${rows[1]!.adminId}` });
     expect(JSON.parse(rows[2]!.payload!)).toEqual({
@@ -111,11 +119,8 @@ describe('what a password-guessing run leaves behind', () => {
       .login(harness.ctx, { account: 'admin', password: PASSWORD }, meta)
       .catch(() => undefined);
     const [locked] = (await harness.ctx.db.select().from(auditLogs)).sort((a, b) => b.id - a.id);
-    expect(locked).toMatchObject({ status: 429 });
-    expect(JSON.parse(locked!.payload!)).toMatchObject({
-      result: 'locked',
-      code: 'AUTH_TOO_MANY_ATTEMPTS',
-    });
+    expect(locked).toMatchObject({ status: 429, errorCode: 'AUTH_TOO_MANY_ATTEMPTS' });
+    expect(JSON.parse(locked!.payload!)).toMatchObject({ result: 'locked' });
 
     expect(JSON.stringify(await harness.ctx.db.select().from(auditLogs))).not.toContain(GUESS);
     expect(JSON.stringify(await harness.ctx.db.select().from(auditLogs))).not.toContain(PASSWORD);
@@ -127,7 +132,7 @@ describe('what a password-guessing run leaves behind', () => {
       auth.login(harness.ctx, { account: 'admin', password: PASSWORD }),
     ).rejects.toMatchObject({ code: 'AUTH_ACCOUNT_DISABLED' });
     const [row] = await harness.ctx.db.select().from(auditLogs);
-    expect(row).toMatchObject({ status: 403, ip: null });
+    expect(row).toMatchObject({ status: 403, ip: null, errorCode: 'AUTH_ACCOUNT_DISABLED' });
     expect(JSON.parse(row!.payload!)).toMatchObject({ result: 'disabled', userAgent: null });
   });
 });

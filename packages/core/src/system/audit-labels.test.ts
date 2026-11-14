@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
+import { ADMIN_LOGIN_AUDIT_ROUTE } from '../auth/index';
 import { AUDIT_TARGET_NOUNS, operationName, routeIdsNamed, targetText } from './audit-labels';
 import './site.config';
 
@@ -18,13 +19,16 @@ function sources(dir: string): string[] {
   });
 }
 
+const allSources = (): string[] => [
+  ...sources(path.join(repoRoot, 'apps/web/app')),
+  ...sources(path.join(repoRoot, 'apps/web/src')),
+  ...sources(path.join(repoRoot, 'packages/core/src')),
+];
+
 describe('操作日志 in words', () => {
   it('names every target prefix a handler writes with ctx.audit', () => {
     const prefixes = new Set<string>();
-    for (const file of [
-      ...sources(path.join(repoRoot, 'apps/web/app')),
-      ...sources(path.join(repoRoot, 'packages/core/src')),
-    ]) {
+    for (const file of allSources()) {
       for (const match of fs
         .readFileSync(file, 'utf8')
         .matchAll(/\.audit\(\s*[`'"]([a-z][a-z-]*):/g)) {
@@ -35,9 +39,30 @@ describe('操作日志 in words', () => {
     expect([...prefixes].filter((prefix) => AUDIT_TARGET_NOUNS[prefix] === undefined)).toEqual([]);
   });
 
+  it('names the operation and the target of every row written straight with insertAudit', () => {
+    const routeIds = new Set<string>([ADMIN_LOGIN_AUDIT_ROUTE]);
+    const prefixes = new Set<string>();
+    const writers = allSources().filter(
+      (file) =>
+        /\binsertAudit\(/.test(fs.readFileSync(file, 'utf8')) && !file.endsWith('audit.repo.ts'),
+    );
+    expect(writers.length).toBeGreaterThanOrEqual(3);
+    for (const file of writers) {
+      const text = fs.readFileSync(file, 'utf8');
+      for (const match of text.matchAll(/routeId: '([\w.]+)'/g)) routeIds.add(match[1]!);
+      for (const match of text.matchAll(/target: [^\n]*?[`'"]([a-z][a-z-]*):/g))
+        prefixes.add(match[1]!);
+    }
+    expect(routeIds.has('oauth.authorizeDecision')).toBe(true);
+    expect([...routeIds].filter((id) => operationName(id) === '已下线的功能')).toEqual([]);
+    expect([...prefixes].filter((prefix) => AUDIT_TARGET_NOUNS[prefix] === undefined)).toEqual([]);
+  });
+
   it('names the operation by its route, and a removed route as removed', () => {
     expect(operationName('coupon.adminSetStatus')).toBe('启用/停用优惠券');
     expect(operationName('coupon.adminGone')).toBe('已下线的功能');
+    expect(operationName('oauth.authorizeDecision')).toBe('外部应用授权');
+    expect(routeIdsNamed('外部应用授权')).toEqual(['oauth.authorizeDecision']);
   });
 
   it('finds the routes whose name holds the keyword', () => {
@@ -62,5 +87,23 @@ describe('操作日志 in words', () => {
     expect(targetText('wechat-media:sync')).toBe('公众号素材同步');
     expect(targetText('scan-token:abcd1234')).toBe('扫码上传');
     expect(targetText('admin:self')).toBe('自己的账号');
+    expect(targetText('notification-template:order_paid:test:sms:user:42')).toMatch(
+      /^通知模板：.+ 试发（短信）给用户 #42$/,
+    );
+    expect(targetText('notification-template:order_paid:wechatMini')).toMatch(
+      /^通知模板：.+（小程序订阅消息）$/,
+    );
+    expect(
+      targetText(
+        'oauth-client:abc',
+        '/oauth/authorize/decision',
+        JSON.stringify({ decision: 'allow', clientName: '记账助手' }),
+      ),
+    ).toBe('外部应用：记账助手（允许）');
+    expect(targetText('oauth-client:abc', '', JSON.stringify({ decision: 'deny' }))).toBe(
+      '外部应用：未命名应用（拒绝）',
+    );
+    // A prefix nobody named shows nothing rather than code; 技术信息 still has it.
+    expect(targetText('mystery:1')).toBeNull();
   });
 });

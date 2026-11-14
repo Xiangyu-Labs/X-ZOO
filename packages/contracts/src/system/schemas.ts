@@ -346,7 +346,10 @@ export const auditLogListQuery = pageQuery
     /** Matches the operation's name, `route_id`, `path` or `target`. */
     keyword: z.string().trim().max(128).optional(),
     routeId: z.string().trim().max(128).optional(),
-    /** GET rows are reads that broke (5xx) or exports. */
+    /**
+     * GET rows are reads that broke (5xx) or exports. PUT and PATCH are both 修改, so either
+     * finds the rows of both.
+     */
     method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']).optional(),
     /** `failed`: only the requests that were refused or broke (status 400 and up). */
     outcome: z.enum(['succeeded', 'failed']).optional(),

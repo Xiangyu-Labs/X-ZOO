@@ -420,6 +420,48 @@ describe('the 操作日志 reader lists both kinds of actor', () => {
     ).json();
     expect(byUser.total).toBe(1);
   });
+
+  it('类型「修改」finds PUT and PATCH rows alike', async () => {
+    await seedAdmin({ isSuper: true });
+    for (const [method, requestId] of [
+      ['PUT', 'req-put'],
+      ['PATCH', 'req-patch'],
+      ['POST', 'req-post'],
+    ] as const) {
+      await insertAudit(harness.ctx.db, {
+        adminId: null,
+        adminAccount: 'admin',
+        routeId: 'coupon.adminSetStatus',
+        method,
+        path: '/admin-api/coupons/1/status',
+        target: 'coupon:1',
+        status: 200,
+        payload: null,
+        requestId,
+        now: harness.clock.now(),
+      });
+    }
+    const { POST: login } = await import('../../app/admin-api/auth/login/route');
+    const { GET: list } = await import('../../app/admin-api/audit-logs/route');
+    const loggedIn = await login(
+      post('/admin-api/auth/login', { account: 'admin', password: PASSWORD }),
+    );
+    const headers = { cookie: `${ADMIN_COOKIE}=${sessionCookie(loggedIn)}` };
+    for (const method of ['PUT', 'PATCH']) {
+      const found = await (
+        await list(
+          new Request(
+            `https://shop.example/admin-api/audit-logs?page=1&pageSize=20&method=${method}`,
+            { headers },
+          ),
+        )
+      ).json();
+      expect(found.items.map((item: { requestId: string }) => item.requestId).sort()).toEqual([
+        'req-patch',
+        'req-put',
+      ]);
+    }
+  });
 });
 
 describe('a failed write is in the 操作日志 too', () => {

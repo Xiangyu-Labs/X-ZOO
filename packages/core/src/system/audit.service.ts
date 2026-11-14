@@ -51,7 +51,7 @@ export async function auditLogList(
       method: row.method,
       path: row.path,
       target: row.target,
-      targetText: targetText(row.target, row.path),
+      targetText: targetText(row.target, row.path, row.payload),
       status: row.status,
       errorCode: row.errorCode,
       errorMessage: row.errorMessage,
