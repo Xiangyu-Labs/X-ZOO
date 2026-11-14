@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { id, instant, money, requiredMoney } from '../_conventions/common';
+import { PER_ORDER_UNLIMITED } from './per-order';
 
 export const productSaleMode = z.enum(['normal', 'presale', 'groupbuy']);
 export const productPromotionKind = z.enum(['presale', 'groupbuy']);
@@ -31,7 +32,8 @@ export const productPromotionSettings = z.object({
   stock: z.number().int().min(0).max(1_000_000).optional(),
   expectedStock: z.number().int().min(0).optional(),
   totalQuota: z.number().int().min(0).max(1_000_000).nullable().optional(),
-  perOrderQuantity: z.number().int().min(1).max(999).optional(),
+  /** `null` is 不限 (stored as {@link PER_ORDER_UNLIMITED}); absent keeps what is saved. */
+  perOrderQuantity: z.number().int().min(1).max(PER_ORDER_UNLIMITED).nullable().optional(),
   groupTtlSeconds: z
     .number()
     .int()

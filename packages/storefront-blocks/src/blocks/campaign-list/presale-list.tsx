@@ -44,7 +44,8 @@ export function presaleCountdown(
  * catalogue price, when it ships, and the time left, counted on the server's
  * clock (`host.serverNow`), never the device's. Presales are paid in full
  * (the domain refuses a 定金 campaign), so there is no deposit / balance line.
- * A tap opens the campaign (`presale { id }`).
+ * A tap opens the product page (`product { id }`), which shows the presale
+ * and books it; the old campaign page is no longer linked from here.
  */
 export function PresaleList({
   props,
@@ -94,7 +95,7 @@ export function PresaleList({
               (() =>
                 onLink({
                   kind: 'route',
-                  to: { route: 'presale', params: { id: campaign.activityId } },
+                  to: { route: 'product', params: { id: campaign.productId } },
                 })),
           }))}
         />

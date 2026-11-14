@@ -78,3 +78,33 @@ describe('起购 and 限购', () => {
     ).toBe(true);
   });
 });
+
+describe('售价 against 原价', () => {
+  const parse = (skus: object[], specMode = false) =>
+    adminProductForm.safeParse({
+      ...base,
+      kind: 'physical',
+      specMode,
+      specs: specMode ? [{ name: '颜色', values: [{ value: '红' }, { value: '蓝' }] }] : [],
+      skus,
+    });
+  const messages = (result: ReturnType<typeof parse>) =>
+    result.success ? [] : result.error.issues.map((issue) => [issue.path.join('.'), issue.message]);
+
+  it('takes a 原价 equal to or above 售价, or none', () => {
+    expect(parse([{ ...sku, stock: 1, originalPrice: '30.00' }]).success).toBe(true);
+    expect(parse([{ ...sku, stock: 1, originalPrice: '30.10' }]).success).toBe(true);
+    expect(parse([{ ...sku, stock: 1 }]).success).toBe(true);
+  });
+
+  it('refuses a 售价 above 原价, naming the spec it is on', () => {
+    expect(messages(parse([{ ...sku, stock: 1, originalPrice: '29.99' }]))).toEqual([
+      ['skus.0.originalPrice', '售价不能高于原价'],
+    ]);
+    const red = { ...sku, specValues: { 颜色: '红' }, stock: 1, originalPrice: '30.00' };
+    const blue = { ...red, specValues: { 颜色: '蓝' }, price: '100.00', isDefault: false };
+    expect(messages(parse([red, blue], true))).toEqual([
+      ['skus.1.originalPrice', '「蓝」售价不能高于原价'],
+    ]);
+  });
+});

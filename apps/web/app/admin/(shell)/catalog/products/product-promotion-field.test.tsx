@@ -29,12 +29,21 @@ function Harness({
   canPresale = true,
   canGroupbuy = true,
   initial = { mode: 'normal', expectedVersion: 0 } as ProductPromotionInput,
+  onValue,
+}: {
+  canPresale?: boolean;
+  canGroupbuy?: boolean;
+  initial?: ProductPromotionInput;
+  onValue?: (value: ProductPromotionInput) => void;
 }) {
   const [value, setValue] = useState(initial);
   return (
     <ProductPromotionField
       value={value}
-      onChange={setValue}
+      onChange={(next) => {
+        onValue?.(next);
+        setValue(next);
+      }}
       skus={skus}
       disabled={false}
       canPresale={canPresale}
@@ -68,6 +77,27 @@ describe('product sale mode field', () => {
     );
     expect(screen.queryByLabelText('付款后发货天数')).toBeNull();
     expect(screen.getByLabelText('成团总人数')).toBeInTheDocument();
+  });
+
+  it('shows 不限 as an empty 每单限购, and clearing a limit sends 不限', async () => {
+    let last: ProductPromotionInput | undefined;
+    const initial = {
+      mode: 'presale',
+      expectedVersion: 1,
+      settings: { endAt: '2030-12-31T23:59:59+08:00', perOrderQuantity: 999, skus: [] },
+    } as ProductPromotionInput;
+    renderAdmin(withStubAssets(<Harness initial={initial} onValue={(v) => (last = v)} />));
+    await userEvent.click(screen.getByText('高级设置'));
+
+    const box = screen.getByLabelText('每单限购');
+    expect(box).toHaveValue('');
+    expect(box).toHaveAttribute('placeholder', '留空不限购');
+
+    await userEvent.type(box, '3');
+    expect(last?.settings?.perOrderQuantity).toBe(3);
+    await userEvent.clear(box);
+    expect(box).toHaveValue('');
+    expect(last?.settings?.perOrderQuantity).toBeNull();
   });
 
   it('batch-fills per-spec decimal prices without changing the single-buy price', async () => {

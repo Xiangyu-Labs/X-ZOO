@@ -82,6 +82,23 @@ describe('预售商品', () => {
     });
   });
 
+  it('tells the shopper a real 每单限购, and says nothing when there is none', async () => {
+    serve(activity());
+    const first = await renderPage(<PresaleDetailPage />);
+    expect(await screen.findByText('每单限购 3 件')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '立即预订' }));
+    expect(await screen.findByText('每单限 3 件')).toBeTruthy();
+    first.unmount();
+
+    serve(activity({ perOrderQuantity: 999 }));
+    await renderPage(<PresaleDetailPage />);
+    expect(await screen.findByText('全款预订，付款后 15 天内发货')).toBeTruthy();
+    expect(screen.queryByText(/每单限/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '立即预订' }));
+    await waitFor(() => expect(screen.getAllByRole('button', { name: '立即预订' }).length).toBe(2));
+    expect(screen.queryByText(/每单限/)).toBeNull();
+  });
+
   it('shows an upcoming presale with a countdown to its start and no booking', async () => {
     serve(activity({ startAt: '2098-01-01T00:00:00Z', canBuy: false }));
     await renderPage(<PresaleDetailPage />);

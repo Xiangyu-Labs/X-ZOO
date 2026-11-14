@@ -201,11 +201,10 @@ describe('商品详情', () => {
     });
     await renderPage(<ProductPage />);
 
-    fireEvent.click(await screen.findByRole('link', { name: '拼团 ¥49.00，2 人团' }));
-    expect(taroFake.calls).toContainEqual({
-      api: 'navigateTo',
-      args: { url: '/packages/promo/groupbuy-detail/index?id=7' },
-    });
+    // The 拼团 is bought on this page: no bar under the title sends the shopper to the old one.
+    expect(await screen.findByText('2人拼团价')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: /拼团 ¥49.00/ })).toBeNull();
+    expect(screen.queryByText('去拼团')).toBeNull();
     for (const key of ['GET /api/v1/groupbuy/activities', 'GET /api/v1/presale/activities']) {
       expect(seen.find((r) => r.key === key)?.query).toEqual({ productId: '12', pageSize: '1' });
     }
@@ -264,7 +263,7 @@ describe('商品详情', () => {
     expect(screen.getByText('', { selector: '#product-loading' })).toBeTruthy();
 
     held.release();
-    expect(await screen.findByRole('link', { name: '拼团 ¥49.00，2 人团' })).toBeTruthy();
+    expect(await screen.findByText('2人拼团价')).toBeTruthy();
     expect(await screen.findByText('包装很严实，质感不错。')).toBeTruthy();
     expect(await screen.findByText('温感按摩油')).toBeTruthy();
     expect(screen.getByRole('link', { name: '领取优惠券' })).toBeTruthy();
@@ -676,7 +675,16 @@ describe('商品详情', () => {
     await signIn();
     await renderPage(<ProductPage />);
     expect(await screen.findByText('2人拼团价')).toBeTruthy();
-    expect(screen.getByRole('button', { name: /单独购买 ¥59.00/ })).toBeTruthy();
+    // The box is the price: no 2 人团 note under it, the sales inside it, no plain price row.
+    const box = document.querySelector('.product__promotion') as HTMLElement;
+    expect(within(box).queryByText('2 人团')).toBeNull();
+    expect(within(box).getByText('已售 128')).toBeTruthy();
+    expect(document.querySelector('.product__price-row')).toBeNull();
+    const single = screen.getByRole('button', { name: /单独购买 ¥59.00/ });
+    expect(single.className).toContain('product__buy--groupbuy-single');
+    expect(screen.getByRole('button', { name: '立即开团 ¥49.00' }).className).toContain(
+      'product__buy--groupbuy',
+    );
     fireEvent.click(await screen.findByRole('button', { name: '立即开团 ¥49.00' }));
     fireEvent.click(await screen.findByRole('button', { name: '立即开团' }));
     await waitFor(() =>
@@ -711,6 +719,14 @@ describe('商品详情', () => {
       '预售',
     );
     expect(screen.queryByRole('button', { name: '加入购物车' })).toBeNull();
+    const box = document.querySelector('.product__promotion') as HTMLElement;
+    expect(within(box).getByText('付款后 10 天内发货')).toBeTruthy();
+    expect(within(box).getByText('已售 128')).toBeTruthy();
+    expect(document.querySelector('.product__price-row')).toBeNull();
+    expect(screen.queryByText('去预订')).toBeNull();
+    expect(screen.getByRole('button', { name: '立即预订 ¥49.00' }).className).toContain(
+      'product__buy--presale',
+    );
     fireEvent.click(await screen.findByRole('button', { name: '立即预订 ¥49.00' }));
     fireEvent.click(await screen.findByRole('button', { name: '立即预订' }));
     await waitFor(() =>

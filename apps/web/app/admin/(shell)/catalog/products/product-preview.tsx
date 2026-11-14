@@ -79,14 +79,21 @@ body {
 .pp-buy { background: #e1251b; }
 `;
 
-/** The lowest price among the SKUs a shopper can pick, as the storefront shows it. */
-export function shownPrice(skus: readonly ProductSkuInput[]): string | null {
-  let lowest: string | null = null;
-  for (const sku of skus) {
-    if (!sku.isVisible || !isMoney(sku.price)) continue;
-    if (lowest === null || moneyToFen(sku.price) < moneyToFen(lowest)) lowest = sku.price;
-  }
-  return lowest;
+/**
+ * The 售价 and 原价 a shopper sees before picking a spec, as `rollupProduct` saves them: the first
+ * visible SKU (by 排序, then row order) that has stock, else the first visible one.
+ */
+export function shownPrice(skus: readonly ProductSkuInput[]): {
+  price: string;
+  originalPrice: string | undefined;
+} | null {
+  const visible = skus
+    .map((sku, index) => ({ sku, index }))
+    .filter(({ sku }) => sku.isVisible && isMoney(sku.price))
+    .sort((a, b) => (a.sku.sortOrder ?? 0) - (b.sku.sortOrder ?? 0) || a.index - b.index)
+    .map(({ sku }) => sku);
+  const shown = visible.find((sku) => (sku.stock ?? 0) > 0) ?? visible[0];
+  return shown ? { price: shown.price, originalPrice: shown.originalPrice } : null;
 }
 
 /** 划线价 only when it is above the price, as `strikePrice` in the mini-program. */
@@ -160,7 +167,6 @@ export function ProductPreview({ form, sales = 0 }: { form: FormInstance; sales?
   const sliderImages = Form.useWatch<string[] | undefined>('sliderImages', form);
   const videoUrl = Form.useWatch<string | undefined>('videoUrl', form);
   const videoPosterUrl = Form.useWatch<string | undefined>('videoPosterUrl', form);
-  const originalPrice = Form.useWatch<string | undefined>('originalPrice', form);
   const boost = Form.useWatch<number | undefined>('displaySalesBoost', form);
   const skus = Form.useWatch<ProductSkuInput[] | undefined>('skus', form);
   const params = Form.useWatch<ProductParam[] | undefined>('params', form);
@@ -176,8 +182,9 @@ export function ProductPreview({ form, sales = 0 }: { form: FormInstance; sales?
   ];
   const current = slides.length > 0 ? slide % slides.length : 0;
   const shown = slides[current];
-  const price = shownPrice(skus ?? []);
-  const strike = strikeOf(price, originalPrice);
+  const pair = shownPrice(skus ?? []);
+  const price = pair?.price ?? null;
+  const strike = strikeOf(price, pair?.originalPrice);
   const shownSales = sales + (boost ?? 0);
   const namedParams = (params ?? []).filter((param) => param.name.trim() !== '');
 

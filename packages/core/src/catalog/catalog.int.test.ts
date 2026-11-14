@@ -288,7 +288,7 @@ describe('products', () => {
     ).toEqual([{ id: 'html', type: 'richText', html: '<p>只有文字</p>' }]);
   });
 
-  it('rolls the denormalised price and stock up from the visible SKUs', async () => {
+  it('shows the first SKU’s 售价 and 原价, moving on when it sells out', async () => {
     const product = await makeProduct(asAdmin(), {
       specMode: true,
       specs: [{ name: '尺码', values: [{ value: 'M' }, { value: 'L' }] }],
@@ -296,6 +296,7 @@ describe('products', () => {
         {
           specValues: { 尺码: 'M' },
           price: '99.00',
+          originalPrice: '129.00',
           stock: 3,
           isDefault: true,
           isVisible: true,
@@ -312,8 +313,47 @@ describe('products', () => {
       ],
     });
 
-    expect(product.price).toBe('79.00');
+    // Not the lowest (79.00): the first spec, with its own 原价 as the 划线价.
+    expect(product.price).toBe('99.00');
+    expect(product.originalPrice).toBe('129.00');
     expect(product.stock).toBe(8);
+
+    // The first spec sells out: the page shows the next one, which has no 原价.
+    const m = await firstSkuId(harness, product.id);
+    await harness.ctx.withTx((tx) => catalogStockPort.reserve(tx, 9, [{ skuId: m, quantity: 3 }]));
+    const soldOut = await repo.findProduct(harness.ctx.db, Number(product.id));
+    expect(soldOut!.price).toBe('79.00');
+    expect(soldOut!.originalPrice).toBeNull();
+  });
+
+  it('keeps the first SKU’s price when every SKU is sold out, and ignores a product-level 划线价', async () => {
+    const product = await makeProduct(asAdmin(), {
+      originalPrice: '199.00',
+      specMode: true,
+      specs: [{ name: '尺码', values: [{ value: 'M' }, { value: 'L' }] }],
+      skus: [
+        {
+          specValues: { 尺码: 'M' },
+          price: '99.00',
+          stock: 0,
+          isDefault: true,
+          isVisible: true,
+          sortOrder: 0,
+        },
+        {
+          specValues: { 尺码: 'L' },
+          price: '79.00',
+          originalPrice: '79.00',
+          stock: 0,
+          isDefault: false,
+          isVisible: true,
+          sortOrder: 1,
+        },
+      ],
+    });
+
+    expect(product.price).toBe('99.00');
+    expect(product.originalPrice).toBeNull();
   });
 
   it('excludes an invisible SKU from the price and the stock', async () => {

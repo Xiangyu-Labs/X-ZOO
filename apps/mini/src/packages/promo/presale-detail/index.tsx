@@ -28,6 +28,7 @@ import { Button } from '@/ui/button';
 import { Empty } from '@/ui/empty';
 import { ErrorBlock } from '@/ui/error-block';
 import { PageShell } from '@/ui/page-shell';
+import { hasPerOrderLimit } from '@shop/contracts/catalog/per-order';
 import './index.scss';
 
 type Activity = ResponseOf<'presale.detail'>;
@@ -127,7 +128,9 @@ function Detail({ activity, onStale }: { activity: Activity; onStale: () => void
         lines={[
           `全款预订，${shipText(activity.shipAfterDays)}`,
           '下单时支付全部货款，无需另付尾款',
-          `每单限购 ${activity.perOrderQuantity} 件`,
+          ...(hasPerOrderLimit(activity.perOrderQuantity)
+            ? [`每单限购 ${activity.perOrderQuantity} 件`]
+            : []),
         ]}
       />
 

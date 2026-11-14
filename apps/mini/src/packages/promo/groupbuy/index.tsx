@@ -86,7 +86,7 @@ export default function GroupbuyListPage() {
                 layout="list"
                 activity={phase === 'upcoming' ? '即将开始' : `${card.seatsRequired}人团`}
                 activityPrice={activityPrice}
-                onClick={() => navigate({ route: 'groupbuy', params: { id: card.activityId } })}
+                onClick={() => navigate({ route: 'product', params: { id: card.productId } })}
               />
             );
           }}

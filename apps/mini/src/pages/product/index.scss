@@ -86,41 +86,6 @@
     @include line-clamp(2);
   }
 
-  &__activities {
-    display: flex;
-    flex-direction: column;
-    gap: $space-2;
-    margin-top: $space-3;
-    padding: $space-3 $space-5;
-    background: var(--color-surface);
-  }
-
-  &__activity {
-    display: flex;
-    align-items: center;
-    gap: $space-3;
-    padding: $space-3 $space-4;
-    border-radius: $radius-sm;
-    background: var(--color-primary-soft);
-    color: var(--color-primary-text);
-  }
-
-  &__activity-kind {
-    @include text($font-caption);
-    font-weight: 600;
-  }
-
-  &__activity-note {
-    flex: 1;
-    min-width: 0;
-    @include text($font-caption);
-    @include ellipsis;
-  }
-
-  &__activity-go {
-    @include text($font-caption);
-  }
-
   &__cells {
     margin-top: $space-3;
     background: var(--color-surface);
@@ -293,4 +258,41 @@
   color: #fff;
   opacity: 0.8;
   margin-top: 8px;
+}
+
+.product__promotion-sales {
+  display: block;
+  margin-top: 8px;
+  font-size: 24px;
+  opacity: 0.9;
+}
+
+// The action bar under an activity, in its box's colours (blue 拼团, pink 预售). Two classes, so
+// they win over the button's own variant colours whatever order the stylesheets load in.
+.shop-btn.product__buy {
+  border: 0;
+  color: #fff;
+}
+.shop-btn.product__buy--groupbuy {
+  background: linear-gradient(110deg, #238cff, #437cf5);
+}
+.shop-btn.product__buy--groupbuy-single {
+  background: #e8f1ff;
+  color: #2f6fe0;
+}
+.shop-btn.product__buy--presale {
+  background: linear-gradient(110deg, #e9578c, #f58ca9);
+}
+.product__buy-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.2;
+}
+.product__buy-price {
+  font-size: 30px;
+  font-weight: 600;
+}
+.product__buy-action {
+  font-size: 22px;
 }

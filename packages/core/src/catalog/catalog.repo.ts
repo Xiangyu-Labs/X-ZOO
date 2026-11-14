@@ -1174,7 +1174,7 @@ export async function releaseSoldSkuStock(
 }
 
 /**
- * Recompute the denormalised `products.price/cost/stock/sales` from the SKUs.
+ * Recompute the denormalised `products.price/originalPrice/cost/stock/sales` from the SKUs.
  *
  * One statement with sub-selects rather than a read in the service: the values
  * are derived, so they must be derived from what is committed at this instant,
@@ -1182,10 +1182,16 @@ export async function releaseSoldSkuStock(
  * and every product save.
  */
 export async function rollupProduct(tx: Tx, productId: number): Promise<void> {
+  // The price a shopper sees before picking a spec is the first SKU's pair (售价 and its 原价 as
+  // 划线价), skipping one that is sold out or hidden (停售). With every visible SKU sold out it is
+  // still the first one's, so the page does not show ¥0.
+  const shown = (column: 'price' | 'original_price') =>
+    sql`(select s.${sql.raw(column)} from ${productSkus} s where s.product_id = ${productId} and s.is_visible order by (s.stock > 0) desc, s.sort_order, s.id limit 1)`;
   await tx
     .update(products)
     .set({
-      price: sql`coalesce((select min(s.price) from ${productSkus} s where s.product_id = ${productId} and s.is_visible), 0)`,
+      price: sql`coalesce(${shown('price')}, 0)`,
+      originalPrice: shown('original_price'),
       cost: sql`(select min(s.cost) from ${productSkus} s where s.product_id = ${productId} and s.is_visible)`,
       stock: sql`coalesce((select sum(s.stock) from ${productSkus} s where s.product_id = ${productId} and s.is_visible), 0)`,
       sales: sql`coalesce((select sum(s.sales) from ${productSkus} s where s.product_id = ${productId}), 0)`,

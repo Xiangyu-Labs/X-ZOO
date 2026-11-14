@@ -74,6 +74,7 @@ const RAW_REQUEST_MOCKS = [
 
 /** `@shop/contracts` modules with no zod import, allowed at runtime. */
 const CONTRACTS_RUNTIME = [
+  '@shop/contracts/catalog/per-order',
   '@shop/contracts/decor/link-route',
   '@shop/contracts/storage/image-variants',
   '@shop/contracts/system/theme',

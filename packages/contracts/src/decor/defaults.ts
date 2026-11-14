@@ -95,11 +95,6 @@ export const USER_CENTER_DEFAULT_DOCUMENT: PageDocument = {
             link: { kind: 'route', to: { route: 'myReviews', params: {} } },
           },
           {
-            label: '发票管理',
-            action: 'link',
-            link: { kind: 'route', to: { route: 'invoices', params: {} } },
-          },
-          {
             label: '消息中心',
             action: 'link',
             link: { kind: 'route', to: { route: 'messages', params: {} } },
@@ -119,4 +114,4 @@ export const USER_CENTER_DEFAULT_DOCUMENT: PageDocument = {
 };
 
 /** The `version` the built-in 个人中心 is served with. Bump when it changes. */
-export const USER_CENTER_DEFAULT_VERSION = 'builtin-user-center-v2-2';
+export const USER_CENTER_DEFAULT_VERSION = 'builtin-user-center-v2-3';

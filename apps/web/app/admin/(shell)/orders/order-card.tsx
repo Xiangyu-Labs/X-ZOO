@@ -133,7 +133,33 @@ export function OrderCard({
           </Col>
         </Row>
       </div>
+      <BuyerRemark remark={row.buyerRemark} />
     </Card>
+  );
+}
+
+/**
+ * 买家备注 under the order, only when the buyer wrote one: staff packing from the list
+ * must not have to open every order to find "请在工作日送达".
+ */
+function BuyerRemark({ remark }: { remark: string | null }) {
+  const text = remark?.trim() ?? '';
+  if (text === '') return null;
+  return (
+    <Flex
+      gap={8}
+      align="flex-start"
+      style={{
+        padding: '8px 16px',
+        background: 'var(--ant-color-warning-bg)',
+        borderTop: '1px solid var(--ant-color-border-secondary)',
+      }}
+    >
+      <Text type="secondary" style={{ flexShrink: 0 }}>
+        买家备注
+      </Text>
+      <Text style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{text}</Text>
+    </Flex>
   );
 }
 

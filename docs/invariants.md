@@ -341,10 +341,11 @@ A refund release is idempotent **per refund**, not per order: two partial refund
 
 ### CAT-006
 
-Editing a product keeps the SKU rows their history hangs on: a price edit leaves the SKU id, its stock and its sales alone, and the denormalised product price and stock are rolled up from the visible SKUs only.
+Editing a product keeps the SKU rows their history hangs on: a price edit leaves the SKU id, its stock and its sales alone, and the denormalised product price and stock are rolled up from the visible SKUs only: the price shown is the 售价 and 原价 of the first visible SKU in stock (by sort order), or of the first visible SKU when all are sold out.
 
 - `packages/core/src/catalog/catalog.int.test.ts::products > keeps a SKU id, its stock and its sales when the price is edited`
-- `packages/core/src/catalog/catalog.int.test.ts::rolls the denormalised price and stock up from the visible SKUs`
+- `packages/core/src/catalog/catalog.int.test.ts::shows the first SKU’s 售价 and 原价, moving on when it sells out`
+- `packages/core/src/catalog/catalog.int.test.ts::keeps the first SKU’s price when every SKU is sold out, and ignores a product-level 划线价`
 - `packages/core/src/catalog/catalog.int.test.ts::excludes an invisible SKU from the price and the stock`
 - `apps/web/app/admin/(shell)/catalog/products/product-editor.test.tsx::商品编辑器 > turns the detail response into form input without a single null`
 
