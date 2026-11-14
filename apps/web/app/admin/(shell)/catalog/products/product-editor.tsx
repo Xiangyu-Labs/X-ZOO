@@ -227,42 +227,46 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
   );
 
   const fields = useMemo(
-    () =>
-      [
-        ...buildFields({
-          labelOptions,
-          protectionOptions,
-          shippingTemplateOptions,
-          templates,
-          specs,
-          specMode,
-          kind,
-          showCost,
-          setSpecs,
-        }),
-        {
-          kind: 'custom',
-          name: 'promotion',
-          section: '预售与拼单',
-          label: '销售模式',
-          span: 24,
-          render: ({ value, onChange, disabled }) => (
-            <ProductPromotionField
-              value={value as AdminProductForm['promotion']}
-              onChange={(next) => {
-                setPromotionDirty(true);
-                onChange(next);
-              }}
-              skus={promotionSkus}
-              state={detail.data?.promotion}
-              shippingOptions={shippingTemplateOptions}
-              disabled={disabled}
-              canPresale={mayWrite && can('presale:activity:write')}
-              canGroupbuy={mayWrite && can('groupbuy:activity:write')}
-            />
-          ),
-        },
-      ] satisfies FieldSpec<Extract<keyof AdminProductForm, string>>[],
+    (): FieldSpec<Extract<keyof AdminProductForm, string>>[] => {
+      const base = buildFields({
+        labelOptions,
+        protectionOptions,
+        shippingTemplateOptions,
+        templates,
+        specs,
+        specMode,
+        kind,
+        showCost,
+        setSpecs,
+      });
+      const promotion: FieldSpec<Extract<keyof AdminProductForm, string>> = {
+        kind: 'custom',
+        name: 'promotion',
+        section: '预售与拼单',
+        label: '销售模式',
+        span: 24,
+        render: ({ value, onChange, disabled }) => (
+          <ProductPromotionField
+            value={value as AdminProductForm['promotion']}
+            onChange={(next) => {
+              setPromotionDirty(true);
+              onChange(next);
+            }}
+            skus={promotionSkus}
+            state={detail.data?.promotion}
+            shippingOptions={shippingTemplateOptions}
+            disabled={disabled}
+            canPresale={mayWrite && can('presale:activity:write')}
+            canGroupbuy={mayWrite && can('groupbuy:activity:write')}
+          />
+        ),
+      };
+      // Sections render in the order their first field appears: 预售与拼单 belongs with the
+      // prices and stock it overrides, so it goes in before 详情 rather than at the very end.
+      const detailAt = base.findIndex((field) => field.section === '详情');
+      const at = detailAt === -1 ? base.length : detailAt;
+      return [...base.slice(0, at), promotion, ...base.slice(at)];
+    },
     // `labelOptions`/`protectionOptions` are rebuilt every render; their data is what matters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [

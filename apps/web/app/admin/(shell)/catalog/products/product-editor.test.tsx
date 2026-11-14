@@ -285,6 +285,18 @@ describe('商品编辑器', () => {
     });
   });
 
+  it('puts 预售与拼单 with the prices, above 详情', async () => {
+    stubApi();
+    renderAdmin(withStubAssets(<ProductEditorPage productId="1" />), { identity: editor });
+
+    await waitFor(() => expect(screen.getByLabelText('商品名称')).toHaveValue('简约白 T 恤'));
+    const titles = Array.from(document.querySelectorAll('.ant-card-head-title')).map(
+      (node) => node.textContent,
+    );
+    expect(titles.indexOf('预售与拼单')).toBeGreaterThan(titles.indexOf('价格与规格'));
+    expect(titles.indexOf('预售与拼单')).toBeLessThan(titles.indexOf('详情'));
+  });
+
   it('shows the main video as a playable thumbnail, and drops its cover with it', async () => {
     const withVideo = {
       ...detail,
