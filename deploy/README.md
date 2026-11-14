@@ -188,6 +188,7 @@ longer be named. A rollback target has to be nameable.
 ./shop upgrade  --web …@sha256:… --worker …@sha256:… --edge …@sha256:… [--app-version <commit>]
 ./shop rollback --last-upgrade
 ./shop backup
+./shop logs     web --since "3 days ago" --grep <请求编号>   # a service's log, across releases
 ./shop resolve  <commit>        # the three digests CI published for a commit
 ./shop compose  <arguments>     # docker compose, with this deployment's project, files and settings
 ./shop hostname                 # NEXT_HOST, while the Traefik overlay is applied
@@ -243,6 +244,9 @@ proves it got past the settings.
    ```sh
    free -m; df -h /var/lib/docker
    ```
+
+   And that the journal, where every container logs, is kept on disk for at least 30 days
+   ("Logs" below): `ls -d /var/log/journal` and `journalctl --disk-usage`.
 
 2. **Configure it.** From a machine with the repository:
 
@@ -591,7 +595,7 @@ directory: `web` answers it, and a `robots.txt` put there is ignored.
   alive) and `worker:heartbeat:job`, written when a job completes, no older than three minutes
   (`JOB_HEARTBEAT_MAX_AGE_MS`), so a worker whose queue consumer is stuck is not ready. It
   answers 503 naming the check that failed, and nothing else: no error text, no host, no
-  connection string. The detail is in `./shop compose logs web`.
+  connection string. The detail is in `./shop logs web`.
 
 The container healthchecks use only the shallow probes. A container probe that opens a database
 connection restarts the container whenever the database blips, which turns a degradation into an
@@ -603,6 +607,39 @@ port, the migrations applied with the tables the release needs, and a fresh `wor
 The worker has no HTTP surface, so its probe reads `worker:heartbeat` and requires it to be
 **recent**. The key is refreshed from the same event loop that runs the jobs and dropped before
 draining on SIGTERM, so a wedged worker turns unhealthy, not merely a dead one.
+
+## Logs
+
+Every container logs to the **host's journal** (`compose.yml`, the `journald` log driver), not to
+a file inside the container. An upgrade or a rollback recreates the containers, and a container's
+own log file goes with it; in the journal each line keeps its container's name and outlives it.
+
+```sh
+./shop logs web                                  # the last 24 hours, across releases
+./shop logs worker --since "2026-11-10 09:00" --until "2026-11-10 10:00"
+./shop logs web --since "7 days ago" --grep <请求编号>
+./shop logs edge -f
+```
+
+`web` logs one JSON line per request with its `requestId`. A failed admin operation is in the
+admin's 系统 → 操作日志 (filter 结果 = 失败) with the time, the operation, who did it and the
+请求编号; `--grep` with that number finds what the server logged for it. `./shop compose logs`
+still works, for the current containers only.
+
+**Keep at least 30 days.** How long the journal keeps lines is the host's journald setting, shared
+with the rest of the system. Ubuntu keeps it on disk (`/var/log/journal`) and caps it at 10% of the
+file system (at most 4 GB), with no age limit. `./shop status` prints how far back the web log
+reaches (`logs: web back to …`); if that is under 30 days, or it says the journal is not kept on
+disk, raise the cap once, as root:
+
+```sh
+sudo mkdir -p /etc/systemd/journald.conf.d
+printf '[Journal]\nStorage=persistent\nSystemMaxUse=4G\n' | sudo tee /etc/systemd/journald.conf.d/x-zoo.conf
+sudo systemctl restart systemd-journald
+```
+
+The SSH user reads the journal through the `systemd-journal` group (Ubuntu's `ubuntu` user is in
+`adm`, which also reads it); `shop logs` says so when it cannot.
 
 ## Where uploads are served from
 

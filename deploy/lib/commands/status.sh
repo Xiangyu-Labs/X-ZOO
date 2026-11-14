@@ -5,7 +5,8 @@
 #
 # Prints the release in `REVISION`, the image each application service is
 # running (and what `deployment.env` pins, where the two differ), the last
-# upgrade manifest, and then runs the readiness gate (lib/readiness.sh).
+# upgrade manifest, how far back the web log reaches (`shop logs`), and then
+# runs the readiness gate (lib/readiness.sh).
 #
 # Read-only: it starts nothing, stops nothing and writes nothing. Use it after
 # a release, during a first-deploy smoke test, or to find out why a release
@@ -23,7 +24,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 while [ "$#" -gt 0 ]; do
   case "$1" in
     -h | --help)
-      sed -n '2,14p' "$0"
+      sed -n '2,15p' "$0"
       exit 0
       ;;
     *)
@@ -64,6 +65,20 @@ if [ -n "$manifest" ]; then
   sed 's/^/  /' "$manifest"
 else
   say "last upgrade: <none in $backup_dir>"
+fi
+
+say ''
+# The journal is what keeps a log past the release that wrote it. One that is
+# not on disk (/var/log/journal) is lost on a reboot and kept small.
+if ! command -v journalctl >/dev/null; then
+  say 'logs: no journalctl on this host, so shop logs cannot read anything'
+else
+  prefix="${NEXT_CONTAINER_PREFIX:-$(setting NEXT_CONTAINER_PREFIX)}"
+  oldest="$(journalctl --no-pager --quiet --output short-iso "CONTAINER_NAME=${prefix:-x-zoo}-web" 2>/dev/null |
+    head -n1 | cut -d' ' -f1 || true)"
+  say "logs: web back to ${oldest:-<nothing in the journal>}"
+  [ -d /var/log/journal ] ||
+    say '  but the journal is not kept on disk; see "Logs" in deploy/README.md'
 fi
 
 say ''

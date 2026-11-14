@@ -37,8 +37,15 @@ name: x-zoo
 # point and colliding with the live stack is not.
 x-restart: &restart unless-stopped
 
+# Every container logs to the host's journal. A file log (Docker's default
+# json-file) belongs to its container, and an upgrade or a rollback recreates
+# the containers, so each release used to start with no log of the one before.
+# In the journal every line keeps its container's name: `shop logs web` reads
+# across releases, for as long as the host's journald keeps them ("Logs" in
+# deploy/README.md: at least 30 days). The size cap is journald's too.
 x-logging: &logging
-  options: { max-size: '10m', max-file: '3' }
+  driver: journald
+  options: { tag: '{{.Name}}' }
 
 services:
   postgres:
