@@ -6,6 +6,7 @@ import {
 } from '../catalog';
 import type { PageQuery } from '@shop/contracts/conventions';
 import { storedDescriptionBlocks } from '@shop/contracts/catalog/description';
+import { PER_ORDER_UNLIMITED } from '@shop/contracts/catalog/per-order';
 import type {
   PresaleActivityDetail,
   PresaleActivityForm,
@@ -415,7 +416,7 @@ function activityValues(body: PresaleActivityForm) {
     depositAmount: null,
     stock: body.stock,
     totalQuota: body.totalQuota ?? null,
-    perOrderQuantity: body.perOrderQuantity,
+    perOrderQuantity: body.perOrderQuantity ?? PER_ORDER_UNLIMITED,
     startAt: new Date(body.startAt),
     endAt: new Date(body.endAt),
     finalPaymentStartAt: null,

@@ -1,3 +1,4 @@
+import { PER_ORDER_UNLIMITED } from '@shop/contracts/catalog/per-order';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { and, eq, inArray } from 'drizzle-orm';
 import { products, productSkus } from '@shop/db/schema/catalog';
@@ -965,6 +966,21 @@ describe('the admin surface', () => {
 
     const detail = await service.adminActivityDetail(ctx, { id: created.id });
     expect(detail.skus).toHaveLength(1);
+  });
+
+  it('stores an absent 每单限购 as 不限, not 1', async () => {
+    const fixture = await makeActivity();
+    await harness.ctx.db
+      .update(presaleActivities)
+      .set({ status: 'ended' })
+      .where(eq(presaleActivities.id, fixture.activityId));
+    const { perOrderQuantity: _absent, ...withoutLimit } = form({
+      productId: String(fixture.productId),
+    });
+
+    const created = await service.adminActivityCreate(asAdmin(ADMIN), withoutLimit as never);
+
+    expect(created.perOrderQuantity).toBe(PER_ORDER_UNLIMITED);
   });
 
   it('refuses a SKU that belongs to another product', async () => {

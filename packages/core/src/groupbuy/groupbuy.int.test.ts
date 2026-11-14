@@ -1,3 +1,4 @@
+import { PER_ORDER_UNLIMITED } from '@shop/contracts/catalog/per-order';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -1540,6 +1541,37 @@ describe('the admin surface', () => {
     // An edit must not reset the counters.
     expect(edited.skus[0]).toMatchObject({ stock: 50, sales: 1 });
     expect(edited.title).toBe('改过名字的活动');
+  });
+
+  it('stores an empty 每单限购 as 不限, not 1', async () => {
+    const fixture = await makeActivity();
+    const admin = asAdmin([
+      'groupbuy:activity:read',
+      'groupbuy:activity:write',
+      'catalog:product:write',
+    ]);
+    const before = await service.adminActivityDetail(admin, { id: String(fixture.activityId) });
+    const edited = await service.adminActivityUpdate(
+      admin,
+      { id: String(fixture.activityId) },
+      {
+        productId: String(fixture.productId),
+        title: before.title,
+        sliderImages: [],
+        status: 'active',
+        price: '59.00',
+        seatsRequired: before.seatsRequired,
+        groupTtlSeconds: before.groupTtlSeconds,
+        stock: 50,
+        perOrderQuantity: null,
+        startAt: before.startAt,
+        endAt: before.endAt,
+        sortOrder: 0,
+        skus: [{ skuId: String(fixture.skuId), price: '59.00', stock: 50, isEnabled: true }],
+      },
+    );
+
+    expect(edited.perOrderQuantity).toBe(PER_ORDER_UNLIMITED);
   });
 
   describe('editing while orders move the stock', () => {
