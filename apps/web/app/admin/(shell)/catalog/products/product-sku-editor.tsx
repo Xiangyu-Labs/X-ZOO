@@ -27,6 +27,7 @@ import type {
 import { useRouteMutation } from '@/admin/api/hooks';
 import { useAssetPicker } from '@/admin/kit/asset/asset-picker';
 import { MoneyInput } from '@/admin/kit/form/money-input';
+import { isMoney, moneyToFen } from '@/admin/kit/money';
 import { Thumbnail } from '@/admin/kit/thumbnail';
 
 /**
@@ -63,6 +64,15 @@ function comboKey(specValues: Record<string, string>): string {
 }
 
 /** A new row has no price yet: an empty box says 请填写售价 on save rather than selling at 0.00. */
+/** 原价 below 售价, which saving refuses (售价不能高于原价): marked red while typing. */
+function originalBelowPrice(row: ProductSkuInput): boolean {
+  return (
+    isMoney(row.price) &&
+    isMoney(row.originalPrice) &&
+    moneyToFen(row.originalPrice) < moneyToFen(row.price)
+  );
+}
+
 export function blankSku(specValues: Record<string, string> = {}): ProductSkuInput {
   return {
     specValues,
@@ -522,6 +532,8 @@ export function SkuMatrixEditor({
                   size="small"
                   value={row.originalPrice}
                   disabled={disabled}
+                  aria-label={`原价 ${index + 1}`}
+                  status={originalBelowPrice(row) ? 'error' : undefined}
                   onChange={(next) => patch(index, { originalPrice: next })}
                 />
               ),

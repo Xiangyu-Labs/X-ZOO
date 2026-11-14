@@ -577,14 +577,6 @@ function buildFields({
       visibleWhen: (values) => typeof values.videoUrl === 'string' && values.videoUrl !== '',
     },
     {
-      kind: 'money',
-      name: 'originalPrice',
-      section: '价格与规格',
-      label: '划线价',
-      span: 6,
-      help: '仅用于展示；真实售价在规格里',
-    },
-    {
       kind: 'number',
       name: 'sortOrder',
       section: '基本信息',
@@ -821,7 +813,6 @@ export function formValuesOf(record: AdminProductDetail): Partial<AdminProductFo
     ...(record.videoUrl === null ? {} : { videoUrl: record.videoUrl }),
     ...(record.videoPosterUrl === null ? {} : { videoPosterUrl: record.videoPosterUrl }),
     ...(record.unitName === null ? {} : { unitName: record.unitName }),
-    ...(record.originalPrice === null ? {} : { originalPrice: record.originalPrice }),
     displaySalesBoost: record.displaySalesBoost,
     specMode: record.specMode,
     specs: record.specs.map((spec) => ({

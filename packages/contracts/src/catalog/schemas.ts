@@ -533,6 +533,10 @@ export const adminProductForm = z
     /** Only with `videoUrl`; absent shows `imageUrl` over the video. */
     videoPosterUrl: z.string().max(512).optional(),
     unitName: z.string().trim().max(32).optional(),
+    /**
+     * Ignored: the product's 划线价 is the shown SKU's 原价 (see `rollupProduct`). Still accepted
+     * so an older client that sends it is not refused.
+     */
     originalPrice: money.optional(),
     displaySalesBoost: z.number().int().min(0).max(1_000_000).default(0),
     /** `false` means one implicit SKU; `true` means the spec matrix below. */
@@ -634,6 +638,19 @@ export const adminProductForm = z
       if (value.skus.length !== 1) {
         ctx.addIssue({ code: 'custom', path: ['skus'], message: '单规格商品只能有一条库存记录' });
       }
+    }
+
+    // 原价 is shown struck through next to 售价, so it may equal 售价 (then only 售价 shows) but
+    // never sit below it. Compared in fen: both are two-decimal strings.
+    const fen = (amount: string) => Number(amount.replace('.', ''));
+    for (const [index, sku] of value.skus.entries()) {
+      if (sku.originalPrice === undefined || fen(sku.price) <= fen(sku.originalPrice)) continue;
+      const name = Object.values(sku.specValues).join('/');
+      ctx.addIssue({
+        code: 'custom',
+        path: ['skus', index, 'originalPrice'],
+        message: value.specMode && name !== '' ? `「${name}」售价不能高于原价` : '售价不能高于原价',
+      });
     }
 
     const combos = value.skus.map((sku) =>

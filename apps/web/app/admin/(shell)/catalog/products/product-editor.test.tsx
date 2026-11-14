@@ -297,6 +297,19 @@ describe('商品编辑器', () => {
     expect(titles.indexOf('预售与拼单')).toBeLessThan(titles.indexOf('详情'));
   });
 
+  it('refuses to save a 售价 above its 原价, naming the spec, without calling the server', async () => {
+    const calls = stubApi();
+    renderAdmin(withStubAssets(<ProductEditorPage productId="1" />), { identity: editor });
+    await waitFor(() => expect(screen.getByLabelText('库存 2')).toHaveValue('4'));
+
+    await userEvent.type(screen.getByLabelText('原价 2'), '40');
+    await userEvent.tab();
+    await userEvent.click(screen.getByRole('button', { name: zhName('保存') }));
+
+    expect(await screen.findByText('「XL」售价不能高于原价')).toBeInTheDocument();
+    expect(calls.some((call) => call.method === 'PUT')).toBe(false);
+  });
+
   it('shows the main video as a playable thumbnail, and drops its cover with it', async () => {
     const withVideo = {
       ...detail,
