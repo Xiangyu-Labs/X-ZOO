@@ -460,7 +460,10 @@ function Detail({
           title="已选"
           label={`选择规格，${chosenText}`}
           value={chosenText}
-          onClick={() => (activity ? openActivity() : openSku(canCart ? ['cart', 'buy'] : ['buy']))}
+          // In a team already, 立即开团 is 查看我的团: the spec is chosen for 单独购买.
+          onClick={() =>
+            activity && !myTeam ? openActivity() : openSku(canCart ? ['cart', 'buy'] : ['buy'])
+          }
           disabled={soldOut || product.promotionConflict === true}
         />
         {display.productServiceTags && product.protections.length > 0 ? (

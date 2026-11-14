@@ -781,6 +781,24 @@ describe('商品详情', () => {
     );
   });
 
+  it('opens 已选 for 单独购买 to a shopper already in a team, not a second 开团', async () => {
+    serve({
+      'GET /api/v1/groupbuy/activities': () => ({
+        body: { ...empty, items: [groupbuyCard], total: 1 },
+      }),
+      'GET /api/v1/groupbuy/activities/7': () => ({
+        body: groupbuyDetail({ myOpenGroupId: '777', myOpenGroupRole: 'leader' }),
+      }),
+    });
+    await signIn();
+    await renderPage(<ProductPage />);
+    expect(await screen.findByRole('button', { name: '查看我的团' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('link', { name: /选择规格/ }));
+    // The product's own SKU sheet, bought at the 单独购买 price: no 立即开团 in it.
+    expect(await screen.findByRole('button', { name: '立即购买' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '立即开团' })).toBeNull();
+  });
+
   it('AGENTS 16 — reads the 拼团 again once signed in: a leader is sent to their team', async () => {
     serve({
       'GET /api/v1/groupbuy/activities': () => ({
