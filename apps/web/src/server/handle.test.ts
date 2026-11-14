@@ -1226,6 +1226,14 @@ describe('internalDetailOf', () => {
     expect(detail).toContain('Failed query: update "admins"');
     expect(detail).toContain('cause: PostgresError: invalid input syntax for type integer: "…"');
 
+    for (const value of ['p@ss\\', 'ab"cd-secret', 'x: "y" tail-secret']) {
+      const leaky = new Error(`invalid input syntax for type integer: "${value}"`);
+      expect(internalDetailOf(leaky)).toBe('Error: invalid input syntax for type integer: "…"');
+    }
+    expect(
+      internalDetailOf(new Error('value "13800138000" is out of range for type integer')),
+    ).toBe('Error: value "…" is out of range for type integer');
+
     const unique = new Error('duplicate key value violates unique constraint "admins_account_key"');
     expect(internalDetailOf(unique)).toBe(
       'Error: duplicate key value violates unique constraint "admins_account_key"',

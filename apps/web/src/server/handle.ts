@@ -682,12 +682,16 @@ async function writeAudit(
  * message, and its cause's (a failed query wraps the database's own complaint). No value of the
  * request reaches it, because the log has more readers than hold a password or a key: a query
  * error's `params:` list is cut, and so is the quoted value PostgreSQL puts after a colon
- * (`invalid input syntax for type integer: "…"`). Names it quotes elsewhere (`constraint
- * "orders_pkey"`) stay; they are the useful part.
+ * (`invalid input syntax for type integer: "…"`, `value "…" is out of range`). Names it quotes
+ * elsewhere (`constraint "orders_pkey"`) stay; they are the useful part.
  */
 export function internalDetailOf(error: unknown): string {
   const scrub = (text: string): string =>
-    (text.split(/\nparams:/)[0] ?? '').replace(/: "(?:[^"\\]|\\.)*"/g, ': "…"');
+    (text.split(/\nparams:/)[0] ?? '')
+      // PostgreSQL quotes the value raw, unescaped, so everything after `: "` to the line's end
+      // may be it; `value "…" is out of range` is the one that puts it mid-sentence.
+      .replace(/: ".*$/gm, ': "…"')
+      .replace(/value ".*" is out of range/g, 'value "…" is out of range');
   const describe = (value: unknown): string | null => {
     if (!(value instanceof Error))
       return value === undefined ? null : scrub(String(value)).slice(0, 200);

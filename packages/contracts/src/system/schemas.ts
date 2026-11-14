@@ -289,7 +289,10 @@ export const auditLogItem = z.object({
   method: z.string(),
   path: z.string(),
   target: z.string().nullable(),
-  /** `target` in words: 商品 #12, 系统设置：站点设置. `null` when there is no target. */
+  /**
+   * `target` in words: 商品 #12, 系统设置：站点设置. `null` when there is no target, or one the
+   * viewer has no words for (the raw `target` is still there for 技术信息).
+   */
   targetText: z.string().nullable(),
   status: z.number().int(),
   /** On a failure (status 400 and up): the error code answered. `null` on success. */
