@@ -44,6 +44,8 @@
 }
 
 .title {
+  // Never squeezed by the countdown and prices below it: the card grows instead.
+  flex-shrink: 0;
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
@@ -55,6 +57,7 @@
 }
 
 .bottom {
+  flex-shrink: 0;
   margin-top: auto;
 }
 
@@ -131,14 +134,17 @@
 
   .media {
     flex: 0 0 auto;
+    align-self: flex-start;
     width: 220px;
     height: 220px;
   }
 
+  // At least as tall as the picture; taller when a two-line title, the countdown, the prices
+  // and the button need it, so nothing is clipped (the title used to lose its lines).
   .body {
     flex: 1;
     box-sizing: border-box;
-    height: 220px;
+    min-height: 220px;
     padding: $space-16 $space-20;
   }
 }

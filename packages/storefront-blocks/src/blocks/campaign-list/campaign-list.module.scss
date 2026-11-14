@@ -1,6 +1,7 @@
 @use '../shared/tokens' as *;
 
 .countdown {
+  flex-shrink: 0;
   margin-top: 4px;
   color: $primary-text;
   font-size: $font-small;
