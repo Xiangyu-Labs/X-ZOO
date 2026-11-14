@@ -86,6 +86,7 @@
     @include line-clamp(2);
   }
 
+  &__mine,
   &__cells {
     margin-top: $space-3;
     background: var(--color-surface);

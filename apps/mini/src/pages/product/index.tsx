@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button as TaroButton, Swiper, SwiperItem, Text, View } from '@tarojs/components';
 import { isApiError, type ResponseOf } from '@shop/api-client';
-import { useRouteMutation, useRouteQuery } from '@shop/api-client/react';
+import { routeKey, useRouteMutation, useRouteQuery } from '@shop/api-client/react';
 import { useDisplay } from '@/app-config';
+import { useRefetchOnShow } from '@/data/use-refetch-on-show';
 import { useCartCount } from '@/data/cart';
 import { useRecordVisit } from '@/data/visits';
 import { DescriptionBlocks, hasDescription } from '@/features/content/description-blocks';
@@ -25,6 +26,7 @@ import { requireLogin, useSignedIn } from '@/session/session';
 import { Countdown } from '@/ui/countdown';
 import { ActivitySkuSheet } from '@/features/promo/activity-sku-sheet';
 import { startActivityCheckout } from '@/features/promo/checkout';
+import { OpenTeams } from '@/features/promo/open-teams';
 import { useDidShow } from '@tarojs/taro';
 import { serverNow } from '@/lib/server-clock';
 import { ActionBar, type ActionBarIcon } from '@/ui/action-bar';
@@ -54,9 +56,10 @@ type Product = ResponseOf<'catalog.productDetail'>;
 /**
  * 商品详情 (`product { id }`, pages.md §2.1): a fixed design (no longer decorated). Gallery,
  * price and sales (under a 拼团 / 预售, its coloured box instead, with the sales in it), 领券,
- * 已选 (the SkuSheet), 服务 and 参数, the review summary with the first reviews, the
- * description, 为你推荐, and the action bar: 客服, 购物车, 收藏, 加入购物车, 立即购买 (under an
- * activity, 立即预订, or 单独购买 and 立即开团, in the box's colours).
+ * 已选 (the SkuSheet), 服务 and 参数, under a 拼团 the shopper's own open team and the teams
+ * still open (去参团), the review summary with the first reviews, the description, 为你推荐, and
+ * the action bar: 客服, 购物车, 收藏, 加入购物车, 立即购买 (under an activity, 立即预订, or
+ * 单独购买 and 立即开团 / 查看我的团, in the box's colours).
  *
  * Browsing needs no session; 加入购物车, 立即购买, 收藏 and 领券 go through `requireLogin`. An
  * off-shelf or deleted product answers 404 (`catalog.productDetail` never returns one), shown
@@ -177,11 +180,33 @@ function Detail({
     { params: { id: activity?.activityId ?? '' } },
     { enabled: !currentPromotion && activitySheet && activity?.kind === 'presale' },
   );
+  // Signed in, a 拼团 is read for the shopper's own open team on it (`myOpenGroupId`): a member
+  // sent here from a shared link goes to their team instead of starting a second one.
+  const signedIn = useSignedIn();
   const groupbuyDetail = useRouteQuery(
     'groupbuy.detail',
     { params: { id: activity?.activityId ?? '' } },
-    { enabled: !currentPromotion && activitySheet && activity?.kind === 'groupbuy' },
+    {
+      enabled: activity?.kind === 'groupbuy' && (signedIn || (!currentPromotion && activitySheet)),
+    },
   );
+  // Back from 确认订单 / 收银台 / an order or the team page: whether the shopper now has a team.
+  useRefetchOnShow(routeKey('groupbuy.detail'));
+  // Read before the session (signed in from 立即开团): `myOpenGroupId` is null until read again.
+  const lastSignedIn = useRef(signedIn);
+  const refetchGroupbuy = groupbuyDetail.refetch;
+  const groupbuyEnabled = activity?.kind === 'groupbuy';
+  useEffect(() => {
+    if (lastSignedIn.current === signedIn) return;
+    lastSignedIn.current = signedIn;
+    if (signedIn && groupbuyEnabled) void refetchGroupbuy();
+  }, [signedIn, groupbuyEnabled, refetchGroupbuy]);
+  const myTeam =
+    activity?.kind === 'groupbuy' ? (groupbuyDetail.data?.myOpenGroupId ?? null) : null;
+  // The shopper's open team may be one they joined, not one they started (L8).
+  const joinedTeam = groupbuyDetail.data?.myOpenGroupRole === 'member';
+  const openTeam = (groupId: string) =>
+    navigate({ route: 'groupbuyTeam', params: { id: groupId } });
   const activityRead = activity?.kind === 'presale' ? presaleDetail : groupbuyDetail;
   const activityDetail =
     currentPromotion ?? (activity?.kind === 'presale' ? presaleDetail.data : groupbuyDetail.data);
@@ -417,6 +442,18 @@ function Detail({
         {product.subtitle ? <Text className="product__subtitle">{product.subtitle}</Text> : null}
       </View>
 
+      {myTeam ? (
+        <View className="product__mine" id="product-my-team">
+          <Cell
+            title={joinedTeam ? '你参加的团正在拼' : '你发起的团正在拼'}
+            label={joinedTeam ? '查看我参加的团' : '查看我发起的团'}
+            value="查看进度"
+            icon="group"
+            onClick={() => openTeam(myTeam)}
+          />
+        </View>
+      ) : null}
+
       <View className="product__cells">
         <ProductCoupons productId={product.id} redirect={route} />
         <Cell
@@ -446,6 +483,10 @@ function Detail({
           />
         ) : null}
       </View>
+
+      {activity?.kind === 'groupbuy' && activity.canBuy && !product.promotionConflict ? (
+        <OpenTeams activityId={activity.activityId} exclude={myTeam} onOpen={openTeam} />
+      ) : null}
 
       {display.productReviews ? <Reviews product={product} /> : null}
 
@@ -479,31 +520,42 @@ function Detail({
                 <BuyLabel price={`¥${singlePrice}`} action="单独购买" />
               </Button>
             ) : null}
-            <Button
-              size="lg"
-              block
-              className={`product__buy product__buy--${activity.kind}`}
-              disabled={!activity.canBuy}
-              onClick={openActivity}
-              {...(activity.canBuy
-                ? {
-                    label: `${activity.kind === 'groupbuy' ? '立即开团' : '立即预订'} ¥${activityPrice}${activityFrom ? '起' : ''}`,
-                  }
-                : {})}
-            >
-              {!activity.canBuy ? (
-                '已售罄'
-              ) : activity.kind === 'groupbuy' ? (
-                // Two buttons beside three icons: price over action, or 「立即开团 ¥49.00起」
-                // runs past the bar on a 375 px phone.
-                <BuyLabel
-                  price={`¥${activityPrice}${activityFrom ? '起' : ''}`}
-                  action="立即开团"
-                />
-              ) : (
-                `立即预订 ¥${activityPrice}${activityFrom ? '起' : ''}`
-              )}
-            </Button>
+            {myTeam ? (
+              <Button
+                size="lg"
+                block
+                className="product__buy product__buy--groupbuy"
+                onClick={() => openTeam(myTeam)}
+              >
+                查看我的团
+              </Button>
+            ) : (
+              <Button
+                size="lg"
+                block
+                className={`product__buy product__buy--${activity.kind}`}
+                disabled={!activity.canBuy}
+                onClick={openActivity}
+                {...(activity.canBuy
+                  ? {
+                      label: `${activity.kind === 'groupbuy' ? '立即开团' : '立即预订'} ¥${activityPrice}${activityFrom ? '起' : ''}`,
+                    }
+                  : {})}
+              >
+                {!activity.canBuy ? (
+                  '已售罄'
+                ) : activity.kind === 'groupbuy' ? (
+                  // Two buttons beside three icons: price over action, or 「立即开团 ¥49.00起」
+                  // runs past the bar on a 375 px phone.
+                  <BuyLabel
+                    price={`¥${activityPrice}${activityFrom ? '起' : ''}`}
+                    action="立即开团"
+                  />
+                ) : (
+                  `立即预订 ¥${activityPrice}${activityFrom ? '起' : ''}`
+                )}
+              </Button>
+            )}
           </>
         ) : soldOut ? (
           <Button size="lg" block disabled>
