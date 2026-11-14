@@ -18,10 +18,11 @@
    - 新增 `@shop/api-client/react` 的 `infiniteRouteQueryOptions`（d2720183c），`useInfiniteRouteQuery` 也改为用它构造选项，
      保证预取和页面读到的是同一个缓存项。
 2. **商品详情：附属请求不再等主请求**（c5037804c）。
-   - 原来：拼团 / 预售入口、领券、评价（前两条）、为你推荐要等 `catalog.productDetail` 返回、下半页挂载后才发。
+   - 原来：领券、评价（前两条）、为你推荐要等 `catalog.productDetail` 返回、下半页挂载后才发。
    - 现在：`features/product/secondary-reads.ts` 的 `usePrefetchProductReads(id)` 在商品页一打开就按路由里的 id 预取这几项，
-     与商品详情同时发出。各区块的入参也从这个模块取（`activityListInput`、`claimableInput`、`firstReviewsInput`、
-     `RECOMMENDED_INPUT`），查询键一致，区块挂载时直接用预取的结果。
+     与商品详情同时发出。各区块的入参也从这个模块取（`claimableInput`、`firstReviewsInput`、
+     `RECOMMENDED_INPUT`），查询键一致，区块挂载时直接用预取的结果。拼团 / 预售入口不再单独请求，
+     随 `catalog.productDetail` 的 `promotion` 一起返回。
    - 评价、为你推荐仍受 `app/config.display` 开关控制：关掉的不预取。
    - 评价在商品还没返回时不知道有没有评价，所以总是预取前两条：没有评价的商品多一个小请求，换来有评价的商品少一次往返。
    - 错误处理不变：

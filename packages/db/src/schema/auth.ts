@@ -134,8 +134,9 @@ export const userSessions = pgTable(
 );
 
 /**
- * Admin operation log. Written by `handle()` for every mutating admin route
- * that succeeds, plus explicitly by services for things worth a sentence.
+ * Admin operation log. Written by `handle()` for every mutating admin route,
+ * whether it succeeded or failed, and for any admin request that failed with a
+ * 5xx; plus explicitly by services for things worth a sentence.
  */
 export const auditLogs = pgTable(
   'audit_logs',
@@ -150,6 +151,15 @@ export const auditLogs = pgTable(
     /** Target of the operation when the service knows it, e.g. `coupon:42`. */
     target: varchar({ length: 128 }),
     status: integer().notNull(),
+    /** On a failure: the error code answered, e.g. `COUPON_IN_USE` or `INTERNAL`. */
+    errorCode: varchar({ length: 64 }),
+    /** On a failure: the Chinese message the person was shown. */
+    errorMessage: text(),
+    /**
+     * On a 5xx only: what went wrong inside, for whoever investigates (never shown
+     * to the person who clicked). No SQL parameters: they would carry the payload.
+     */
+    errorDetail: text(),
     /** Request body with secrets stripped. Never the raw body. */
     payload: text(),
     requestId: varchar({ length: 64 }).notNull(),
@@ -176,6 +186,9 @@ export const auditLogs = pgTable(
     index('audit_logs_admin_idx').on(t.adminId, t.createdAt),
     index('audit_logs_route_idx').on(t.routeId, t.createdAt),
     index('audit_logs_user_idx').on(t.userId, t.createdAt),
+    index('audit_logs_failed_idx')
+      .on(t.createdAt)
+      .where(sql`${t.status} >= 400`),
     check('audit_logs_actor_kind_known', sql`${t.actorKind} in ('admin', 'staff')`),
   ],
 );

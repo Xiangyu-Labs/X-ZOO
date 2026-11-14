@@ -9,10 +9,6 @@ import { useDisplay } from '@/app-config';
  * in the cache entry the section reads.
  */
 
-/** 拼团 / 预售 lists change rarely; one card per kind is enough for the entry bar. */
-export const ACTIVITY_STALE_TIME = 5 * 60_000;
-export const activityListInput = (productId: string) => ({ query: { productId, pageSize: 1 } });
-
 /** 领券: the coupons this product counts towards. */
 export const claimableInput = (productId: string) => ({ query: { productId, pageSize: 20 } });
 
@@ -26,7 +22,7 @@ export const RECOMMENDED_INPUT = { query: { feature: 'recommended' as const, pag
 /**
  * Starts 商品详情's secondary reads together with `catalog.productDetail`, from the id in the
  * route, instead of after the product has answered and the page below it has mounted: one
- * round trip sooner for the 拼团 / 预售 bars, 领券, 评价 and 为你推荐.
+ * round trip sooner for 领券, 评价 and 为你推荐. (The 拼团 / 预售 comes with the product.)
  *
  * A prefetch never throws. A read that fails here is asked again by its section when it mounts
  * (and shows nothing, as before, if it fails again); a product that is gone (404) still shows
@@ -41,10 +37,6 @@ export function usePrefetchProductReads(productId: string): void {
   const recommended = display.productRecommendations;
   useEffect(() => {
     if (!productId) return;
-    const stale = { staleTime: ACTIVITY_STALE_TIME };
-    const input = activityListInput(productId);
-    void queryClient.prefetchQuery(routeQueryOptions(api, 'groupbuy.list', input, stale));
-    void queryClient.prefetchQuery(routeQueryOptions(api, 'presale.list', input, stale));
     void queryClient.prefetchQuery(
       routeQueryOptions(api, 'coupon.claimableList', claimableInput(productId)),
     );

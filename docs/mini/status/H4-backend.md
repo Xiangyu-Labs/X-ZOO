@@ -98,10 +98,8 @@ Not done (not assigned): D's 「允许生成商品海报」 switch would be one 
   in the e2e seed) come first either way.
 - Test fixtures: `apps/mini/src/test/order-fixtures.ts` items default to
   `reviewed: false, reviewable: false`, details to `groupbuyTeamId: null`.
-- 商品详情 拼团 / 预售 bars (`features/product/activities.ts`): replace the two
-  `pageSize: 100` reads and the local filter with
-  `useRouteQuery('groupbuy.list', { query: { productId, pageSize: 1 } })` (and the same for
-  `presale.list`); keep the `canBuy` check.
+- 商品详情 拼团 / 预售 bars: done differently — `catalog.productDetail` carries the live
+  activity as `promotion` (with `canBuy`), and the page reads no activity list at all.
 - 商品详情 领券 row (`features/product/product-coupons.tsx`): pass `productId` to
   `coupon.claimableList`.
 - 商品列表 (`packages/goods/list`): pass `couponId` through to `catalog.productList` and drop

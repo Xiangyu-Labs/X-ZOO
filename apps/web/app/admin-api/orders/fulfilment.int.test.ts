@@ -346,12 +346,15 @@ describe('POST /admin-api/orders/:id/shipments', () => {
       { params: Promise.resolve({ id: String(placed.orderId) }) },
     );
     expect(response.status).toBe(403);
-    expect(
-      (await harness.ctx.db.select().from(auditLogs)).filter(
-        // Sign-ins are audited too; this test is about the operation.
-        (row) => row.routeId !== 'auth.adminLogin',
-      ),
-    ).toHaveLength(0);
+    const refused = (await response.json()) as { code: string };
+    // Nothing shipped; the refusal itself is in the 操作日志 as a failure.
+    expect((await orderById(placed.orderId)).status).not.toBe('shipped');
+    const rows = (await harness.ctx.db.select().from(auditLogs)).filter(
+      // Sign-ins are audited too; this test is about the operation.
+      (row) => row.routeId !== 'auth.adminLogin',
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ status: 403, errorCode: refused.code, target: null });
   });
 
   it('refuses a malformed body before it writes anything', async () => {

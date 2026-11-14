@@ -43,9 +43,8 @@ function serve(overrides: Routes = {}) {
     'GET /api/v1/catalog/products': () => ({
       body: pageOf([cardFixture(), cardFixture({ id: '31', name: '温感按摩油' })]),
     }),
-    'GET /api/v1/groupbuy/activities': () => ({ body: empty }),
-    'GET /api/v1/presale/activities': () => ({ body: empty }),
-    // The teams still open on a 拼团 (activities 7 and 9 below), asked for beside its box.
+    // A 拼团 (activities 7 and 9 below) is read for its rules and the teams still open.
+    'GET /api/v1/groupbuy/activities/7': () => ({ body: groupbuyDetail() }),
     'GET /api/v1/groupbuy/activities/7/groups': () => ({ body: { ...empty, pageSize: 5 } }),
     'GET /api/v1/groupbuy/activities/9/groups': () => ({ body: { ...empty, pageSize: 5 } }),
     'GET /api/v1/coupons': () => ({
@@ -72,6 +71,34 @@ const promotionSku = {
   originalPrice: '59.00',
   stock: 10,
 };
+/** The campaign 商品详情 is sold under, as `catalog.productDetail` answers it. */
+const groupbuyPromotion = (patch: Record<string, unknown> = {}) => ({
+  kind: 'groupbuy' as const,
+  activityId: '7',
+  price: '49.00',
+  originalPrice: '59.00',
+  endAt: '2099-12-01T00:00:00+08:00',
+  canBuy: true,
+  seatsRequired: 2,
+  shipAfterDays: null,
+  perOrderQuantity: 5,
+  skus: [promotionSku],
+  ...patch,
+});
+const presalePromotion = (patch: Record<string, unknown> = {}) => ({
+  ...groupbuyPromotion(),
+  kind: 'presale' as const,
+  seatsRequired: null,
+  shipAfterDays: 10,
+  ...patch,
+});
+/** The product, sold under this campaign. */
+const onPromotion = (
+  promotion: ReturnType<typeof groupbuyPromotion | typeof presalePromotion>,
+) => ({
+  'GET /api/v1/catalog/products/12': () => ({ body: productDetailFixture({ promotion }) }),
+});
+
 const promotionCard = {
   activityId: '7',
   productId: '12',
@@ -198,32 +225,9 @@ describe('商品详情', () => {
     expect(player.getAttribute('data-src')).toMatch(/\/uploads\/fit\.mp4$/);
   });
 
-  it('asks for this product’s activities and coupons, and shows them', async () => {
+  it('sells under the campaign the product came with, without asking for activity lists, and shows its coupons', async () => {
     const seen = serve({
-      'GET /api/v1/groupbuy/activities': () => ({
-        body: {
-          ...empty,
-          items: [
-            {
-              activityId: '7',
-              productId: '12',
-              title: '两人拼',
-              intro: null,
-              imageUrl: null,
-              price: '49.00',
-              originalPrice: '59.00',
-              seatsRequired: 2,
-              stock: 10,
-              sales: 0,
-              startAt: '2026-09-01T00:00:00+08:00',
-              endAt: '2026-12-01T00:00:00+08:00',
-              formingGroups: 0,
-              canBuy: true,
-            },
-          ],
-          total: 1,
-        },
-      }),
+      ...onPromotion(groupbuyPromotion()),
     });
     await renderPage(<ProductPage />);
 
@@ -231,9 +235,9 @@ describe('商品详情', () => {
     expect(await screen.findByText('2人拼团价')).toBeTruthy();
     expect(screen.queryByRole('link', { name: /拼团 ¥49.00/ })).toBeNull();
     expect(screen.queryByText('去拼团')).toBeNull();
-    for (const key of ['GET /api/v1/groupbuy/activities', 'GET /api/v1/presale/activities']) {
-      expect(seen.find((r) => r.key === key)?.query).toEqual({ productId: '12', pageSize: '1' });
-    }
+    expect(seen.some((r) => /^GET \/api\/v1\/(groupbuy|presale)\/activities$/.test(r.key))).toBe(
+      false,
+    );
 
     // The server narrows the coupons to those the product counts towards (COUPON-009).
     fireEvent.click(await screen.findByRole('link', { name: '领取优惠券' }));
@@ -244,32 +248,9 @@ describe('商品详情', () => {
     });
   });
 
-  it('asks for the activities, coupons, reviews and recommendations while the product is on its way', async () => {
+  it('asks for the coupons, reviews and recommendations while the product is on its way', async () => {
     const seen = serve({
-      'GET /api/v1/groupbuy/activities': () => ({
-        body: {
-          ...empty,
-          items: [
-            {
-              activityId: '7',
-              productId: '12',
-              title: '两人拼',
-              intro: null,
-              imageUrl: null,
-              price: '49.00',
-              originalPrice: '59.00',
-              seatsRequired: 2,
-              stock: 10,
-              sales: 0,
-              startAt: '2026-09-01T00:00:00+08:00',
-              endAt: '2026-12-01T00:00:00+08:00',
-              formingGroups: 0,
-              canBuy: true,
-            },
-          ],
-          total: 1,
-        },
-      }),
+      ...onPromotion(groupbuyPromotion()),
     });
     const held = holdRequests('/api/v1/catalog/products/12');
     // The app's 30 s staleTime: what the prefetch brought is not asked for again on mount.
@@ -279,8 +260,6 @@ describe('商品详情', () => {
     await renderPage(<ProductPage />, client);
 
     const secondary = [
-      'GET /api/v1/groupbuy/activities',
-      'GET /api/v1/presale/activities',
       'GET /api/v1/coupons',
       'GET /api/v1/catalog/products/12/reviews',
       'GET /api/v1/catalog/products',
@@ -300,8 +279,6 @@ describe('商品详情', () => {
   it('keeps the page up when the secondary reads fail', async () => {
     const down = () => ({ status: 500, body: { code: 'INTERNAL', message: '服务器开小差了' } });
     serve({
-      'GET /api/v1/groupbuy/activities': down,
-      'GET /api/v1/presale/activities': down,
       'GET /api/v1/coupons': down,
       'GET /api/v1/catalog/products/12/reviews': down,
       'GET /api/v1/catalog/products': down,
@@ -314,39 +291,6 @@ describe('商品详情', () => {
     expect(screen.queryByRole('link', { name: /拼团/ })).toBeNull();
     expect(screen.queryByRole('link', { name: '领取优惠券' })).toBeNull();
     expect(document.getElementById('product-recommended')).toBeNull();
-  });
-
-  it('shows no group-buy bar for an activity the shopper cannot buy', async () => {
-    serve({
-      'GET /api/v1/groupbuy/activities': () => ({
-        body: {
-          ...empty,
-          items: [
-            {
-              activityId: '7',
-              productId: '12',
-              title: '两人拼',
-              intro: null,
-              imageUrl: null,
-              price: '49.00',
-              originalPrice: '59.00',
-              seatsRequired: 2,
-              stock: 0,
-              sales: 10,
-              startAt: '2026-09-01T00:00:00+08:00',
-              endAt: '2026-12-01T00:00:00+08:00',
-              formingGroups: 0,
-              canBuy: false,
-            },
-          ],
-          total: 1,
-        },
-      }),
-    });
-    await renderPage(<ProductPage />);
-    await screen.findByText('柔雾丝绒礼盒', { selector: '#product-name' });
-    await screen.findByRole('link', { name: '领取优惠券' });
-    expect(screen.queryByRole('link', { name: /拼团/ })).toBeNull();
   });
 
   it('SYS-015 — hides 评价, 为你推荐 and 服务 when the shop switched them off', async () => {
@@ -601,9 +545,7 @@ describe('商品详情', () => {
     });
     const held = holdRequests('/api/v1/catalog/products/12');
     await renderPage(<ProductPage />);
-    await waitFor(() =>
-      expect(seen.some((r) => r.key === 'GET /api/v1/groupbuy/activities')).toBe(true),
-    );
+    await waitFor(() => expect(seen.some((r) => r.key === 'GET /api/v1/coupons')).toBe(true));
 
     held.release();
     expect(await screen.findByText('商品已下架')).toBeTruthy();
@@ -683,7 +625,7 @@ describe('商品详情', () => {
   it('starts a group purchase directly from the product detail', async () => {
     const card = { ...promotionCard, seatsRequired: 2, formingGroups: 0 };
     serve({
-      'GET /api/v1/groupbuy/activities': () => ({ body: { ...empty, items: [card], total: 1 } }),
+      ...onPromotion(groupbuyPromotion()),
       'GET /api/v1/groupbuy/activities/7': () => ({
         body: {
           ...card,
@@ -723,11 +665,9 @@ describe('商品详情', () => {
     );
   });
 
-  it('shows the teams still open to a guest, without names or faces, and 去参团 opens one', async () => {
-    const seen = serve({
-      'GET /api/v1/groupbuy/activities': () => ({
-        body: { ...empty, items: [groupbuyCard], total: 1 },
-      }),
+  it('shows a guest the 拼团 rules and the teams still open, without names or faces', async () => {
+    serve({
+      ...onPromotion(groupbuyPromotion()),
       'GET /api/v1/groupbuy/activities/7/groups': () => ({
         body: { items: [openTeam('501')], total: 1, page: 1, pageSize: 5 },
       }),
@@ -737,8 +677,12 @@ describe('商品详情', () => {
     expect(screen.getByText('可直接参与，人满即成团')).toBeTruthy();
     expect(screen.queryByText(/小\*/)).toBeNull();
     expect(document.querySelectorAll('img[src="leader.png"]').length).toBe(0);
-    // A guest has no team of their own: the activity is not read for one.
-    expect(seen.some((r) => r.key === 'GET /api/v1/groupbuy/activities/7')).toBe(false);
+    // The honest rule: no 虚拟成团, an unfilled team is refunded.
+    const rules = document.querySelector('#groupbuy-rules') as HTMLElement;
+    expect(within(rules).getByText('2 人成团，开团后 1 天内有效')).toBeTruthy();
+    expect(within(rules).getByText('到时间未凑齐，拼团自动取消，已付款项原路退回')).toBeTruthy();
+    expect(within(rules).getByText('同一活动每人同时只能有一个团在拼')).toBeTruthy();
+    expect(within(rules).getByText('每单限购 5 件')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '去参团，还差 1 人' }));
     await waitFor(() =>
       expect(taroFake.calls).toContainEqual({
@@ -750,9 +694,7 @@ describe('商品详情', () => {
 
   it('sends a shopper whose team on this 拼团 is still open to it, not to a second one', async () => {
     serve({
-      'GET /api/v1/groupbuy/activities': () => ({
-        body: { ...empty, items: [groupbuyCard], total: 1 },
-      }),
+      ...onPromotion(groupbuyPromotion()),
       'GET /api/v1/groupbuy/activities/7': () => ({
         body: groupbuyDetail({ myOpenGroupId: '777', myOpenGroupRole: 'member' }),
       }),
@@ -764,8 +706,9 @@ describe('商品详情', () => {
     await renderPage(<ProductPage />);
     expect(await screen.findByText('你参加的团正在拼')).toBeTruthy();
     expect(screen.queryByText('你发起的团正在拼')).toBeNull();
-    // Their own team is not offered again among the open ones.
-    await waitFor(() => expect(screen.getAllByText('还差 1 人成团')).toHaveLength(1));
+    // One live team per shopper per activity: no other team is offered to join.
+    await waitFor(() => expect(screen.queryByText('正在拼的团')).toBeNull());
+    expect(screen.queryByText('还差 1 人成团')).toBeNull();
     expect(screen.queryByRole('button', { name: /立即开团/ })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '查看我的团' }));
     await waitFor(() =>
@@ -776,11 +719,25 @@ describe('商品详情', () => {
     );
   });
 
+  it('opens 已选 for 单独购买 to a shopper already in a team, not a second 开团', async () => {
+    serve({
+      ...onPromotion(groupbuyPromotion()),
+      'GET /api/v1/groupbuy/activities/7': () => ({
+        body: groupbuyDetail({ myOpenGroupId: '777', myOpenGroupRole: 'leader' }),
+      }),
+    });
+    await signIn();
+    await renderPage(<ProductPage />);
+    expect(await screen.findByRole('button', { name: '查看我的团' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('link', { name: /选择规格/ }));
+    // The product's own SKU sheet, bought at the 单独购买 price: no 立即开团 in it.
+    expect(await screen.findByRole('button', { name: '立即购买' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '立即开团' })).toBeNull();
+  });
+
   it('AGENTS 16 — reads the 拼团 again once signed in: a leader is sent to their team', async () => {
     serve({
-      'GET /api/v1/groupbuy/activities': () => ({
-        body: { ...empty, items: [groupbuyCard], total: 1 },
-      }),
+      ...onPromotion(groupbuyPromotion()),
       // The server says which team is the shopper's only to a signed-in shopper.
       'GET /api/v1/groupbuy/activities/7': () => ({
         body: groupbuyDetail({ myOpenGroupId: '777', myOpenGroupRole: 'leader' }),
@@ -798,9 +755,7 @@ describe('商品详情', () => {
   it('shows the team the shopper just opened when they come back from paying', async () => {
     let mine: string | null = null;
     serve({
-      'GET /api/v1/groupbuy/activities': () => ({
-        body: { ...empty, items: [groupbuyCard], total: 1 },
-      }),
+      ...onPromotion(groupbuyPromotion()),
       'GET /api/v1/groupbuy/activities/7': () => ({
         body: groupbuyDetail({ myOpenGroupId: mine, myOpenGroupRole: mine ? 'leader' : null }),
       }),
@@ -817,20 +772,7 @@ describe('商品详情', () => {
   });
 
   it('shows the presale banner and checks out at the presale price', async () => {
-    const card = { ...promotionCard, shipAfterDays: 10 };
-    serve({
-      'GET /api/v1/presale/activities': () => ({ body: { ...empty, items: [card], total: 1 } }),
-      'GET /api/v1/presale/activities/7': () => ({
-        body: {
-          ...card,
-          sliderImages: [],
-          perOrderQuantity: 5,
-          description: null,
-          descriptionBlocks: [],
-          skus: [promotionSku],
-        },
-      }),
-    });
+    serve(onPromotion(presalePromotion()));
     await signIn();
     await renderPage(<ProductPage />);
     expect(await screen.findByText('限时预售补贴')).toBeTruthy();
@@ -908,29 +850,16 @@ describe('商品详情', () => {
     );
   });
 
-  it('does not fall back to a secondary activity when the product explicitly has no current campaign', async () => {
-    serve({
-      'GET /api/v1/catalog/products/12': () => ({
-        body: productDetailFixture({ promotion: null, promotionConflict: false }),
-      }),
-    });
-    const client = new QueryClient({
-      defaultOptions: { queries: { retry: false, staleTime: 300_000 } },
-    });
-    client.setQueryData(
-      routeQueryKey('groupbuy.list', { query: { productId: '12', pageSize: 1 } }),
-      {
-        ...empty,
-        items: [{ ...promotionCard, seatsRequired: 2, formingGroups: 0 }],
-        total: 1,
-      },
-    );
-    await renderPage(<ProductPage />, client);
+  it('sells at the product price when the product has no current campaign', async () => {
+    serve();
+    await renderPage(<ProductPage />);
     expect(await screen.findByRole('button', { name: '立即购买' })).toBeTruthy();
-    expect(screen.queryByText('限时预售补贴')).toBeNull();
+    expect(document.querySelector('.product__promotion')).toBeNull();
+    expect(document.querySelector('#presale-rules')).toBeNull();
+    expect(document.querySelector('#groupbuy-rules')).toBeNull();
   });
 
-  it('blocks purchasing while legacy campaign conflicts await an operator choice', async () => {
+  it('blocks purchasing while two campaigns conflict and await an operator choice', async () => {
     serve({
       'GET /api/v1/catalog/products/12': () => ({
         body: productDetailFixture({ promotion: null, promotionConflict: true }),
@@ -968,11 +897,42 @@ describe('商品详情', () => {
     });
     await renderPage(<ProductPage />);
     await screen.findByText('限时预售补贴');
+    // 预售说明: full payment only, when it ships, the per-order limit.
+    const rules = document.querySelector('#presale-rules') as HTMLElement;
+    expect(within(rules).getByText('全款预订，付款后 7 天内发货')).toBeTruthy();
+    expect(within(rules).getByText('下单时支付全部货款，无需另付尾款')).toBeTruthy();
+    expect(within(rules).getByText('每单限购 5 件')).toBeTruthy();
     act(() => taroFake.hidePage());
     active = false;
     act(() => taroFake.showPage());
     expect(await screen.findByRole('button', { name: '立即购买' })).toBeTruthy();
     expect(screen.queryByText('限时预售补贴')).toBeNull();
+  });
+
+  it('drops 预售说明 with the presale price once the presale has ended', async () => {
+    serve({
+      'GET /api/v1/catalog/products/12': () => ({
+        body: productDetailFixture({
+          promotion: {
+            kind: 'presale',
+            activityId: '7',
+            price: '49.00',
+            originalPrice: '59.00',
+            endAt: '2020-01-01T00:00:00+08:00',
+            canBuy: true,
+            seatsRequired: null,
+            shipAfterDays: 7,
+            perOrderQuantity: 5,
+            skus: [],
+          },
+          promotionConflict: false,
+        }),
+      }),
+    });
+    await renderPage(<ProductPage />);
+    expect(await screen.findByRole('button', { name: '立即购买' })).toBeTruthy();
+    expect(document.querySelector('#presale-rules')).toBeNull();
+    expect(screen.queryByText(/全款预订/)).toBeNull();
   });
 
   it('keeps a sold-out presale visible without offering ordinary checkout', async () => {

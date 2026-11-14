@@ -1,8 +1,11 @@
+import fs from 'node:fs';
+import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { admins, auditLogs } from '@shop/db/schema/auth';
 import { createTestCtx, type TestCtx } from '@shop/testing';
 import { AdminAuthService } from './admin-auth.service';
 import { hashPassword } from './password';
+import { insertAudit } from './audit.repo';
 
 /**
  * The console sign-in, read as somebody guessing passwords.
@@ -97,7 +100,15 @@ describe('what a password-guessing run leaves behind', () => {
       'invalid_credentials',
     ]);
     // The unknown account has no admin id; the real one does.
-    expect(rows[0]).toMatchObject({ adminId: null, adminAccount: 'nobody', status: 401 });
+    expect(rows[0]).toMatchObject({
+      adminId: null,
+      adminAccount: 'nobody',
+      status: 401,
+      errorCode: 'AUTH_INVALID_CREDENTIALS',
+    });
+    // The viewer's 失败原因 is the refusal's own Chinese message.
+    expect(rows[0]!.errorMessage).toMatch(/[\u4e00-\u9fa5]/);
+    expect(rows[2]).toMatchObject({ errorCode: null, errorMessage: null });
     expect(rows[1]!.adminId).not.toBeNull();
     expect(rows[2]).toMatchObject({ status: 200, target: `admin:${rows[1]!.adminId}` });
     expect(JSON.parse(rows[2]!.payload!)).toEqual({
@@ -111,11 +122,8 @@ describe('what a password-guessing run leaves behind', () => {
       .login(harness.ctx, { account: 'admin', password: PASSWORD }, meta)
       .catch(() => undefined);
     const [locked] = (await harness.ctx.db.select().from(auditLogs)).sort((a, b) => b.id - a.id);
-    expect(locked).toMatchObject({ status: 429 });
-    expect(JSON.parse(locked!.payload!)).toMatchObject({
-      result: 'locked',
-      code: 'AUTH_TOO_MANY_ATTEMPTS',
-    });
+    expect(locked).toMatchObject({ status: 429, errorCode: 'AUTH_TOO_MANY_ATTEMPTS' });
+    expect(JSON.parse(locked!.payload!)).toMatchObject({ result: 'locked' });
 
     expect(JSON.stringify(await harness.ctx.db.select().from(auditLogs))).not.toContain(GUESS);
     expect(JSON.stringify(await harness.ctx.db.select().from(auditLogs))).not.toContain(PASSWORD);
@@ -127,7 +135,47 @@ describe('what a password-guessing run leaves behind', () => {
       auth.login(harness.ctx, { account: 'admin', password: PASSWORD }),
     ).rejects.toMatchObject({ code: 'AUTH_ACCOUNT_DISABLED' });
     const [row] = await harness.ctx.db.select().from(auditLogs);
-    expect(row).toMatchObject({ status: 403, ip: null });
+    expect(row).toMatchObject({ status: 403, ip: null, errorCode: 'AUTH_ACCOUNT_DISABLED' });
     expect(JSON.parse(row!.payload!)).toMatchObject({ result: 'disabled', userAgent: null });
+  });
+
+  it('migration 0028 gives a refusal written before it the reason a new row gets', async () => {
+    const legacy = (code: string | null, status: number, requestId: string) =>
+      insertAudit(harness.ctx.db, {
+        adminId: null,
+        adminAccount: 'admin',
+        routeId: 'auth.adminLogin',
+        method: 'POST',
+        path: '/admin-api/auth/login',
+        status,
+        payload: { account: 'admin', result: 'x', ...(code ? { code } : {}), userAgent: null },
+        requestId,
+        now: harness.clock.now(),
+      });
+    await legacy('AUTH_INVALID_CREDENTIALS', 401, 'old-401');
+    await legacy(null, 500, 'old-500');
+    await legacy(null, 200, 'old-200');
+
+    const migration = fs.readFileSync(
+      new URL('../../../db/migrations/0028_audit_failures.sql', import.meta.url),
+      'utf8',
+    );
+    const backfill = migration
+      .split('--> statement-breakpoint')
+      .find((statement) => statement.includes('UPDATE "audit_logs"'));
+    expect(backfill).toBeDefined();
+    await harness.ctx.db.execute(sql.raw(backfill!));
+
+    const rows = await harness.ctx.db.select().from(auditLogs);
+    const byRequest = Object.fromEntries(rows.map((row) => [row.requestId, row]));
+    expect(byRequest['old-401']).toMatchObject({
+      errorCode: 'AUTH_INVALID_CREDENTIALS',
+      errorMessage: '账号或密码不正确',
+    });
+    expect(byRequest['old-500']).toMatchObject({
+      errorCode: 'INTERNAL',
+      errorMessage: '服务器开小差了，请稍后再试',
+    });
+    expect(byRequest['old-200']).toMatchObject({ errorCode: null, errorMessage: null });
   });
 });

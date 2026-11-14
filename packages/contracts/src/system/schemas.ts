@@ -284,10 +284,26 @@ export const auditLogItem = z.object({
   /** The console account name, or `staff:<userId>` for a 店员. */
   adminAccount: z.string(),
   routeId: z.string(),
+  /** The operation in words: the route's `summary` (修改商品), or 已下线的功能 for a route since removed. */
+  operation: z.string(),
   method: z.string(),
   path: z.string(),
   target: z.string().nullable(),
+  /**
+   * `target` in words: 商品 #12, 系统设置：站点设置. `null` when there is no target, or one the
+   * viewer has no words for (the raw `target` is still there for 技术信息).
+   */
+  targetText: z.string().nullable(),
   status: z.number().int(),
+  /** On a failure (status 400 and up): the error code answered. `null` on success. */
+  errorCode: z.string().nullable(),
+  /** On a failure: the Chinese message the person was shown. */
+  errorMessage: z.string().nullable(),
+  /**
+   * On a 5xx: what went wrong inside (error name and message, no values), for whoever
+   * investigates. Not something the person who clicked ever saw.
+   */
+  errorDetail: z.string().nullable(),
   /** Request body with secrets stripped, as stored. `null` when there was none. */
   payload: z.string().nullable(),
   requestId: z.string(),
@@ -307,10 +323,15 @@ export const auditLogItemExample: AuditLogItem = {
   userId: null,
   adminAccount: 'admin',
   routeId: 'coupon.adminSetStatus',
+  operation: '启用/停用优惠券',
   method: 'POST',
   path: '/admin-api/coupons/1/status',
   target: 'coupon:1',
+  targetText: '优惠券 #1',
   status: 200,
+  errorCode: null,
+  errorMessage: null,
+  errorDetail: null,
   payload: '{"status":"disabled"}',
   requestId: '6f1f6f0c-2f3a-4f7e-9f2f-0d2f5a1f2c33',
   ip: '203.0.113.7',
@@ -325,10 +346,16 @@ export const auditLogListQuery = pageQuery
     adminId: id.optional(),
     /** A 店员's storefront user id. */
     userId: id.optional(),
-    /** Matches `route_id`, `path` or `target`. */
+    /** Matches the operation's name, `route_id`, `path` or `target`. */
     keyword: z.string().trim().max(128).optional(),
     routeId: z.string().trim().max(128).optional(),
-    method: z.enum(['POST', 'PUT', 'PATCH', 'DELETE']).optional(),
+    /**
+     * GET rows are reads that broke (5xx) or exports. PUT and PATCH are both 修改, so either
+     * finds the rows of both.
+     */
+    method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']).optional(),
+    /** `failed`: only the requests that were refused or broke (status 400 and up). */
+    outcome: z.enum(['succeeded', 'failed']).optional(),
     createdFrom: instant.optional(),
     createdTo: instant.optional(),
   })

@@ -1,13 +1,15 @@
 import type { AuditLogItem, AuditLogListQuery } from '@shop/contracts/system/schemas';
 import type { Ctx } from '../kernel/context';
 import { fromId, toId, toIdOrNull } from '../kernel/ids';
+import { operationName, routeIdsNamed, targetText } from './audit-labels';
 import * as repo from './system.repo';
 
 /**
  * The operation log viewer.
  *
  * Read-only, and there is no route that writes one: `handle()` writes a row for
- * every successful mutating admin request (rows from before the cutover may
+ * every mutating admin request, succeeded or failed, and for any admin request
+ * that failed with a 5xx, with the error code and message on a failure (rows from before the cutover may
  * also be `actorKind: 'staff'`, the deleted mobile staff console's writes), the
  * admin sign-in writes one per outcome, with
  * the body already redacted by `redactPayload`. A service that wants to name
@@ -26,8 +28,10 @@ export async function auditLogList(
     adminId: query.adminId === undefined ? undefined : fromId(query.adminId),
     userId: query.userId === undefined ? undefined : fromId(query.userId),
     keyword: query.keyword,
+    keywordRouteIds: query.keyword ? routeIdsNamed(query.keyword) : [],
     routeId: query.routeId,
     method: query.method,
+    outcome: query.outcome,
     from: query.createdFrom ? new Date(query.createdFrom) : undefined,
     to: query.createdTo ? new Date(query.createdTo) : undefined,
     sortOrder: query.sortOrder,
@@ -43,10 +47,15 @@ export async function auditLogList(
       userId: toIdOrNull(row.userId),
       adminAccount: row.adminAccount,
       routeId: row.routeId,
+      operation: operationName(row.routeId),
       method: row.method,
       path: row.path,
       target: row.target,
+      targetText: targetText(row.target, row.path, row.payload),
       status: row.status,
+      errorCode: row.errorCode,
+      errorMessage: row.errorMessage,
+      errorDetail: row.errorDetail,
       payload: row.payload,
       requestId: row.requestId,
       ip: row.ip,

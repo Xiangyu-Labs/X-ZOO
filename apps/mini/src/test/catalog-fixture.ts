@@ -141,6 +141,8 @@ export function productDetailFixture(overrides: Partial<Detail> = {}): Detail {
       goodRate: 100,
     },
     giftCouponIds: [],
+    promotion: null,
+    promotionConflict: false,
     ...overrides,
   };
 }

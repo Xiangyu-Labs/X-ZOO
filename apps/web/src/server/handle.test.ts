@@ -29,7 +29,14 @@ vi.mock('@shop/core/auth', async (importOriginal) => {
   };
 });
 import { toApiError } from '../admin/api/errors';
-import { ADMIN_COOKIE, checkCsrf, handle, readCookie, searchParamsToObject } from './handle';
+import {
+  ADMIN_COOKIE,
+  checkCsrf,
+  handle,
+  internalDetailOf,
+  readCookie,
+  searchParamsToObject,
+} from './handle';
 import type { Container } from './container';
 import type { Env } from './env';
 
@@ -963,7 +970,7 @@ describe('audit log', () => {
     });
   });
 
-  it('does not record a GET, and does not record a failure', async () => {
+  it('does not record a GET that answered', async () => {
     const GET = handle(adminRoute, async () => ({ ok: true }), { container: container() });
     await GET(
       new Request('https://shop.example/admin-api/things', {
@@ -971,7 +978,9 @@ describe('audit log', () => {
       }),
     );
     expect(audits).toHaveLength(0);
+  });
 
+  it('SYS-012 — records a refused write with the code and the message the admin saw', async () => {
     const POST = handle(
       adminMutation,
       async () => {
@@ -979,13 +988,59 @@ describe('audit log', () => {
       },
       { container: container() },
     );
-    await POST(
+    const response = await POST(
       new Request('https://shop.example/admin-api/things', {
         method: 'POST',
         body: JSON.stringify({ name: 'a' }),
         headers: { cookie: `${ADMIN_COOKIE}=good-super`, 'sec-fetch-site': 'same-origin' },
       }),
     );
+    expect(response.status).toBe(404);
+    expect(audits).toHaveLength(1);
+    expect(audits[0]).toMatchObject({
+      adminId: 1,
+      routeId: 'test.adminWrite',
+      status: 404,
+      errorCode: 'NOT_FOUND',
+      errorMessage: new DomainError('NOT_FOUND').message,
+      errorDetail: null,
+      payload: JSON.stringify({ name: 'a' }),
+    });
+  });
+
+  it('SYS-012 — records a request that broke, even a GET, with what broke but no values', async () => {
+    const GET = handle(
+      adminRoute,
+      async () => {
+        throw new Error('Failed query: select * from things where name = $1\nparams: secret-key', {
+          cause: new Error('relation "things" does not exist'),
+        });
+      },
+      { container: container() },
+    );
+    const response = await GET(
+      new Request('https://shop.example/admin-api/things', {
+        headers: { cookie: `${ADMIN_COOKIE}=good-super` },
+      }),
+    );
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      code: 'INTERNAL',
+      message: '服务器开小差了，请稍后再试',
+    });
+    expect(audits).toHaveLength(1);
+    expect(audits[0]).toMatchObject({ method: 'GET', status: 500, errorCode: 'INTERNAL' });
+    const detail = (audits[0] as { errorDetail: string }).errorDetail;
+    expect(detail).toContain('relation "things" does not exist');
+    expect(detail).not.toContain('secret-key');
+  });
+
+  it('files nothing under an admin for a request refused before the caller is known', async () => {
+    const POST = handle(adminMutation, async () => ({ ok: true }), { container: container() });
+    const response = await POST(
+      new Request('https://shop.example/admin-api/things', { method: 'POST', body: '{}' }),
+    );
+    expect(response.status).toBe(422);
     expect(audits).toHaveLength(0);
   });
 
@@ -1154,5 +1209,34 @@ describe('searchParamsToObject', () => {
       b: ['2', '3'],
     });
     expect(searchParamsToObject(new URLSearchParams(''))).toEqual({});
+  });
+});
+
+describe('internalDetailOf', () => {
+  it('keeps what went wrong and none of the values the request sent', () => {
+    const cause = Object.assign(new Error('invalid input syntax for type integer: "s3cr3t-pass"'), {
+      name: 'PostgresError',
+    });
+    const failed = new Error(
+      'Failed query: update "admins" set "password" = $1 where "id" = $2\nparams: s3cr3t-pass,7',
+      { cause },
+    );
+    const detail = internalDetailOf(failed);
+    expect(detail).not.toContain('s3cr3t-pass');
+    expect(detail).toContain('Failed query: update "admins"');
+    expect(detail).toContain('cause: PostgresError: invalid input syntax for type integer: "…"');
+
+    for (const value of ['p@ss\\', 'ab"cd-secret', 'x: "y" tail-secret']) {
+      const leaky = new Error(`invalid input syntax for type integer: "${value}"`);
+      expect(internalDetailOf(leaky)).toBe('Error: invalid input syntax for type integer: "…"');
+    }
+    expect(
+      internalDetailOf(new Error('value "13800138000" is out of range for type integer')),
+    ).toBe('Error: value "…" is out of range for type integer');
+
+    const unique = new Error('duplicate key value violates unique constraint "admins_account_key"');
+    expect(internalDetailOf(unique)).toBe(
+      'Error: duplicate key value violates unique constraint "admins_account_key"',
+    );
   });
 });

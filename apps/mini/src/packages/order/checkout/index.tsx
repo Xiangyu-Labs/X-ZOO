@@ -8,6 +8,7 @@ import { AddressSheet } from '@/features/checkout/address-sheet';
 import {
   checkoutPrices,
   checkoutRefusal,
+  existingTeamOf,
   couponLinesOf,
   customFormBody,
   customFormProblem,
@@ -319,7 +320,7 @@ function Checkout({ draft }: { draft: CheckoutDraft }) {
           );
           setDraft(null);
         },
-        (error: unknown) => {
+        async (error: unknown) => {
           if (isApiError(error) && error.code === 'ORDER_PRICE_CHANGED') {
             toast.text('商品价格有变动，请确认后重新提交');
             void base.refetch();
@@ -333,6 +334,16 @@ function Checkout({ draft }: { draft: CheckoutDraft }) {
             setChoice({ mode: 'none' });
             void coupons.refetch();
             void base.refetch();
+            return;
+          }
+          const team = existingTeamOf(error);
+          if (team) {
+            // A second team on the same activity: take them to the one they already have. The
+            // draft goes once the page has gone, as on success: cleared first, this page would
+            // show 没有待结算的商品 while the redirect is under way, and stay so if it failed.
+            toast.text('你在这个活动里已有一个团正在拼');
+            await navigate({ route: 'groupbuyTeam', params: { id: team } }, { replace: true });
+            setDraft(null);
             return;
           }
           const refusal = checkoutRefusal(error, draft);

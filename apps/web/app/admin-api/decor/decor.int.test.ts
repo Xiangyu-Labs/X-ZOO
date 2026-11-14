@@ -126,11 +126,18 @@ async function adminCookie(permissions?: string[]): Promise<Headers> {
 
 const ALL = ['decor:page:read', 'decor:page:write', 'decor:page:publish'];
 
+/** The operations that went through, in order. A refused one is a failure row; see `refusals`. */
 async function audits(): Promise<{ routeId: string; target: string | null }[]> {
   const rows = await harness.ctx.db.select().from(auditLogs).orderBy(auditLogs.id);
   return rows
-    .filter((row) => row.routeId !== 'auth.adminLogin')
+    .filter((row) => row.routeId !== 'auth.adminLogin' && row.status < 400)
     .map((row) => ({ routeId: row.routeId, target: row.target }));
+}
+
+/** The refused operations, which the 操作日志 keeps as 失败. */
+async function refusals(): Promise<string[]> {
+  const rows = await harness.ctx.db.select().from(auditLogs).orderBy(auditLogs.id);
+  return rows.filter((row) => row.status >= 400).map((row) => row.routeId);
 }
 
 const slide = { image: 'https://cdn.example.com/banner.jpg' };
@@ -340,6 +347,11 @@ describe('/admin-api/decor — the document lifecycle', () => {
       { routeId: 'decor.adminDesignate', target: 'decor:designation:home' },
       { routeId: 'decor.adminDesignate', target: 'decor:designation:home' },
       { routeId: 'decor.adminDocumentDelete', target: `decor:document:${id}` },
+    ]);
+    expect(await refusals()).toEqual([
+      'decor.adminDraftSave',
+      'decor.adminPublish',
+      'decor.adminDocumentDelete',
     ]);
   });
 

@@ -8,7 +8,6 @@ import { useCartCount } from '@/data/cart';
 import { useRecordVisit } from '@/data/visits';
 import { DescriptionBlocks, hasDescription } from '@/features/content/description-blocks';
 import { useCheckoutDraft } from '@/features/checkout/draft';
-import { useProductActivities, type ProductActivity } from '@/features/product/activities';
 import { ProductCoupons } from '@/features/product/product-coupons';
 import { ReviewItem } from '@/features/product/review-item';
 import {
@@ -26,6 +25,8 @@ import { requireLogin, useSignedIn } from '@/session/session';
 import { Countdown } from '@/ui/countdown';
 import { ActivitySkuSheet } from '@/features/promo/activity-sku-sheet';
 import { startActivityCheckout } from '@/features/promo/checkout';
+import { shipText } from '@/features/promo/activity';
+import { GroupbuyRules, PresaleRules } from '@/features/promo/promo-rules';
 import { OpenTeams } from '@/features/promo/open-teams';
 import { useDidShow } from '@tarojs/taro';
 import { serverNow } from '@/lib/server-clock';
@@ -52,12 +53,24 @@ import { strikePrice } from '@/lib/money';
 
 type Product = ResponseOf<'catalog.productDetail'>;
 
+/** The 拼团 / 预售 the product is sold under now, as the price box and action bar read it. */
+interface ProductActivity {
+  kind: 'groupbuy' | 'presale';
+  activityId: string;
+  price: string;
+  endAt: string;
+  canBuy: boolean;
+  seatsRequired?: number;
+  /** 「2 人团」, 「付款后 7 天内发货」. */
+  note: string;
+}
+
 /** The description through the 富文本 block: the same allow-list, parser and look as DIY. */
 /**
  * 商品详情 (`product { id }`, pages.md §2.1): a fixed design (no longer decorated). Gallery,
  * price and sales (under a 拼团 / 预售, its coloured box instead, with the sales in it), 领券,
- * 已选 (the SkuSheet), 服务 and 参数, under a 拼团 the shopper's own open team and the teams
- * still open (去参团), the review summary with the first reviews, the description, 为你推荐, and
+ * 已选 (the SkuSheet), 服务 and 参数, under a 拼团 the shopper's own open team, its rules and the
+ * teams still open (去参团), the review summary with the first reviews, the description, 为你推荐, and
  * the action bar: 客服, 购物车, 收藏, 加入购物车, 立即购买 (under an activity, 立即预订, or
  * 单独购买 and 立即开团 / 查看我的团, in the box's colours).
  *
@@ -146,49 +159,35 @@ function Detail({
   const setDraft = useCheckoutDraft((state) => state.setDraft);
   const cartCount = useCartCount();
   const contact = useContactIcon(sessionFromOf('product', product.id));
-  // Older server responses have no promotion field. A current server's explicit null
-  // is authoritative: never choose a different campaign from a secondary list.
-  const legacyActivities = useProductActivities(product.id, product.promotion === undefined);
+  // The campaign the product is sold under now, from the product itself; `null` is final.
   const currentPromotion = product.promotion;
-  const activities: ProductActivity[] =
-    product.promotion === undefined
-      ? legacyActivities
-      : currentPromotion
-        ? [
-            {
-              kind: currentPromotion.kind,
-              activityId: currentPromotion.activityId,
-              price: currentPromotion.price,
-              endAt: currentPromotion.endAt,
-              canBuy: currentPromotion.canBuy,
-              ...(currentPromotion.seatsRequired === null
-                ? {}
-                : { seatsRequired: currentPromotion.seatsRequired }),
-              note:
-                currentPromotion.kind === 'presale'
-                  ? `付款后 ${currentPromotion.shipAfterDays} 天内发货`
-                  : `${currentPromotion.seatsRequired} 人团`,
-            },
-          ]
-        : [];
   const [, setActivityVersion] = useState(0);
-  const activity = activities.find((item) => Date.parse(item.endAt) > serverNow());
+  const activity: ProductActivity | undefined =
+    currentPromotion && Date.parse(currentPromotion.endAt) > serverNow()
+      ? {
+          kind: currentPromotion.kind,
+          activityId: currentPromotion.activityId,
+          price: currentPromotion.price,
+          endAt: currentPromotion.endAt,
+          canBuy: currentPromotion.canBuy,
+          ...(currentPromotion.seatsRequired === null
+            ? {}
+            : { seatsRequired: currentPromotion.seatsRequired }),
+          note:
+            currentPromotion.kind === 'presale'
+              ? shipText(currentPromotion.shipAfterDays ?? 0)
+              : `${currentPromotion.seatsRequired} 人团`,
+        }
+      : undefined;
   const [activitySheet, setActivitySheet] = useState(false);
   const [skuId, setSkuId] = useState<string | undefined>(undefined);
-  const presaleDetail = useRouteQuery(
-    'presale.detail',
-    { params: { id: activity?.activityId ?? '' } },
-    { enabled: !currentPromotion && activitySheet && activity?.kind === 'presale' },
-  );
-  // Signed in, a 拼团 is read for the shopper's own open team on it (`myOpenGroupId`): a member
-  // sent here from a shared link goes to their team instead of starting a second one.
+  // A 拼团 is read for its rules (how long a team stays open) and, signed in, for the shopper's
+  // own open team on it (`myOpenGroupId`): they go to it instead of starting a second one.
   const signedIn = useSignedIn();
   const groupbuyDetail = useRouteQuery(
     'groupbuy.detail',
     { params: { id: activity?.activityId ?? '' } },
-    {
-      enabled: activity?.kind === 'groupbuy' && (signedIn || (!currentPromotion && activitySheet)),
-    },
+    { enabled: activity?.kind === 'groupbuy' },
   );
   // Back from 确认订单 / 收银台 / an order or the team page: whether the shopper now has a team.
   useRefetchOnShow(routeKey('groupbuy.detail'));
@@ -207,9 +206,8 @@ function Detail({
   const joinedTeam = groupbuyDetail.data?.myOpenGroupRole === 'member';
   const openTeam = (groupId: string) =>
     navigate({ route: 'groupbuyTeam', params: { id: groupId } });
-  const activityRead = activity?.kind === 'presale' ? presaleDetail : groupbuyDetail;
-  const activityDetail =
-    currentPromotion ?? (activity?.kind === 'presale' ? presaleDetail.data : groupbuyDetail.data);
+  // Its SKUs at the activity price come with the product.
+  const activityDetail = activity ? currentPromotion : null;
   const selectedActivitySku = activityDetail?.skus.find((sku) => sku.skuId === skuId);
   const activityPrice = selectedActivitySku?.price ?? activity?.price;
   const activityFrom =
@@ -460,7 +458,10 @@ function Detail({
           title="已选"
           label={`选择规格，${chosenText}`}
           value={chosenText}
-          onClick={() => (activity ? openActivity() : openSku(canCart ? ['cart', 'buy'] : ['buy']))}
+          // In a team already, 立即开团 is 查看我的团: the spec is chosen for 单独购买.
+          onClick={() =>
+            activity && !myTeam ? openActivity() : openSku(canCart ? ['cart', 'buy'] : ['buy'])
+          }
           disabled={soldOut || product.promotionConflict === true}
         />
         {display.productServiceTags && product.protections.length > 0 ? (
@@ -484,8 +485,26 @@ function Detail({
         ) : null}
       </View>
 
-      {activity?.kind === 'groupbuy' && activity.canBuy && !product.promotionConflict ? (
-        <OpenTeams activityId={activity.activityId} exclude={myTeam} onOpen={openTeam} />
+      {activity?.kind === 'groupbuy' && groupbuyDetail.data ? (
+        <GroupbuyRules
+          seatsRequired={groupbuyDetail.data.seatsRequired}
+          groupTtlSeconds={groupbuyDetail.data.groupTtlSeconds}
+          perOrderQuantity={groupbuyDetail.data.perOrderQuantity}
+        />
+      ) : null}
+
+      {/* `activity`, not `currentPromotion`: once the presale has ended the page sells at the
+          product price, and the card must go with the presale price. */}
+      {activity?.kind === 'presale' && currentPromotion?.kind === 'presale' ? (
+        <PresaleRules
+          shipAfterDays={currentPromotion.shipAfterDays ?? 0}
+          perOrderQuantity={currentPromotion.perOrderQuantity}
+        />
+      ) : null}
+
+      {/* One live team per shopper per activity: with a team of their own, there is nothing to join. */}
+      {activity?.kind === 'groupbuy' && activity.canBuy && !product.promotionConflict && !myTeam ? (
+        <OpenTeams activityId={activity.activityId} onOpen={openTeam} />
       ) : null}
 
       {display.productReviews ? <Reviews product={product} /> : null}
@@ -575,15 +594,6 @@ function Detail({
         )}
       </ActionBar>
 
-      {activity && !activityDetail ? (
-        <Sheet visible={activitySheet} onClose={() => setActivitySheet(false)} title="选择规格">
-          {activityRead.isError ? (
-            <ErrorBlock error={activityRead.error} onRetry={() => activityRead.refetch()} />
-          ) : (
-            <Skeleton />
-          )}
-        </Sheet>
-      ) : null}
       {activity && activityDetail ? (
         <ActivitySkuSheet
           visible={activitySheet}

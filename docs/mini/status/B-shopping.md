@@ -25,7 +25,7 @@ Updated at every commit so the work can resume after an interruption.
   商品评价 (score, rating tabs with counts, picture preview; `features/product/review-item.tsx`).
   All with tests.
 
-- 商品详情: gallery, price / sales, 拼团 / 预售 entries (`features/product/activities.ts`),
+- 商品详情: gallery, price / sales, 拼团 / 预售 entries (`product.promotion` from `catalog.productDetail`),
   领券 sheet (`features/product/product-coupons.tsx`, shop-wide coupons only), 已选 → SkuSheet,
   服务 / 参数 sheets, reviews summary + first two, description through the 富文本 block,
   为你推荐, action bar (客服, 购物车 badge, 收藏, 加入购物车, 立即购买), sold-out and 404

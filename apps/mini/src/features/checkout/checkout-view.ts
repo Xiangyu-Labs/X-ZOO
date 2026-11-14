@@ -190,6 +190,16 @@ function detailsOf(error: { details?: unknown }): Record<string, unknown> {
 }
 
 /**
+ * 开团 refused because the shopper already has a live team on this activity: the team's id, to
+ * open it instead. `null` for any other answer.
+ */
+export function existingTeamOf(error: unknown): string | null {
+  if (!isApiError(error) || error.code !== 'GROUPBUY_ALREADY_HAS_OPEN_GROUP') return null;
+  const groupId = detailsOf(error)['groupId'];
+  return typeof groupId === 'string' ? groupId : null;
+}
+
+/**
  * The server said no to the lines themselves (下架, 限购, 起购, 卡密 quantity, an ended activity):
  * reloading will not help, so 确认订单 says which item and why, and offers the way back. `null`
  * for anything else (a network or server failure: 重新加载; the address and coupon cases the

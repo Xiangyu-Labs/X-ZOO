@@ -10,11 +10,13 @@ import { PageContainer } from '@/admin/kit/page-container';
 import { actionsColumn, idColumn, instantColumn, textColumn } from '@/admin/kit/table/columns';
 import { CrudTable } from '@/admin/kit/table/crud-table';
 
-const METHOD_COLOUR: Record<string, string> = {
-  POST: 'blue',
-  PUT: 'orange',
-  PATCH: 'orange',
-  DELETE: 'red',
+/** The request method in words, for the 类型 filter. */
+const METHOD_LABEL: Record<string, string> = {
+  GET: '查看、导出',
+  POST: '新建、提交',
+  PUT: '修改',
+  PATCH: '修改',
+  DELETE: '删除',
 };
 
 /**
@@ -25,9 +27,16 @@ const METHOD_COLOUR: Record<string, string> = {
  * policy an operator sets in 系统设置, not a button somebody can reach for after
  * a mistake.
  *
- * Only writes are recorded (`handle()` skips GET), and the stored payload has
- * already been redacted — a password field never reaches this table. Console
- * admins write here, and every admin sign-in attempt is a row too. Rows from
+ * Every column is in words: the operation is its route's 中文 name and the
+ * target reads 商品 #12 (both resolved by the server); the route id, the path
+ * and the method are under 技术信息 in 详情, for whoever investigates.
+ *
+ * Writes are recorded whether they succeeded or failed, and so is any request
+ * that broke (服务器开小差) — with the message the person saw and, for a
+ * breakage, a 技术信息 line for whoever investigates. Reads are not, unless the
+ * handler names one (an export). The stored payload has already been redacted —
+ * a password field never reaches this table. Console admins write here, and
+ * every admin sign-in attempt is a row too. Rows from
  * before the cutover may also name a 店员 (the deleted mobile staff console);
  * the 店员 filter stays so those still read back.
  */
@@ -35,12 +44,12 @@ export function AuditLogsPage() {
   const [viewing, setViewing] = useState<AuditLogItem | null>(null);
 
   return (
-    <PageContainer subTitle="后台的写操作记录；只读，按设置的保留天数自动清理">
+    <PageContainer subTitle="后台的写操作记录，失败的也在；只读，按设置的保留天数自动清理">
       <CrudTable
         route={systemAuditLogList}
         scrollX={1200}
         filters={[
-          { kind: 'text', name: 'keyword', label: '关键词', placeholder: '接口、路径或对象' },
+          { kind: 'text', name: 'keyword', label: '关键词', placeholder: '操作名称、对象' },
           {
             kind: 'select',
             name: 'actorKind',
@@ -55,8 +64,20 @@ export function AuditLogsPage() {
           {
             kind: 'select',
             name: 'method',
-            label: '方法',
-            options: ['POST', 'PUT', 'PATCH', 'DELETE'].map((value) => ({ value, label: value })),
+            label: '类型',
+            options: (['GET', 'POST', 'PUT', 'DELETE'] as const).map((value) => ({
+              value,
+              label: METHOD_LABEL[value] ?? value,
+            })),
+          },
+          {
+            kind: 'select',
+            name: 'outcome',
+            label: '结果',
+            options: [
+              { value: 'succeeded', label: '成功' },
+              { value: 'failed', label: '失败' },
+            ],
           },
           { kind: 'dateRange', names: ['createdFrom', 'createdTo'], label: '时间' },
         ]}
@@ -75,24 +96,19 @@ export function AuditLogsPage() {
             ellipsis: true,
             render: (_value: unknown, row: AuditLogItem) => <ActorText row={row} />,
           },
-          {
-            title: '方法',
-            key: 'method',
-            width: 90,
-            render: (_value: unknown, row: AuditLogItem) => (
-              <Tag color={METHOD_COLOUR[row.method] ?? 'default'}>{row.method}</Tag>
-            ),
-          },
-          textColumn<AuditLogItem>({ title: '接口', dataIndex: 'routeId', ellipsis: true }),
-          textColumn<AuditLogItem>({ title: '路径', dataIndex: 'path', ellipsis: true }),
-          textColumn<AuditLogItem>({ title: '对象', dataIndex: 'target', width: 140 }),
+          textColumn<AuditLogItem>({ title: '操作', dataIndex: 'operation', ellipsis: true }),
+          textColumn<AuditLogItem>({
+            title: '对象',
+            dataIndex: 'targetText',
+            width: 180,
+            ellipsis: true,
+          }),
           {
             title: '结果',
             key: 'status',
-            width: 90,
-            render: (_value: unknown, row: AuditLogItem) => (
-              <Tag color={row.status < 400 ? 'success' : 'error'}>{row.status}</Tag>
-            ),
+            width: 240,
+            ellipsis: true,
+            render: (_value: unknown, row: AuditLogItem) => <OutcomeText row={row} />,
           },
           actionsColumn<AuditLogItem>({
             width: 90,
@@ -109,7 +125,7 @@ export function AuditLogsPage() {
         open={viewing !== null}
         onClose={() => setViewing(null)}
         width={640}
-        title={viewing ? `${viewing.method} ${viewing.routeId}` : '日志详情'}
+        title={viewing ? viewing.operation : '日志详情'}
       >
         {viewing && (
           <Descriptions column={1} bordered size="small">
@@ -120,11 +136,19 @@ export function AuditLogsPage() {
               <ActorText row={viewing} />
               {viewing.adminId !== null && `（#${viewing.adminId}）`}
             </Descriptions.Item>
-            <Descriptions.Item label="路径">{viewing.path}</Descriptions.Item>
-            <Descriptions.Item label="对象">{viewing.target ?? '—'}</Descriptions.Item>
-            <Descriptions.Item label="结果">{viewing.status}</Descriptions.Item>
+            <Descriptions.Item label="对象">{viewing.targetText ?? '—'}</Descriptions.Item>
+            <Descriptions.Item label="结果">
+              <OutcomeText row={viewing} />
+            </Descriptions.Item>
+            <Descriptions.Item label="技术信息（排查用）">
+              <Typography.Paragraph
+                style={{ marginBottom: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}
+              >
+                {technicalLines(viewing).join('\n')}
+              </Typography.Paragraph>
+            </Descriptions.Item>
             <Descriptions.Item label="IP">{viewing.ip ?? '—'}</Descriptions.Item>
-            <Descriptions.Item label="请求 ID">
+            <Descriptions.Item label="请求编号">
               <Typography.Text copyable>{viewing.requestId}</Typography.Text>
             </Descriptions.Item>
             <Descriptions.Item label="请求内容">
@@ -138,6 +162,27 @@ export function AuditLogsPage() {
         )}
       </Drawer>
     </PageContainer>
+  );
+}
+
+/** What a developer needs to find the request: the call, the target as stored, and on a failure what was answered. */
+function technicalLines(row: AuditLogItem): string[] {
+  return [
+    `${row.method} ${row.path}（${row.routeId}）`,
+    ...(row.target === null ? [] : [`对象：${row.target}`]),
+    ...(row.errorCode === null ? [] : [`${row.status} ${row.errorCode}`]),
+    ...(row.errorDetail === null ? [] : [row.errorDetail]),
+  ];
+}
+
+/** 成功, or 失败 with the message the person was shown. */
+function OutcomeText({ row }: { row: AuditLogItem }) {
+  if (row.status < 400) return <Tag color="success">成功</Tag>;
+  return (
+    <>
+      <Tag color="error">失败</Tag>
+      {row.errorMessage}
+    </>
   );
 }
 

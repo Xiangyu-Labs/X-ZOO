@@ -8,6 +8,7 @@
 #                 [--restore <dump.sql.gz> [--yes]]
 #   shop backup   [--out <file.sql.gz>] [--no-verify] | --verify-only <file.sql.gz>
 #   shop status
+#   shop logs     <service> [--since <time>] [--until <time>] [--grep <text>] [-f]
 #   shop resolve  <commit>
 #   shop compose  <docker compose arguments…>
 #   shop hostname
@@ -38,6 +39,7 @@ usage: shop <command> [arguments]
   rollback   return to the images the last upgrade replaced, or to named ones
   backup     dump the database and prove the dump restorable
   status     the release, the running digests, the last upgrade, and the readiness gate
+  logs       a service's log across releases, from the host's journal
   resolve    the digests CI published for a commit (pulls them)
   compose    docker compose with this deployment's project, files and settings
   hostname   the public host name, when the Traefik overlay is configured
@@ -74,7 +76,7 @@ case "$command" in
     esac
     exec bash "$here/lib/commands/$command.sh" "$@"
     ;;
-  backup | status | resolve)
+  backup | status | logs | resolve)
     exec bash "$here/lib/commands/$command.sh" "$@"
     ;;
   compose)

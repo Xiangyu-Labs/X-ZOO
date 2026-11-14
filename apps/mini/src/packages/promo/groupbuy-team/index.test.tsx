@@ -118,6 +118,24 @@ describe('拼团进度', () => {
     });
   });
 
+  it('takes a shopper with a live team of their own on the activity to it, instead of joining another', async () => {
+    serveApi({
+      'GET /api/v1/groupbuy/groups/501': () => ({ body: view() }),
+      'GET /api/v1/groupbuy/activities/1': () => ({
+        body: { ...activity, myOpenGroupId: '777', myOpenGroupRole: 'leader' },
+      }),
+    });
+    await renderPage(<GroupbuyTeamPage />);
+    const join = await screen.findByRole('button', { name: '参与拼团' });
+    await waitFor(() => expect(join.getAttribute('aria-disabled')).not.toBe('true'));
+    fireEvent.click(join);
+    await waitFor(() =>
+      expect(redirectedTo().at(-1)).toBe('/packages/promo/groupbuy-team/index?id=777'),
+    );
+    expect(screen.getAllByRole('button', { name: '参与拼团' }).length).toBe(1);
+    expect(useCheckoutDraft.getState().draft).toBeNull();
+  });
+
   it('asks a visitor to log in before joining', async () => {
     useSession.setState({ session: { status: 'phone-required', bindToken: 'b' } });
     serve(view());

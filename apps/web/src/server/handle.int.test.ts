@@ -420,4 +420,113 @@ describe('the 操作日志 reader lists both kinds of actor', () => {
     ).json();
     expect(byUser.total).toBe(1);
   });
+
+  it('类型「修改」finds PUT and PATCH rows alike', async () => {
+    await seedAdmin({ isSuper: true });
+    for (const [method, requestId] of [
+      ['PUT', 'req-put'],
+      ['PATCH', 'req-patch'],
+      ['POST', 'req-post'],
+    ] as const) {
+      await insertAudit(harness.ctx.db, {
+        adminId: null,
+        adminAccount: 'admin',
+        routeId: 'coupon.adminSetStatus',
+        method,
+        path: '/admin-api/coupons/1/status',
+        target: 'coupon:1',
+        status: 200,
+        payload: null,
+        requestId,
+        now: harness.clock.now(),
+      });
+    }
+    const { POST: login } = await import('../../app/admin-api/auth/login/route');
+    const { GET: list } = await import('../../app/admin-api/audit-logs/route');
+    const loggedIn = await login(
+      post('/admin-api/auth/login', { account: 'admin', password: PASSWORD }),
+    );
+    const headers = { cookie: `${ADMIN_COOKIE}=${sessionCookie(loggedIn)}` };
+    for (const method of ['PUT', 'PATCH']) {
+      const found = await (
+        await list(
+          new Request(
+            `https://shop.example/admin-api/audit-logs?page=1&pageSize=20&method=${method}`,
+            { headers },
+          ),
+        )
+      ).json();
+      expect(found.items.map((item: { requestId: string }) => item.requestId).sort()).toEqual([
+        'req-patch',
+        'req-put',
+      ]);
+    }
+  });
+});
+
+describe('a failed write is in the 操作日志 too', () => {
+  it('SYS-012 — keeps a refused delete with what the admin saw, and 失败 lists only the failures', async () => {
+    await seedAdmin({ isSuper: true });
+    const { POST: login } = await import('../../app/admin-api/auth/login/route');
+    const { GET: list } = await import('../../app/admin-api/audit-logs/route');
+    const { DELETE: remove } = await import('../../app/admin-api/coupons/[id]/route');
+    const loggedIn = await login(
+      post('/admin-api/auth/login', { account: 'admin', password: PASSWORD }),
+    );
+    const headers = {
+      cookie: `${ADMIN_COOKIE}=${sessionCookie(loggedIn)}`,
+      origin: 'https://shop.example',
+      'sec-fetch-site': 'same-origin',
+    };
+
+    const refused = await remove(
+      new Request('https://shop.example/admin-api/coupons/987654', { method: 'DELETE', headers }),
+      { params: Promise.resolve({ id: '987654' }) },
+    );
+    expect(refused.status).toBeGreaterThanOrEqual(400);
+    const answered = (await refused.json()) as { code: string; message: string };
+
+    const failed = await (
+      await list(
+        new Request('https://shop.example/admin-api/audit-logs?page=1&pageSize=20&outcome=failed', {
+          headers,
+        }),
+      )
+    ).json();
+    expect(failed.total).toBe(1);
+    expect(failed.items[0]).toMatchObject({
+      operation: '删除优惠券',
+      targetText: '#987654',
+      method: 'DELETE',
+      path: '/admin-api/coupons/987654',
+      status: refused.status,
+      errorCode: answered.code,
+      errorMessage: answered.message,
+      errorDetail: null,
+    });
+
+    const succeeded = await (
+      await list(
+        new Request(
+          'https://shop.example/admin-api/audit-logs?page=1&pageSize=20&outcome=succeeded',
+          { headers },
+        ),
+      )
+    ).json();
+    expect(succeeded.items.every((item: { status: number }) => item.status < 400)).toBe(true);
+    expect(
+      succeeded.items.some((item: { routeId: string }) => item.routeId === 'auth.adminLogin'),
+    ).toBe(true);
+    const named = await (
+      await list(
+        new Request(
+          `https://shop.example/admin-api/audit-logs?page=1&pageSize=20&keyword=${encodeURIComponent('删除优惠券')}`,
+          { headers },
+        ),
+      )
+    ).json();
+    expect(named.items.map((item: { routeId: string }) => item.routeId)).toEqual([
+      'coupon.adminDelete',
+    ]);
+  });
 });

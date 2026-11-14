@@ -278,10 +278,13 @@ export function handle<
     const cookies: string[] = [];
     const url = new URL(request.url);
     const logger = container.logger.child({ requestId, routeId: anyRoute.id });
+    const surface = surfaceOf(anyRoute.path);
+    const mutating = MUTATING.has(request.method);
 
     let actor: Actor = anonymousActor;
     let auditTarget: string | null = null;
     let parsedBody: unknown;
+    let query: unknown;
 
     // The cookie of a remembered session slides with the server session, so
     // seven idle days means seven days since the last request, not since
@@ -323,7 +326,31 @@ export function handle<
         : json(status, body, headers);
     };
 
-    const fail = (error: DomainError): Response => finish(error.status, error.toBody());
+    // A failed write by a console admin, and any admin request that failed with a 5xx, is
+    // in the 操作日志 too: what staff saw, so a report like 「保存时服务器开小差」 can be found by
+    // time and person, and its request id leads to the log lines. A refusal before the caller
+    // is known (bad input, signed out) has no admin to file it under, and stays in the log.
+    const fail = async (error: DomainError, detail?: string): Promise<Response> => {
+      if (
+        surface === 'admin' &&
+        actor.kind === 'admin' &&
+        (mutating || error.status >= 500 || auditTarget !== null)
+      ) {
+        await writeAudit(container, {
+          actor,
+          routeId: anyRoute.id,
+          method: request.method,
+          path: url.pathname,
+          target: auditTarget,
+          status: error.status,
+          error: { code: error.code, message: error.message, detail: detail ?? null },
+          payload: mutating ? parsedBody : query,
+          requestId,
+          ip: clientIp(request),
+        });
+      }
+      return finish(error.status, error.toBody());
+    };
 
     try {
       // -- 1. input -------------------------------------------------------
@@ -337,7 +364,6 @@ export function handle<
         else problems.push(...issuesOf(parsed.error, 'params'));
       }
 
-      let query: unknown;
       if (anyRoute.query) {
         const parsed = anyRoute.query.safeParse(searchParamsToObject(url.searchParams));
         if (parsed.success) query = parsed.data;
@@ -368,7 +394,6 @@ export function handle<
       }
 
       // -- 2. who is calling ----------------------------------------------
-      const surface = surfaceOf(anyRoute.path);
       const platform = platformOf(request);
 
       if (anyRoute.auth === 'admin') {
@@ -533,6 +558,7 @@ export function handle<
             new DomainError('INTERNAL', {
               ...(isProduction(container.env) ? {} : { details }),
             }),
+            'response does not match its contract',
           );
         }
       }
@@ -540,7 +566,6 @@ export function handle<
       // -- 7. audit ----------------------------------------------------------
       // Every successful write by a console admin, and every read the handler
       // named with ctx.audit — an export: who took the file, with its filters.
-      const mutating = MUTATING.has(request.method);
       if ((mutating || auditTarget !== null) && surface === 'admin' && actor.kind === 'admin') {
         await writeAudit(container, {
           actor,
@@ -582,7 +607,7 @@ export function handle<
       }
       // Never leak an internal message, a stack, or a SQL string.
       logger.error({ err: error }, 'unhandled error');
-      return fail(new DomainError('INTERNAL'));
+      return fail(new DomainError('INTERNAL'), internalDetailOf(error));
     }
   };
 }
@@ -620,6 +645,7 @@ async function writeAudit(
     path: string;
     target: string | null;
     status: number;
+    error?: { code: string; message: string; detail: string | null };
     payload: unknown;
     requestId: string;
     ip: string | null;
@@ -637,6 +663,9 @@ async function writeAudit(
       path: entry.path,
       target: entry.target,
       status: entry.status,
+      errorCode: entry.error?.code ?? null,
+      errorMessage: entry.error?.message ?? null,
+      errorDetail: entry.error?.detail ?? null,
       payload: entry.payload,
       requestId: entry.requestId,
       ip: entry.ip,
@@ -646,4 +675,29 @@ async function writeAudit(
     // An audit failure must never turn a successful operation into a 500.
     container.logger.error({ err: error, routeId: entry.routeId }, 'failed to write audit log');
   }
+}
+
+/**
+ * What an unhandled error says about itself, for the 操作日志's staff-only 技术信息: its name and
+ * message, and its cause's (a failed query wraps the database's own complaint). No value of the
+ * request reaches it, because the log has more readers than hold a password or a key: a query
+ * error's `params:` list is cut, and so is the quoted value PostgreSQL puts after a colon
+ * (`invalid input syntax for type integer: "…"`, `value "…" is out of range`). Names it quotes
+ * elsewhere (`constraint "orders_pkey"`) stay; they are the useful part.
+ */
+export function internalDetailOf(error: unknown): string {
+  const scrub = (text: string): string =>
+    (text.split(/\nparams:/)[0] ?? '')
+      // PostgreSQL quotes the value raw, unescaped, so everything after `: "` to the line's end
+      // may be it; `value "…" is out of range` is the one that puts it mid-sentence.
+      .replace(/: ".*$/gm, ': "…"')
+      .replace(/value ".*" is out of range/g, 'value "…" is out of range');
+  const describe = (value: unknown): string | null => {
+    if (!(value instanceof Error))
+      return value === undefined ? null : scrub(String(value)).slice(0, 200);
+    return `${value.name}: ${scrub(value.message)}`.slice(0, 400);
+  };
+  const own = describe(error) ?? 'unknown error';
+  const cause = error instanceof Error ? describe(error.cause) : null;
+  return cause ? `${own}\ncause: ${cause}` : own;
 }
