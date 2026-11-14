@@ -5,9 +5,9 @@ import { miniRoute } from '../mini';
 import { openFresh, shown } from './shown';
 
 /**
- * Page objects for the mini-program's marketing pages (`apps/mini/src/packages/promo`):
- * 拼团商品, 拼团进度, 我的拼团, 预售商品, 领券中心, 我的优惠券. Locators are the words a
- * shopper reads, plus the few element ids the pages set for this (`#activity-title`,
+ * Page objects for the mini-program's marketing pages (`apps/mini/src/packages/promo`) and the
+ * 拼团 / 预售 parts of 商品详情: 拼团进度, 我的拼团, 领券中心, 我的优惠券. Locators are the words a
+ * shopper reads, plus the few element ids the pages set for this (`#product-name`,
  * `#team-headline`, `#team-actions`, `#coupon-<templateId>`, …).
  */
 
@@ -31,41 +31,39 @@ export class ActivitySkuSheet {
   }
 }
 
-/** The bottom bar's button by its words (拼团商品, 预售商品). */
+/** The bottom bar's button by its words (商品详情 under a 拼团). */
 function barButton(page: Page, label: string): Locator {
   return shown(page).locator('.shop-action-bar').getByText(label, { exact: true });
 }
 
-/** 拼团商品 (`groupbuy { id }`). */
-export class GroupbuyActivityPage {
+/** 商品详情 of a product under a 拼团 (`product { id }`). */
+export class GroupbuyProductPage {
   constructor(readonly page: Page) {}
 
-  async open(activityId: number | string) {
-    await openFresh(
-      this.page,
-      miniRoute('packages/promo/groupbuy-detail/index', { id: activityId }),
-    );
-    await expect(shown(this.page).locator('#activity-title')).toBeVisible();
+  async open(productId: number | string) {
+    await openFresh(this.page, miniRoute('pages/product/index', { id: productId }));
+    await expect(this.title()).toBeVisible();
   }
 
   title(): Locator {
-    return shown(this.page).locator('#activity-title');
+    return shown(this.page).locator('#product-name');
   }
 
-  rules(): Locator {
-    return shown(this.page).locator('#groupbuy-rules');
+  /** The 拼团 box at the top: its price, team size and countdown. */
+  promotion(): Locator {
+    return shown(this.page).locator('.product__promotion');
   }
 
-  button(label: '发起拼团' | '单独购买' | '查看我的团'): Locator {
+  button(label: '立即开团' | '单独购买' | '查看我的团'): Locator {
     return barButton(this.page, label);
   }
 
-  /** 发起拼团 → the SKU sheet → its 发起拼团: on to 确认订单. */
+  /** 立即开团 → the SKU sheet → its 立即开团: on to 确认订单. */
   async startTeam() {
-    await this.button('发起拼团').click();
+    await this.button('立即开团').click();
     const sheet = new ActivitySkuSheet(this.page);
     await sheet.expectShown();
-    await sheet.confirm('发起拼团');
+    await sheet.confirm('立即开团');
   }
 }
 
@@ -138,25 +136,30 @@ export class MyGroupbuysPage {
   }
 }
 
-/** 预售商品 (`presale { id }`). */
-export class PresaleActivityPage {
+/** 商品详情 of a product under a 预售 (`product { id }`). */
+export class PresaleProductPage {
   constructor(readonly page: Page) {}
 
-  async open(activityId: number | string) {
-    await openFresh(
-      this.page,
-      miniRoute('packages/promo/presale-detail/index', { id: activityId }),
-    );
-    await expect(shown(this.page).locator('#activity-title')).toBeVisible();
+  async open(productId: number | string) {
+    await openFresh(this.page, miniRoute('pages/product/index', { id: productId }));
+    await expect(this.title()).toBeVisible();
   }
 
-  rules(): Locator {
-    return shown(this.page).locator('#presale-rules');
+  title(): Locator {
+    return shown(this.page).locator('#product-name');
   }
 
-  /** 立即预订 → the SKU sheet → its 立即预订: on to 确认订单. */
+  /** The 预售 box at the top: its price, when it ships and the countdown. */
+  promotion(): Locator {
+    return shown(this.page).locator('.product__promotion');
+  }
+
+  /** 立即预订 ¥78.00 → the SKU sheet → its 立即预订: on to 确认订单. */
   async book() {
-    await barButton(this.page, '立即预订').click();
+    await shown(this.page)
+      .locator('.shop-action-bar')
+      .getByText(/^立即预订/)
+      .click();
     const sheet = new ActivitySkuSheet(this.page);
     await sheet.expectShown();
     await sheet.confirm('立即预订');

@@ -82,8 +82,8 @@
 | `serviceGrid`           | 服务宫格    | 1   | user_center               |                                                                  | 每项 `action` 为 `link` 或 `contact`（联系客服）；`link` 时必须选链接                     |
 | `couponList`            | 优惠券      | 1   | 全部                      | `coupons`；个人：`coupons`（领取状态）                           | `manual` 或 `auto`（全部可领，前 N 张）；横滑或竖排；按钮为 领取 / 再领 / 去使用 / 已领完 |
 | `newcomerCoupon`        | 新人券      | 1   | 全部                      | `coupons`（`newUserCoupons`）；个人：`held`（`newcomerCoupons`） | 游客看到模板和「注册领取」；登录后只在持有未使用的新人券时显示，否则隐藏                  |
-| `groupbuyList`          | 拼团        | 1   | home、custom              | `campaigns`（`groupbuys`）                                       | `manual` 或 `auto`（最新 N 个）；显示拼团价、N 人团、已拼件数；点击进 `groupbuy`          |
-| `presaleList`           | 预售        | 1   | home、custom              | `campaigns`（`presales`）                                        | 显示预售价、发货天数和阶段倒计时（按服务器时间）；点击进 `presale`                        |
+| `groupbuyList`          | 拼团        | 1   | home、custom              | `campaigns`（`groupbuys`）                                       | `manual` 或 `auto`（最新 N 个）；显示拼团价、N 人团、已拼件数；点击进该商品的 `product`   |
+| `presaleList`           | 预售        | 1   | home、custom              | `campaigns`（`presales`）                                        | 显示预售价、发货天数和阶段倒计时（按服务器时间）；点击进该商品的 `product`                |
 | `articleList`           | 资讯        | 1   | 全部                      | `articles`                                                       | `category`（可不选分类）或 `manual`；列表（右侧缩略图）或卡片；点击进文章                 |
 | `video`                 | 视频        | 1   | home、custom              |                                                                  | mp4 地址 + 可选封面；默认不自动播放；可静音、循环；画面比例 16:9 / 4:3 / 1:1              |
 | `floatingContact`       | 悬浮客服    | 1   | 全部（每页 1 个）         |                                                                  | 固定在页面左 / 右侧，距底部 120–600；发出 `contact` 意图                                  |

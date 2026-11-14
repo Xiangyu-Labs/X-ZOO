@@ -67,6 +67,7 @@ export interface SeedResult {
     postageSkuId: number;
     postageFreightTemplateId: number;
     activityProductId: number;
+    groupbuyProductId: number;
     activitySkuId: number;
     couponTemplateId: number;
     groupBuyActivityId: number;
@@ -525,6 +526,7 @@ export async function seedE2E(options: {
         postageSkuId,
         postageFreightTemplateId: Number(template.id),
         activityProductId: Number(activityProduct.id),
+        groupbuyProductId: Number(groupProduct.id),
         activitySkuId,
         couponTemplateId: Number(coupon.id),
         groupBuyActivityId: groupbuy!.id,

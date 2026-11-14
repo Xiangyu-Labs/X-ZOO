@@ -2118,7 +2118,7 @@ From every admin page, following what it renders symbol by symbol: every write r
 - `packages/core/src/wechat/wechat.mini-code.int.test.ts::the (page, scene) cache > asks WeChat once for a pair and serves every later caller from the cache`
 - `packages/core/src/wechat/wechat.mini-code.int.test.ts::shareMiniCodeUrl > refuses params that do not fit the key, without calling WeChat — SHARE-001`
 - `packages/core/src/wechat/wechat.mini-code.int.test.ts::shareMiniCodeUrl > refuses a key the catalogue does not mark miniCode — SHARE-001`
-- `e2e/storefront/specs-mini/share.spec.ts::SHARE-001: a 小程序码 opens the product, activity, coupon or decor page it was made for`
+- `e2e/storefront/specs-mini/share.spec.ts::SHARE-001: a 小程序码 opens the product, coupon or decor page it was made for`
 
 ### SHARE-002
 

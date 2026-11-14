@@ -38,16 +38,7 @@ describe('the catalogue', () => {
 
   it('gives each mini-code key one `id` param or none, so its scene fits in 32 bytes', () => {
     expect(miniCodeKeys.sort()).toEqual(
-      [
-        'article',
-        'couponCenter',
-        'groupbuy',
-        'groupbuyTeam',
-        'home',
-        'page',
-        'presale',
-        'product',
-      ].sort(),
+      ['article', 'couponCenter', 'groupbuyTeam', 'home', 'page', 'product'].sort(),
     );
     for (const key of miniCodeKeys) {
       const params = storefrontRoutes[key].params;

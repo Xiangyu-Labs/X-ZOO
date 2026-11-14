@@ -115,15 +115,7 @@ export const LINK_ROUTES = {
     },
   },
   groupbuyList: { label: ROUTE_LINK_LABELS.groupbuyList, params: {} },
-  groupbuy: {
-    label: '拼团活动',
-    params: { id: { kind: 'record', label: '拼团活动', record: 'groupbuy' } },
-  },
   presaleList: { label: ROUTE_LINK_LABELS.presaleList, params: {} },
-  presale: {
-    label: '预售活动',
-    params: { id: { kind: 'record', label: '预售活动', record: 'presale' } },
-  },
   couponCenter: { label: ROUTE_LINK_LABELS.couponCenter, params: {} },
   myCoupons: {
     label: ROUTE_LINK_LABELS.myCoupons,

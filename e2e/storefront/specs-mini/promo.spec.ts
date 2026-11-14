@@ -12,11 +12,11 @@ import { expectOrderStatus, payAtMiniCashier } from '../src/mini-pages/order-sho
 import {
   ActivitySkuSheet,
   CouponCenterPage,
-  GroupbuyActivityPage,
+  GroupbuyProductPage,
   GroupbuyTeamPage,
   MyCouponsPage,
   MyGroupbuysPage,
-  PresaleActivityPage,
+  PresaleProductPage,
 } from '../src/mini-pages/promo-pages';
 import { CashierPage, CheckoutPage, ProductPage } from '../src/mini-pages/shopping-pages';
 import { returningShopper } from '../src/mini-pages/shopping-shopper';
@@ -65,14 +65,13 @@ test('a shopper opens a group buy, a friend joins on another phone, and the team
 }) => {
   const leader = await returningShopper(page, wechatUser, shop, playwright);
 
-  // 拼团商品 says how the team works, including what happens if it does not fill.
-  const activity = new GroupbuyActivityPage(page);
-  await activity.open(shop.fixtures.groupBuyActivityId);
-  await expect(activity.title()).toHaveText('E2E 拼团活动');
-  await expect(activity.rules()).toContainText('2 人成团');
-  await expect(activity.rules()).toContainText('到时间未凑齐，拼团自动取消，已付款项原路退回');
+  // 商品详情 shows the 拼团 price and team size.
+  const activity = new GroupbuyProductPage(page);
+  await activity.open(shop.fixtures.groupbuyProductId);
+  await expect(activity.title()).toHaveText('E2E 拼单商品');
+  await expect(activity.promotion()).toContainText('2人拼团价');
 
-  // 发起拼团 → 确认订单 → 收银台.
+  // 立即开团 → 确认订单 → 收银台.
   await activity.startTeam();
   const checkout = new CheckoutPage(page);
   await checkout.expectShown();
@@ -150,8 +149,8 @@ test('a team nobody joins fails when its time is up, and the shopper is refunded
   const shopper = await returningShopper(page, wechatUser, shop, playwright);
 
   // The team is opened and paid for (the pages of the journey above).
-  const activity = new GroupbuyActivityPage(page);
-  await activity.open(shop.fixtures.groupBuyActivityId);
+  const activity = new GroupbuyProductPage(page);
+  await activity.open(shop.fixtures.groupbuyProductId);
   await activity.startTeam();
   const checkout = new CheckoutPage(page);
   await checkout.expectShown();
@@ -224,11 +223,11 @@ test('a presale is booked and paid in full, and says when it ships', async ({
 }) => {
   const shopper = await returningShopper(page, wechatUser, shop, playwright);
 
-  // Full payment only: the page says there is no balance to pay later.
-  const presale = new PresaleActivityPage(page);
-  await presale.open(shop.fixtures.presaleActivityId);
-  await expect(presale.rules()).toContainText('全款预订，付款后 7 天内发货');
-  await expect(presale.rules()).toContainText('下单时支付全部货款，无需另付尾款');
+  // 商品详情 says when the 预售 ships.
+  const presale = new PresaleProductPage(page);
+  await presale.open(shop.fixtures.activityProductId);
+  await expect(presale.title()).toContainText('E2E 活动商品');
+  await expect(presale.promotion()).toContainText('付款后 7 天内发货');
 
   await presale.book();
   const checkout = new CheckoutPage(page);
