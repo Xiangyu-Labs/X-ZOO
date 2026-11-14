@@ -275,7 +275,6 @@ export const USER_CENTER_CLEAN: StoredDocument = {
         items: [
           { label: '收货地址', action: 'link', link: route('addresses') },
           { label: '我的评价', action: 'link', link: route('myReviews') },
-          { label: '发票管理', action: 'link', link: route('invoices') },
           { label: '消息中心', action: 'link', link: route('messages') },
           { label: '我的拼团', action: 'link', link: route('myGroupbuys') },
           { label: '联系客服', action: 'contact' },
