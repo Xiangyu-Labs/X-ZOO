@@ -679,15 +679,19 @@ async function writeAudit(
 
 /**
  * What an unhandled error says about itself, for the 操作日志's staff-only 技术信息: its name and
- * message, and its cause's (a failed query wraps the database's own complaint). A query error's
- * message also lists the statement's parameters, which are the request's values (a password, a
- * key) and must not reach a log more people read than hold them, so that part is cut.
+ * message, and its cause's (a failed query wraps the database's own complaint). No value of the
+ * request reaches it, because the log has more readers than hold a password or a key: a query
+ * error's `params:` list is cut, and so is the quoted value PostgreSQL puts after a colon
+ * (`invalid input syntax for type integer: "…"`). Names it quotes elsewhere (`constraint
+ * "orders_pkey"`) stay; they are the useful part.
  */
 export function internalDetailOf(error: unknown): string {
+  const scrub = (text: string): string =>
+    (text.split(/\nparams:/)[0] ?? '').replace(/: "(?:[^"\\]|\\.)*"/g, ': "…"');
   const describe = (value: unknown): string | null => {
-    if (!(value instanceof Error)) return value === undefined ? null : String(value).slice(0, 200);
-    const message = value.message.split(/\nparams:/)[0] ?? '';
-    return `${value.name}: ${message}`.slice(0, 400);
+    if (!(value instanceof Error))
+      return value === undefined ? null : scrub(String(value)).slice(0, 200);
+    return `${value.name}: ${scrub(value.message)}`.slice(0, 400);
   };
   const own = describe(error) ?? 'unknown error';
   const cause = error instanceof Error ? describe(error.cause) : null;

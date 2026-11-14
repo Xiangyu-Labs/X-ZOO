@@ -29,7 +29,14 @@ vi.mock('@shop/core/auth', async (importOriginal) => {
   };
 });
 import { toApiError } from '../admin/api/errors';
-import { ADMIN_COOKIE, checkCsrf, handle, readCookie, searchParamsToObject } from './handle';
+import {
+  ADMIN_COOKIE,
+  checkCsrf,
+  handle,
+  internalDetailOf,
+  readCookie,
+  searchParamsToObject,
+} from './handle';
 import type { Container } from './container';
 import type { Env } from './env';
 
@@ -1202,5 +1209,26 @@ describe('searchParamsToObject', () => {
       b: ['2', '3'],
     });
     expect(searchParamsToObject(new URLSearchParams(''))).toEqual({});
+  });
+});
+
+describe('internalDetailOf', () => {
+  it('keeps what went wrong and none of the values the request sent', () => {
+    const cause = Object.assign(new Error('invalid input syntax for type integer: "s3cr3t-pass"'), {
+      name: 'PostgresError',
+    });
+    const failed = new Error(
+      'Failed query: update "admins" set "password" = $1 where "id" = $2\nparams: s3cr3t-pass,7',
+      { cause },
+    );
+    const detail = internalDetailOf(failed);
+    expect(detail).not.toContain('s3cr3t-pass');
+    expect(detail).toContain('Failed query: update "admins"');
+    expect(detail).toContain('cause: PostgresError: invalid input syntax for type integer: "…"');
+
+    const unique = new Error('duplicate key value violates unique constraint "admins_account_key"');
+    expect(internalDetailOf(unique)).toBe(
+      'Error: duplicate key value violates unique constraint "admins_account_key"',
+    );
   });
 });
