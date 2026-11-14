@@ -68,7 +68,8 @@ export * as notificationAdmin from './notification.admin.service';
 export * as notificationPreview from './notification.preview';
 export * as notificationInbox from './notification.inbox.service';
 
-import { registerBuiltInNotificationEvents } from './notification.registry';
+import { registerAuditNameLookup } from '../kernel/audit-names';
+import { findNotificationEvent, registerBuiltInNotificationEvents } from './notification.registry';
 import { installNotificationHooks } from './notification.effects';
 import { registerDefaultSmsPort } from './notification.ports';
 import { providerSmsPort } from './notification.sms';
@@ -83,6 +84,8 @@ import { providerSmsPort } from './notification.sms';
  */
 export function registerNotificationDomain(): void {
   registerBuiltInNotificationEvents();
+  // 操作日志 names a template by its event (system cannot import this domain).
+  registerAuditNameLookup('notification-event', (code) => findNotificationEvent(code)?.name);
   installNotificationHooks();
   // The SMS channel sends through the provider 短信设置 names. Until this
   // existed nothing registered the port, and every SMS notice was skipped.

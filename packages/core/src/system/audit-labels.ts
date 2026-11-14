@@ -1,8 +1,8 @@
 import { allRoutes } from '@shop/contracts/routes';
 import { DESIGNATIONS, type Designation } from '@shop/contracts/decor/constants';
 
+import { auditName } from '../kernel/audit-names';
 import { getConfigGroup } from '../kernel/config-registry';
-import { findNotificationEvent } from '../notification/index';
 
 /**
  * The 操作日志 in words a member of staff reads.
@@ -165,7 +165,7 @@ export function targetText(
   if (prefix === 'notification-template') {
     // `<code>`, `<code>:<channel>`, or a test send `<code>:test:<channel>:user:<id>`.
     const [code = '', second, third, , userId] = rest;
-    const name = findNotificationEvent(code)?.name ?? code;
+    const name = auditName('notification-event', code) ?? code;
     const channelName = (channel: string) => CHANNELS[channel] ?? '未知渠道';
     if (second === 'test') {
       return `${noun}：${name} 试发（${channelName(third ?? '')}）${userId ? `给用户 #${userId}` : ''}`;

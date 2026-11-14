@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { ADMIN_LOGIN_AUDIT_ROUTE } from '../auth/index';
+import { registerAuditNameLookup } from '../kernel/audit-names';
 import { AUDIT_TARGET_NOUNS, operationName, routeIdsNamed, targetText } from './audit-labels';
 import './site.config';
 
@@ -87,11 +88,17 @@ describe('操作日志 in words', () => {
     expect(targetText('wechat-media:sync')).toBe('公众号素材同步');
     expect(targetText('scan-token:abcd1234')).toBe('扫码上传');
     expect(targetText('admin:self')).toBe('自己的账号');
-    expect(targetText('notification-template:order_paid:test:sms:user:42')).toMatch(
-      /^通知模板：.+ 试发（短信）给用户 #42$/,
+    expect(targetText('notification-template:order_paid:test:sms:user:42')).toBe(
+      '通知模板：order_paid 试发（短信）给用户 #42',
     );
-    expect(targetText('notification-template:order_paid:wechatMini')).toMatch(
-      /^通知模板：.+（小程序订阅消息）$/,
+    registerAuditNameLookup('notification-event', (code) =>
+      code === 'order_paid' ? '订单支付成功' : undefined,
+    );
+    expect(targetText('notification-template:order_paid:test:sms:user:42')).toBe(
+      '通知模板：订单支付成功 试发（短信）给用户 #42',
+    );
+    expect(targetText('notification-template:order_paid:wechatMini')).toBe(
+      '通知模板：订单支付成功（小程序订阅消息）',
     );
     expect(
       targetText(
