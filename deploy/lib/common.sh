@@ -102,6 +102,28 @@ setting() {
   sed -n "s/^$1=//p" "$settings" | tail -n1
 }
 
+# One service's lines in the host's journal, as `journalctl` match arguments.
+# compose.yml's log driver copies the compose project and service labels into
+# every entry, so this finds a one-off `compose run` (migrate, whose container
+# is named `…-migrate-run-<id>`) as well as a fixed-name container.
+journal_match() {
+  printf '%s\n' "COM_DOCKER_COMPOSE_PROJECT=$project" "COM_DOCKER_COMPOSE_SERVICE=$1"
+}
+
+# Whether this user can read the containers' entries. To anyone outside these
+# groups journalctl prints nothing and exits 0, which looks like a quiet service.
+journal_readable() {
+  [ "$(id -u)" = 0 ] && return 0
+  case " $(id -nG) " in
+    *' systemd-journal '* | *' adm '* | *' wheel '*) return 0 ;;
+  esac
+  return 1
+}
+
+# journalctl with the shop's clock: --since/--until and the times it prints are
+# Asia/Shanghai, whatever the host's own timezone.
+shop_journalctl() { TZ=Asia/Shanghai journalctl "$@"; }
+
 # Where dumps, upgrade manifests and settings backups go: `NEXT_BACKUP_DIR`
 # from the environment or the settings, relative to the deploy directory.
 backup_dir() {

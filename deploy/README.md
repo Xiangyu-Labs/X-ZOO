@@ -612,7 +612,8 @@ draining on SIGTERM, so a wedged worker turns unhealthy, not merely a dead one.
 
 Every container logs to the **host's journal** (`compose.yml`, the `journald` log driver), not to
 a file inside the container. An upgrade or a rollback recreates the containers, and a container's
-own log file goes with it; in the journal each line keeps its container's name and outlives it.
+own log file goes with it; in the journal each line keeps its compose service and outlives it.
+`./shop logs migrate` finds the migration runs the same way.
 
 ```sh
 ./shop logs web                                  # the last 24 hours, across releases
@@ -621,6 +622,8 @@ own log file goes with it; in the journal each line keeps its container's name a
 ./shop logs edge -f
 ```
 
+`--since` and `--until` are Asia/Shanghai time, whatever the host's timezone.
+
 `web` logs one JSON line per request with its `requestId`. A failed admin operation is in the
 admin's 系统 → 操作日志 (filter 结果 = 失败) with the time, the operation, who did it and the
 请求编号; `--grep` with that number finds what the server logged for it. `./shop compose logs`
@@ -628,15 +631,19 @@ still works, for the current containers only.
 
 **Keep at least 30 days.** How long the journal keeps lines is the host's journald setting, shared
 with the rest of the system. Ubuntu keeps it on disk (`/var/log/journal`) and caps it at 10% of the
-file system (at most 4 GB), with no age limit. `./shop status` prints how far back the web log
-reaches (`logs: web back to …`); if that is under 30 days, or it says the journal is not kept on
-disk, raise the cap once, as root:
+file system and at most 4 GB, with no age limit, so on any disk over 40 GB the cap is 4 GB.
+`./shop status` prints how far back the web log reaches (`logs: web back to …`). If that is under
+30 days, or it says the journal is not kept on disk, raise the cap once, as root, above whatever
+`journalctl --disk-usage` shows today (8 GB below; leave the disk at least 20% free):
 
 ```sh
 sudo mkdir -p /etc/systemd/journald.conf.d
-printf '[Journal]\nStorage=persistent\nSystemMaxUse=4G\n' | sudo tee /etc/systemd/journald.conf.d/x-zoo.conf
+printf '[Journal]\nStorage=persistent\nSystemMaxUse=8G\n' | sudo tee /etc/systemd/journald.conf.d/x-zoo.conf
 sudo systemctl restart systemd-journald
 ```
+
+Check `logs: web back to …` again a few weeks later; if it still stops short of 30 days, double
+the cap.
 
 The SSH user reads the journal through the `systemd-journal` group (Ubuntu's `ubuntu` user is in
 `adm`, which also reads it); `shop logs` says so when it cannot.

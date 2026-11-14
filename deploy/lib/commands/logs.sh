@@ -9,8 +9,9 @@
 # shows the service's lines from before those too, for as long as the journal
 # keeps them ("Logs" in deploy/README.md).
 #
-#   --since, --until  anything journalctl takes: "2026-11-14 09:30", "3 days ago",
-#                     "yesterday". Default: the last 24 hours.
+#   --since, --until  anything journalctl takes, in Asia/Shanghai time:
+#                     "2026-11-14 09:30", "3 days ago", "yesterday".
+#                     Default: the last 24 hours.
 #   --grep <text>     only the lines holding this text, e.g. the 请求编号 that
 #                     the admin's 操作日志 shows for a failed operation.
 #   -f                keep printing new lines.
@@ -30,7 +31,7 @@ follow=''
 while [ "$#" -gt 0 ]; do
   case "$1" in
     -h | --help)
-      sed -n '2,18p' "$0"
+      sed -n '2,19p' "$0"
       exit 0
       ;;
     --since | --until | --grep)
@@ -73,20 +74,15 @@ esac
 require_settings
 command -v journalctl >/dev/null || die "journalctl is not on this host; the logs are in the systemd journal"
 
-prefix="${NEXT_CONTAINER_PREFIX:-$(setting NEXT_CONTAINER_PREFIX)}"
-args=(--no-pager --output cat "CONTAINER_NAME=${prefix:-x-zoo}-$service" --since "$since")
+journal_readable || die "cannot read the journal as $(id -un): add the user to the systemd-journal group"
+
+mapfile -t match < <(journal_match "$service")
+args=(--no-pager --output cat "${match[@]}" --since "$since")
 [ -z "$until" ] || args+=(--until "$until")
 [ -z "$follow" ] || args+=(--follow)
 
-# To a user outside these groups journalctl prints nothing and exits 0, which
-# would look like a quiet service.
-case " $(id -nG) " in
-  *' systemd-journal '* | *' adm '* | *' wheel '*) ;;
-  *) [ "$(id -u)" = 0 ] || die "cannot read the journal as $(id -un): add the user to the systemd-journal group" ;;
-esac
-
 if [ -n "$pattern" ]; then
-  journalctl "${args[@]}" | grep --line-buffered -F -- "$pattern" || true
+  shop_journalctl "${args[@]}" | grep --line-buffered -F -- "$pattern" || true
 else
-  journalctl "${args[@]}"
+  shop_journalctl "${args[@]}"
 fi

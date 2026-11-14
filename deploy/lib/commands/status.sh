@@ -72,11 +72,13 @@ say ''
 # not on disk (/var/log/journal) is lost on a reboot and kept small.
 if ! command -v journalctl >/dev/null; then
   say 'logs: no journalctl on this host, so shop logs cannot read anything'
+elif ! journal_readable; then
+  say "logs: $(id -un) cannot read the journal; add the user to the systemd-journal group"
 else
-  prefix="${NEXT_CONTAINER_PREFIX:-$(setting NEXT_CONTAINER_PREFIX)}"
-  oldest="$(journalctl --no-pager --quiet --output short-iso "CONTAINER_NAME=${prefix:-x-zoo}-web" 2>/dev/null |
+  mapfile -t match < <(journal_match web)
+  oldest="$(shop_journalctl --no-pager --quiet --output short-iso "${match[@]}" 2>/dev/null |
     head -n1 | cut -d' ' -f1 || true)"
-  say "logs: web back to ${oldest:-<nothing in the journal>}"
+  say "logs: web back to ${oldest:-<nothing in the journal>} (Asia/Shanghai)"
   [ -d /var/log/journal ] ||
     say '  but the journal is not kept on disk; see "Logs" in deploy/README.md'
 fi
