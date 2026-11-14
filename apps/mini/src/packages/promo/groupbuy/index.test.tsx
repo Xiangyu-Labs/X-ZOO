@@ -37,13 +37,13 @@ function serve(items: Card[], banners: Array<{ imageUrl: string; link: string | 
 }
 
 describe('拼团 list', () => {
-  it('lists the activities with the honest rule, and opens one', async () => {
+  it('lists the activities with the honest rule, and opens the product page of one', async () => {
     serve([card(), card({ activityId: '2', title: '三人团', startAt: '2099-01-01T00:00:00Z' })]);
     await renderPage(<GroupbuyListPage />);
     fireEvent.click(await screen.findByRole('link', { name: /双人团 · 护理套装/ }));
     expect(taroFake.calls.at(-1)).toEqual({
       api: 'navigateTo',
-      args: { url: '/packages/promo/groupbuy-detail/index?id=1' },
+      args: { url: '/pages/product/index?id=11' },
     });
     expect(screen.getByText('2人团')).toBeTruthy();
     expect(screen.getByText('即将开始')).toBeTruthy();

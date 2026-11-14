@@ -14,8 +14,9 @@ export interface CampaignListData<T> {
 
 /**
  * 拼团: running group-buy campaigns — the 拼团价, the team size (N人团) and
- * how many have been sold through it. A tap opens the campaign
- * (`groupbuy { id }`); joining a team happens there. Nothing running hides
+ * how many have been sold through it. A tap opens the product page
+ * (`product { id }`), which shows the campaign and opens or joins a team; the
+ * old campaign page is no longer linked from here. Nothing running hides
  * the block, except in the editor.
  */
 export function GroupbuyList({
@@ -54,7 +55,7 @@ export function GroupbuyList({
               (() =>
                 onLink({
                   kind: 'route',
-                  to: { route: 'groupbuy', params: { id: campaign.activityId } },
+                  to: { route: 'product', params: { id: campaign.productId } },
                 })),
           }))}
         />

@@ -197,7 +197,7 @@ describe('NewcomerCoupon', () => {
 });
 
 describe('GroupbuyList', () => {
-  it('shows the 拼团价, team size and sales, and opens the campaign', () => {
+  it('shows the 拼团价, team size and sales, and opens the product page', () => {
     const onLink = vi.fn();
     render(
       <GroupbuyList
@@ -211,7 +211,7 @@ describe('GroupbuyList', () => {
     expect(screen.getByText('已拼 36 件')).toBeTruthy();
     expect(screen.getByText('¥129.90')).toBeTruthy();
     fireEvent.click(screen.getByText('厨房收纳三件套'));
-    expect(onLink).toHaveBeenCalledWith(route('groupbuy', { id: '42' }));
+    expect(onLink).toHaveBeenCalledWith(route('product', { id: '15' }));
     fireEvent.click(screen.getByText('更多'));
     expect(onLink).toHaveBeenLastCalledWith(route('groupbuyList'));
   });
@@ -231,7 +231,7 @@ describe('GroupbuyList', () => {
 });
 
 describe('PresaleList', () => {
-  it('shows the 预售价, the struck price and when it ships, and opens the campaign', () => {
+  it('shows the 预售价, the struck price and when it ships, and opens the product page', () => {
     const onLink = vi.fn();
     render(
       <PresaleList
@@ -247,7 +247,7 @@ describe('PresaleList', () => {
     expect(screen.getByText('付款后尽快发货')).toBeTruthy();
     expect(screen.queryByText(/定金|尾款/)).toBeNull();
     fireEvent.click(screen.getByText('主动降噪真无线蓝牙耳机 长续航'));
-    expect(onLink).toHaveBeenCalledWith(route('presale', { id: '51' }));
+    expect(onLink).toHaveBeenCalledWith(route('product', { id: '14' }));
   });
 
   it('counts down on the server’s clock, one tick a second, and ends at 已结束', () => {

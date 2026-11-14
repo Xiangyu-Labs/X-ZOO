@@ -34,13 +34,13 @@ function serve(items: Card[]) {
 }
 
 describe('预售 list', () => {
-  it('lists the activities with when they ship, and opens one', async () => {
+  it('lists the activities with when they ship, and opens the product page of one', async () => {
     serve([card()]);
     await renderPage(<PresaleListPage />);
     fireEvent.click(await screen.findByRole('link', { name: /新品预售 · 香氛礼盒/ }));
     expect(taroFake.calls.at(-1)).toEqual({
       api: 'navigateTo',
-      args: { url: '/packages/promo/presale-detail/index?id=2' },
+      args: { url: '/pages/product/index?id=12' },
     });
     expect(screen.getByText('付款后 15 天内发货')).toBeTruthy();
     expect(screen.getByText('全款预订，按约定时间发货')).toBeTruthy();

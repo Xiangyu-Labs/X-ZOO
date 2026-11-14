@@ -43,7 +43,7 @@ export default function PresaleListPage() {
                 layout="list"
                 activity={phase === 'upcoming' ? '即将开始' : '预售'}
                 activityPrice={activityPrice}
-                onClick={() => navigate({ route: 'presale', params: { id: card.activityId } })}
+                onClick={() => navigate({ route: 'product', params: { id: card.productId } })}
               />
             );
           }}
