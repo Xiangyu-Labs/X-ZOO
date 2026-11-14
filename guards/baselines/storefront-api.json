@@ -1167,6 +1167,7 @@
           "subscribeTemplates",
           "subscribeScenes",
           "webviewDomains",
+          "assetOrigin",
           "appearance",
           "display",
           "version",
@@ -1545,6 +1546,12 @@
                                   "redirect": {
                                     "type": "string",
                                     "maxLength": 1024
+                                  },
+                                  "mode": {
+                                    "type": "string",
+                                    "enum": [
+                                      "sms"
+                                    ]
                                   }
                                 },
                                 "additionalProperties": false
@@ -2095,35 +2102,6 @@
                               "route": {
                                 "type": "string",
                                 "enum": [
-                                  "groupbuy"
-                                ]
-                              },
-                              "params": {
-                                "type": "object",
-                                "required": [
-                                  "id"
-                                ],
-                                "properties": {
-                                  "id": {
-                                    "type": "string",
-                                    "pattern": "^[1-9]\\d*$"
-                                  }
-                                },
-                                "additionalProperties": false
-                              }
-                            },
-                            "additionalProperties": false
-                          },
-                          {
-                            "type": "object",
-                            "required": [
-                              "route",
-                              "params"
-                            ],
-                            "properties": {
-                              "route": {
-                                "type": "string",
-                                "enum": [
                                   "groupbuyTeam"
                                 ]
                               },
@@ -2159,35 +2137,6 @@
                               "params": {
                                 "type": "object",
                                 "properties": {},
-                                "additionalProperties": false
-                              }
-                            },
-                            "additionalProperties": false
-                          },
-                          {
-                            "type": "object",
-                            "required": [
-                              "route",
-                              "params"
-                            ],
-                            "properties": {
-                              "route": {
-                                "type": "string",
-                                "enum": [
-                                  "presale"
-                                ]
-                              },
-                              "params": {
-                                "type": "object",
-                                "required": [
-                                  "id"
-                                ],
-                                "properties": {
-                                  "id": {
-                                    "type": "string",
-                                    "pattern": "^[1-9]\\d*$"
-                                  }
-                                },
                                 "additionalProperties": false
                               }
                             },
@@ -2848,6 +2797,7 @@
             "required": [
               "orderCreate",
               "orderPay",
+              "orderUnpaid",
               "orderShip",
               "refund"
             ],
@@ -2859,6 +2809,12 @@
                 }
               },
               "orderPay": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "orderUnpaid": {
                 "type": "array",
                 "items": {
                   "type": "string"
@@ -2936,6 +2892,12 @@
               "type": "string",
               "pattern": "^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$"
             }
+          },
+          "assetOrigin": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "appearance": {
             "type": "object",
@@ -3651,7 +3613,7 @@
           "password": {
             "type": "string",
             "minLength": 6,
-            "maxLength": 64
+            "maxLength": 72
           }
         }
       },
@@ -3693,7 +3655,7 @@
           "password": {
             "type": "string",
             "minLength": 6,
-            "maxLength": 64
+            "maxLength": 72
           }
         }
       },
@@ -3839,7 +3801,7 @@
           "password": {
             "type": "string",
             "minLength": 6,
-            "maxLength": 64
+            "maxLength": 72
           },
           "nickname": {
             "type": "string",
@@ -5154,6 +5116,39 @@
                   "type": "integer",
                   "minimum": 0
                 },
+                "quantityRule": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "required": [
+                    "kind",
+                    "limit",
+                    "purchased"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "virtual_card",
+                        "min_purchase",
+                        "per_order",
+                        "lifetime"
+                      ]
+                    },
+                    "limit": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "purchased": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "minimum": 0
+                    }
+                  }
+                },
                 "createdAt": {
                   "type": "string",
                   "format": "date-time"
@@ -5359,6 +5354,39 @@
                 "type": "integer",
                 "minimum": 0
               },
+              "quantityRule": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "required": [
+                  "kind",
+                  "limit",
+                  "purchased"
+                ],
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "virtual_card",
+                      "min_purchase",
+                      "per_order",
+                      "lifetime"
+                    ]
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "purchased": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  }
+                }
+              },
               "createdAt": {
                 "type": "string",
                 "format": "date-time"
@@ -5522,6 +5550,39 @@
               "stock": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "quantityRule": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "required": [
+                  "kind",
+                  "limit",
+                  "purchased"
+                ],
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "virtual_card",
+                      "min_purchase",
+                      "per_order",
+                      "lifetime"
+                    ]
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "purchased": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  }
+                }
               },
               "createdAt": {
                 "type": "string",
@@ -5704,6 +5765,39 @@
                 "type": "integer",
                 "minimum": 0
               },
+              "quantityRule": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "required": [
+                  "kind",
+                  "limit",
+                  "purchased"
+                ],
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "virtual_card",
+                      "min_purchase",
+                      "per_order",
+                      "lifetime"
+                    ]
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "purchased": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  }
+                }
+              },
               "createdAt": {
                 "type": "string",
                 "format": "date-time"
@@ -5884,6 +5978,39 @@
               "stock": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "quantityRule": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "required": [
+                  "kind",
+                  "limit",
+                  "purchased"
+                ],
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "virtual_card",
+                      "min_purchase",
+                      "per_order",
+                      "lifetime"
+                    ]
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "purchased": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  }
+                }
               },
               "createdAt": {
                 "type": "string",
@@ -6191,6 +6318,39 @@
                 "stock": {
                   "type": "integer",
                   "minimum": 0
+                },
+                "quantityRule": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "required": [
+                    "kind",
+                    "limit",
+                    "purchased"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "virtual_card",
+                        "min_purchase",
+                        "per_order",
+                        "lifetime"
+                      ]
+                    },
+                    "limit": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "purchased": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "minimum": 0
+                    }
+                  }
                 },
                 "createdAt": {
                   "type": "string",
@@ -6713,6 +6873,7 @@
           "canAddToCart",
           "sliderImages",
           "videoUrl",
+          "videoPosterUrl",
           "specMode",
           "minPurchaseQuantity",
           "purchaseLimitMode",
@@ -6721,6 +6882,7 @@
           "fixedFreight",
           "views",
           "descriptionHtml",
+          "descriptionBlocks",
           "specs",
           "skus",
           "params",
@@ -6845,6 +7007,127 @@
           "canAddToCart": {
             "type": "boolean"
           },
+          "promotion": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "kind",
+              "activityId",
+              "price",
+              "originalPrice",
+              "endAt",
+              "canBuy",
+              "seatsRequired",
+              "shipAfterDays",
+              "perOrderQuantity",
+              "skus"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "presale",
+                  "groupbuy"
+                ]
+              },
+              "activityId": {
+                "type": "string",
+                "pattern": "^[1-9]\\d*$"
+              },
+              "price": {
+                "type": "string",
+                "pattern": "^(0|[1-9]\\d{0,9})\\.\\d{2}$"
+              },
+              "originalPrice": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^(0|[1-9]\\d{0,9})\\.\\d{2}$"
+              },
+              "endAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "canBuy": {
+                "type": "boolean"
+              },
+              "seatsRequired": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 2
+              },
+              "shipAfterDays": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "perOrderQuantity": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "skus": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "skuId",
+                    "specText",
+                    "specValues",
+                    "imageUrl",
+                    "price",
+                    "originalPrice",
+                    "stock"
+                  ],
+                  "properties": {
+                    "skuId": {
+                      "type": "string",
+                      "pattern": "^[1-9]\\d*$"
+                    },
+                    "specText": {
+                      "type": "string"
+                    },
+                    "specValues": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "imageUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "price": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,9})\\.\\d{2}$"
+                    },
+                    "originalPrice": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "pattern": "^(0|[1-9]\\d{0,9})\\.\\d{2}$"
+                    },
+                    "stock": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "promotionConflict": {
+            "type": "boolean"
+          },
           "sliderImages": {
             "type": "array",
             "items": {
@@ -6852,6 +7135,12 @@
             }
           },
           "videoUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "videoPosterUrl": {
             "type": [
               "string",
               "null"
@@ -6899,6 +7188,69 @@
           },
           "descriptionHtml": {
             "type": "string"
+          },
+          "descriptionBlocks": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "type",
+                    "html"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 32
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "richText"
+                      ]
+                    },
+                    "html": {
+                      "type": "string",
+                      "maxLength": 500000
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "type",
+                    "src",
+                    "posterUrl"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 32
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "video"
+                      ]
+                    },
+                    "src": {
+                      "type": "string"
+                    },
+                    "posterUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
           },
           "specs": {
             "type": "array",
@@ -8923,8 +9275,10 @@
           "groupTtlSeconds",
           "perOrderQuantity",
           "description",
+          "descriptionBlocks",
           "skus",
-          "myOpenGroupId"
+          "myOpenGroupId",
+          "myOpenGroupRole"
         ],
         "properties": {
           "activityId": {
@@ -9008,6 +9362,69 @@
               "null"
             ]
           },
+          "descriptionBlocks": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "type",
+                    "html"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 32
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "richText"
+                      ]
+                    },
+                    "html": {
+                      "type": "string",
+                      "maxLength": 500000
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "type",
+                    "src",
+                    "posterUrl"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 32
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "video"
+                      ]
+                    },
+                    "src": {
+                      "type": "string"
+                    },
+                    "posterUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
           "skus": {
             "type": "array",
             "items": {
@@ -9065,6 +9482,17 @@
               "null"
             ],
             "pattern": "^[1-9]\\d*$"
+          },
+          "myOpenGroupRole": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "leader",
+              "member",
+              null
+            ]
           }
         }
       }
@@ -9228,6 +9656,7 @@
         "required": [
           "groupId",
           "activityId",
+          "productId",
           "title",
           "imageUrl",
           "price",
@@ -9247,6 +9676,10 @@
             "pattern": "^[1-9]\\d*$"
           },
           "activityId": {
+            "type": "string",
+            "pattern": "^[1-9]\\d*$"
+          },
+          "productId": {
             "type": "string",
             "pattern": "^[1-9]\\d*$"
           },
@@ -9593,6 +10026,12 @@
                       "redirect": {
                         "type": "string",
                         "maxLength": 1024
+                      },
+                      "mode": {
+                        "type": "string",
+                        "enum": [
+                          "sms"
+                        ]
                       }
                     },
                     "additionalProperties": false
@@ -10143,35 +10582,6 @@
                   "route": {
                     "type": "string",
                     "enum": [
-                      "groupbuy"
-                    ]
-                  },
-                  "params": {
-                    "type": "object",
-                    "required": [
-                      "id"
-                    ],
-                    "properties": {
-                      "id": {
-                        "type": "string",
-                        "pattern": "^[1-9]\\d*$"
-                      }
-                    },
-                    "additionalProperties": false
-                  }
-                },
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "required": [
-                  "route",
-                  "params"
-                ],
-                "properties": {
-                  "route": {
-                    "type": "string",
-                    "enum": [
                       "groupbuyTeam"
                     ]
                   },
@@ -10207,35 +10617,6 @@
                   "params": {
                     "type": "object",
                     "properties": {},
-                    "additionalProperties": false
-                  }
-                },
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "required": [
-                  "route",
-                  "params"
-                ],
-                "properties": {
-                  "route": {
-                    "type": "string",
-                    "enum": [
-                      "presale"
-                    ]
-                  },
-                  "params": {
-                    "type": "object",
-                    "required": [
-                      "id"
-                    ],
-                    "properties": {
-                      "id": {
-                        "type": "string",
-                        "pattern": "^[1-9]\\d*$"
-                      }
-                    },
                     "additionalProperties": false
                   }
                 },
@@ -10861,6 +11242,7 @@
         "required": [
           "groupId",
           "activityId",
+          "productId",
           "title",
           "imageUrl",
           "price",
@@ -10880,6 +11262,10 @@
             "pattern": "^[1-9]\\d*$"
           },
           "activityId": {
+            "type": "string",
+            "pattern": "^[1-9]\\d*$"
+          },
+          "productId": {
             "type": "string",
             "pattern": "^[1-9]\\d*$"
           },
@@ -12117,6 +12503,8 @@
                 "invoiceNumber",
                 "remark",
                 "orderSummary",
+                "orderRefundedInFull",
+                "voided",
                 "issuedAt",
                 "createdAt"
               ],
@@ -12257,6 +12645,12 @@
                     }
                   }
                 },
+                "orderRefundedInFull": {
+                  "type": "boolean"
+                },
+                "voided": {
+                  "type": "boolean"
+                },
                 "issuedAt": {
                   "type": [
                     "string",
@@ -12322,6 +12716,8 @@
           "invoiceNumber",
           "remark",
           "orderSummary",
+          "orderRefundedInFull",
+          "voided",
           "issuedAt",
           "createdAt"
         ],
@@ -12461,6 +12857,12 @@
                 "minimum": 1
               }
             }
+          },
+          "orderRefundedInFull": {
+            "type": "boolean"
+          },
+          "voided": {
+            "type": "boolean"
           },
           "issuedAt": {
             "type": [
@@ -12516,6 +12918,8 @@
           "invoiceNumber",
           "remark",
           "orderSummary",
+          "orderRefundedInFull",
+          "voided",
           "issuedAt",
           "createdAt"
         ],
@@ -12656,6 +13060,12 @@
               }
             }
           },
+          "orderRefundedInFull": {
+            "type": "boolean"
+          },
+          "voided": {
+            "type": "boolean"
+          },
           "issuedAt": {
             "type": [
               "string",
@@ -12709,6 +13119,7 @@
               "type": "object",
               "required": [
                 "product",
+                "available",
                 "createdAt"
               ],
               "properties": {
@@ -12845,6 +13256,9 @@
                       "type": "boolean"
                     }
                   }
+                },
+                "available": {
+                  "type": "boolean"
                 },
                 "createdAt": {
                   "type": "string",
@@ -13046,6 +13460,7 @@
               "type": "object",
               "required": [
                 "product",
+                "available",
                 "viewedAt"
               ],
               "properties": {
@@ -13182,6 +13597,9 @@
                       "type": "boolean"
                     }
                   }
+                },
+                "available": {
+                  "type": "boolean"
                 },
                 "viewedAt": {
                   "type": "string",
@@ -13803,7 +14221,11 @@
                 "paidAmount",
                 "payExpiresAt",
                 "createdAt",
-                "items"
+                "items",
+                "refundedAmount",
+                "hasOpenRefund",
+                "aftersaleOpen",
+                "groupbuyTeam"
               ],
               "properties": {
                 "id": {
@@ -14020,6 +14442,64 @@
                       "reviewable": {
                         "type": "boolean"
                       }
+                    }
+                  }
+                },
+                "refundedAmount": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,9})\\.\\d{2}$"
+                },
+                "hasOpenRefund": {
+                  "type": "boolean"
+                },
+                "aftersaleOpen": {
+                  "type": "boolean"
+                },
+                "groupbuyTeam": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "required": [
+                    "id",
+                    "status",
+                    "role",
+                    "seatsTotal",
+                    "seatsTaken",
+                    "expiresAt"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[1-9]\\d*$"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "forming",
+                        "succeeded",
+                        "failed",
+                        "cancelled"
+                      ]
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": [
+                        "leader",
+                        "member"
+                      ]
+                    },
+                    "seatsTotal": {
+                      "type": "integer",
+                      "minimum": 2
+                    },
+                    "seatsTaken": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "format": "date-time"
                     }
                   }
                 }
@@ -14241,6 +14721,10 @@
           "payExpiresAt",
           "createdAt",
           "items",
+          "refundedAmount",
+          "hasOpenRefund",
+          "aftersaleOpen",
+          "groupbuyTeam",
           "receiver",
           "buyerRemark",
           "customForm",
@@ -14251,7 +14735,9 @@
           "completedAt",
           "cancelledAt",
           "cancelReason",
-          "groupbuyTeamId"
+          "groupbuyTeamId",
+          "invoiceRequestable",
+          "invoiceAmount"
         ],
         "properties": {
           "id": {
@@ -14471,6 +14957,64 @@
               }
             }
           },
+          "refundedAmount": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,9})\\.\\d{2}$"
+          },
+          "hasOpenRefund": {
+            "type": "boolean"
+          },
+          "aftersaleOpen": {
+            "type": "boolean"
+          },
+          "groupbuyTeam": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "id",
+              "status",
+              "role",
+              "seatsTotal",
+              "seatsTaken",
+              "expiresAt"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[1-9]\\d*$"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "forming",
+                  "succeeded",
+                  "failed",
+                  "cancelled"
+                ]
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "leader",
+                  "member"
+                ]
+              },
+              "seatsTotal": {
+                "type": "integer",
+                "minimum": 2
+              },
+              "seatsTaken": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "expiresAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
           "receiver": {
             "type": "object",
             "required": [
@@ -14587,6 +15131,13 @@
               "null"
             ],
             "pattern": "^[1-9]\\d*$"
+          },
+          "invoiceRequestable": {
+            "type": "boolean"
+          },
+          "invoiceAmount": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,9})\\.\\d{2}$"
           }
         }
       }
@@ -14652,6 +15203,10 @@
           "payExpiresAt",
           "createdAt",
           "items",
+          "refundedAmount",
+          "hasOpenRefund",
+          "aftersaleOpen",
+          "groupbuyTeam",
           "receiver",
           "buyerRemark",
           "customForm",
@@ -14662,7 +15217,9 @@
           "completedAt",
           "cancelledAt",
           "cancelReason",
-          "groupbuyTeamId"
+          "groupbuyTeamId",
+          "invoiceRequestable",
+          "invoiceAmount"
         ],
         "properties": {
           "id": {
@@ -14882,6 +15439,64 @@
               }
             }
           },
+          "refundedAmount": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,9})\\.\\d{2}$"
+          },
+          "hasOpenRefund": {
+            "type": "boolean"
+          },
+          "aftersaleOpen": {
+            "type": "boolean"
+          },
+          "groupbuyTeam": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "id",
+              "status",
+              "role",
+              "seatsTotal",
+              "seatsTaken",
+              "expiresAt"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[1-9]\\d*$"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "forming",
+                  "succeeded",
+                  "failed",
+                  "cancelled"
+                ]
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "leader",
+                  "member"
+                ]
+              },
+              "seatsTotal": {
+                "type": "integer",
+                "minimum": 2
+              },
+              "seatsTaken": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "expiresAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
           "receiver": {
             "type": "object",
             "required": [
@@ -14998,6 +15613,13 @@
               "null"
             ],
             "pattern": "^[1-9]\\d*$"
+          },
+          "invoiceRequestable": {
+            "type": "boolean"
+          },
+          "invoiceAmount": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,9})\\.\\d{2}$"
           }
         }
       }
@@ -15043,6 +15665,10 @@
           "payExpiresAt",
           "createdAt",
           "items",
+          "refundedAmount",
+          "hasOpenRefund",
+          "aftersaleOpen",
+          "groupbuyTeam",
           "receiver",
           "buyerRemark",
           "customForm",
@@ -15053,7 +15679,9 @@
           "completedAt",
           "cancelledAt",
           "cancelReason",
-          "groupbuyTeamId"
+          "groupbuyTeamId",
+          "invoiceRequestable",
+          "invoiceAmount"
         ],
         "properties": {
           "id": {
@@ -15273,6 +15901,64 @@
               }
             }
           },
+          "refundedAmount": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,9})\\.\\d{2}$"
+          },
+          "hasOpenRefund": {
+            "type": "boolean"
+          },
+          "aftersaleOpen": {
+            "type": "boolean"
+          },
+          "groupbuyTeam": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "id",
+              "status",
+              "role",
+              "seatsTotal",
+              "seatsTaken",
+              "expiresAt"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[1-9]\\d*$"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "forming",
+                  "succeeded",
+                  "failed",
+                  "cancelled"
+                ]
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "leader",
+                  "member"
+                ]
+              },
+              "seatsTotal": {
+                "type": "integer",
+                "minimum": 2
+              },
+              "seatsTaken": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "expiresAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
           "receiver": {
             "type": "object",
             "required": [
@@ -15389,6 +16075,13 @@
               "null"
             ],
             "pattern": "^[1-9]\\d*$"
+          },
+          "invoiceRequestable": {
+            "type": "boolean"
+          },
+          "invoiceAmount": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,9})\\.\\d{2}$"
           }
         }
       }
@@ -15599,6 +16292,8 @@
           "invoiceNumber",
           "remark",
           "orderSummary",
+          "orderRefundedInFull",
+          "voided",
           "issuedAt",
           "createdAt"
         ],
@@ -15738,6 +16433,12 @@
                 "minimum": 1
               }
             }
+          },
+          "orderRefundedInFull": {
+            "type": "boolean"
+          },
+          "voided": {
+            "type": "boolean"
           },
           "issuedAt": {
             "type": [
@@ -15942,6 +16643,10 @@
           "payExpiresAt",
           "createdAt",
           "items",
+          "refundedAmount",
+          "hasOpenRefund",
+          "aftersaleOpen",
+          "groupbuyTeam",
           "receiver",
           "buyerRemark",
           "customForm",
@@ -15952,7 +16657,9 @@
           "completedAt",
           "cancelledAt",
           "cancelReason",
-          "groupbuyTeamId"
+          "groupbuyTeamId",
+          "invoiceRequestable",
+          "invoiceAmount"
         ],
         "properties": {
           "id": {
@@ -16172,6 +16879,64 @@
               }
             }
           },
+          "refundedAmount": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,9})\\.\\d{2}$"
+          },
+          "hasOpenRefund": {
+            "type": "boolean"
+          },
+          "aftersaleOpen": {
+            "type": "boolean"
+          },
+          "groupbuyTeam": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "id",
+              "status",
+              "role",
+              "seatsTotal",
+              "seatsTaken",
+              "expiresAt"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[1-9]\\d*$"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "forming",
+                  "succeeded",
+                  "failed",
+                  "cancelled"
+                ]
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "leader",
+                  "member"
+                ]
+              },
+              "seatsTotal": {
+                "type": "integer",
+                "minimum": 2
+              },
+              "seatsTaken": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "expiresAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
           "receiver": {
             "type": "object",
             "required": [
@@ -16288,6 +17053,13 @@
               "null"
             ],
             "pattern": "^[1-9]\\d*$"
+          },
+          "invoiceRequestable": {
+            "type": "boolean"
+          },
+          "invoiceAmount": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,9})\\.\\d{2}$"
           }
         }
       }
@@ -16647,6 +17419,8 @@
                 "required": [
                   "title",
                   "background",
+                  "navStyle",
+                  "navBackground",
                   "shareEnabled",
                   "shareTitle"
                 ],
@@ -16655,6 +17429,19 @@
                     "type": "string"
                   },
                   "background": {
+                    "type": "string"
+                  },
+                  "navStyle": {
+                    "type": "string",
+                    "enum": [
+                      "title",
+                      "logo"
+                    ]
+                  },
+                  "navLogo": {
+                    "type": "string"
+                  },
+                  "navBackground": {
                     "type": "string"
                   },
                   "shareEnabled": {
@@ -17194,6 +17981,9 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "profileIncomplete": {
+                            "type": "boolean"
                           },
                           "stats": {
                             "type": [
@@ -17346,6 +18136,8 @@
                 "required": [
                   "title",
                   "background",
+                  "navStyle",
+                  "navBackground",
                   "shareEnabled",
                   "shareTitle"
                 ],
@@ -17354,6 +18146,19 @@
                     "type": "string"
                   },
                   "background": {
+                    "type": "string"
+                  },
+                  "navStyle": {
+                    "type": "string",
+                    "enum": [
+                      "title",
+                      "logo"
+                    ]
+                  },
+                  "navLogo": {
+                    "type": "string"
+                  },
+                  "navBackground": {
                     "type": "string"
                   },
                   "shareEnabled": {
@@ -17893,6 +18698,9 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "profileIncomplete": {
+                            "type": "boolean"
                           },
                           "stats": {
                             "type": [
@@ -18045,6 +18853,8 @@
                 "required": [
                   "title",
                   "background",
+                  "navStyle",
+                  "navBackground",
                   "shareEnabled",
                   "shareTitle"
                 ],
@@ -18053,6 +18863,19 @@
                     "type": "string"
                   },
                   "background": {
+                    "type": "string"
+                  },
+                  "navStyle": {
+                    "type": "string",
+                    "enum": [
+                      "title",
+                      "logo"
+                    ]
+                  },
+                  "navLogo": {
+                    "type": "string"
+                  },
+                  "navBackground": {
                     "type": "string"
                   },
                   "shareEnabled": {
@@ -18592,6 +19415,9 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "profileIncomplete": {
+                            "type": "boolean"
                           },
                           "stats": {
                             "type": [
@@ -18935,6 +19761,7 @@
           "sliderImages",
           "perOrderQuantity",
           "description",
+          "descriptionBlocks",
           "skus"
         ],
         "properties": {
@@ -19010,6 +19837,69 @@
               "string",
               "null"
             ]
+          },
+          "descriptionBlocks": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "type",
+                    "html"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 32
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "richText"
+                      ]
+                    },
+                    "html": {
+                      "type": "string",
+                      "maxLength": 500000
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "type",
+                    "src",
+                    "posterUrl"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 32
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "video"
+                      ]
+                    },
+                    "src": {
+                      "type": "string"
+                    },
+                    "posterUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
           },
           "skus": {
             "type": "array",
@@ -19439,6 +20329,7 @@
                 "includesFreight",
                 "reason",
                 "rejectReason",
+                "isAutomatic",
                 "items",
                 "createdAt",
                 "succeededAt"
@@ -19513,6 +20404,9 @@
                     "string",
                     "null"
                   ]
+                },
+                "isAutomatic": {
+                  "type": "boolean"
                 },
                 "items": {
                   "type": "array",
@@ -19665,6 +20559,7 @@
           "includesFreight",
           "reason",
           "rejectReason",
+          "isAutomatic",
           "items",
           "createdAt",
           "succeededAt",
@@ -19747,6 +20642,9 @@
               "string",
               "null"
             ]
+          },
+          "isAutomatic": {
+            "type": "boolean"
           },
           "items": {
             "type": "array",
@@ -19950,6 +20848,7 @@
           "includesFreight",
           "reason",
           "rejectReason",
+          "isAutomatic",
           "items",
           "createdAt",
           "succeededAt",
@@ -20032,6 +20931,9 @@
               "string",
               "null"
             ]
+          },
+          "isAutomatic": {
+            "type": "boolean"
           },
           "items": {
             "type": "array",
@@ -20213,6 +21115,7 @@
           "includesFreight",
           "reason",
           "rejectReason",
+          "isAutomatic",
           "items",
           "createdAt",
           "succeededAt",
@@ -20295,6 +21198,9 @@
               "string",
               "null"
             ]
+          },
+          "isAutomatic": {
+            "type": "boolean"
           },
           "items": {
             "type": "array",
@@ -20494,6 +21400,7 @@
           "includesFreight",
           "reason",
           "rejectReason",
+          "isAutomatic",
           "items",
           "createdAt",
           "succeededAt",
@@ -20576,6 +21483,9 @@
               "string",
               "null"
             ]
+          },
+          "isAutomatic": {
+            "type": "boolean"
           },
           "items": {
             "type": "array",
@@ -20873,9 +21783,7 @@
             "enum": [
               "home",
               "product",
-              "groupbuy",
               "groupbuyTeam",
-              "presale",
               "couponCenter",
               "article",
               "page"
@@ -21686,6 +22594,7 @@
             "enum": [
               "order-create",
               "order-pay",
+              "order-unpaid",
               "order-ship",
               "refund"
             ]

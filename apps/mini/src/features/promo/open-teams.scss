@@ -1,20 +1,9 @@
-@use '../../../ui/tokens' as *;
+@use '../../ui/tokens' as *;
 
-.groupbuy-detail {
-  &__gone {
-    padding-top: $space-9;
-  }
+.open-teams {
+  margin-top: $space-3;
 
-  &__mine {
-    margin-top: $space-3;
-    background: var(--color-surface);
-  }
-
-  &__teams {
-    margin-top: $space-3;
-  }
-
-  &__teams-note {
+  &__note {
     display: block;
     margin-bottom: $space-2;
     @include text($font-caption);
@@ -29,7 +18,7 @@
     @include hairline(top);
   }
 
-  &__team-body {
+  &__body {
     display: flex;
     flex: 1;
     flex-direction: column;
@@ -37,12 +26,12 @@
     min-width: 0;
   }
 
-  &__team-seats {
+  &__seats {
     @include text($font-body);
     color: var(--color-text);
   }
 
-  &__team-time {
+  &__time {
     display: flex;
     align-items: center;
     gap: $space-1;
@@ -50,7 +39,7 @@
     color: var(--color-text-secondary);
   }
 
-  &__team-label {
+  &__label {
     @include text($font-caption);
   }
 }

@@ -119,9 +119,11 @@ export interface StackFixtures {
   postageProductId: number;
   postageSkuId: number;
   postageFreightTemplateId: number;
-  /** The product both activities are attached to. */
+  /** The product the 预售 is attached to. */
   activityProductId: number;
   activitySkuId: number;
+  /** The product the 拼团 is attached to. */
+  groupbuyProductId: number;
   couponTemplateId: number;
   groupBuyActivityId: number;
   presaleActivityId: number;

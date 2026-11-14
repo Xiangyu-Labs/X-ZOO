@@ -11,7 +11,6 @@ import {
   MicroPage,
   publishDecorPage,
 } from '../src/mini-pages/decor-pages';
-import { GroupbuyActivityPage } from '../src/mini-pages/promo-pages';
 import { ProductPage } from '../src/mini-pages/shopping-pages';
 import { returningShopper } from '../src/mini-pages/shopping-shopper';
 import { openFresh, shown } from '../src/mini-pages/shown';
@@ -57,7 +56,7 @@ function scanned(code: Code): string {
   return `/#/${code.page}?scene=${encodeURIComponent(code.scene)}`;
 }
 
-test('SHARE-001: a 小程序码 opens the product, activity, coupon or decor page it was made for', async ({
+test('SHARE-001: a 小程序码 opens the product, coupon or decor page it was made for', async ({
   miniPage: page,
   wechatUser,
   shop,
@@ -76,15 +75,6 @@ test('SHARE-001: a 小程序码 opens the product, activity, coupon or decor pag
   });
   await openFresh(page, scanned(product));
   await expect(new ProductPage(page).name()).toHaveText('E2E 运费商品');
-
-  // 拼团商品 and 预售商品, in their sub-packages.
-  const groupbuy = await miniCode(shopper.api, shop, 'groupbuy', shop.fixtures.groupBuyActivityId);
-  await openFresh(page, scanned(groupbuy));
-  await expect(new GroupbuyActivityPage(page).title()).toHaveText('E2E 拼团活动');
-
-  const presale = await miniCode(shopper.api, shop, 'presale', shop.fixtures.presaleActivityId);
-  await openFresh(page, scanned(presale));
-  await expect(shown(page).locator('#activity-title')).toHaveText('E2E 预售活动');
 
   // 领券中心 takes no params: its scene is `_`, which WeChat requires to be non-empty.
   const coupons = await miniCode(shopper.api, shop, 'couponCenter');

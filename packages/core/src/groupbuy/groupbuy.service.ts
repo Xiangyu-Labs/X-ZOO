@@ -6,6 +6,7 @@ import {
 } from '../catalog';
 import type { PageQuery } from '@shop/contracts/conventions';
 import { storedDescriptionBlocks } from '@shop/contracts/catalog/description';
+import { PER_ORDER_UNLIMITED } from '@shop/contracts/catalog/per-order';
 import type {
   GroupbuyActivityDetail,
   GroupbuyActivityForm,
@@ -735,6 +736,7 @@ async function buildGroupView(ctx: Ctx, groupId: number): Promise<GroupbuyGroupV
   return {
     groupId: toId(groupId),
     activityId: toId(row.activityId),
+    productId: toId(row.activityProductId),
     title: row.activityTitle,
     imageUrl: row.activityImageUrl,
     price: row.activityPrice,
@@ -811,7 +813,7 @@ function activityValues(body: GroupbuyActivityForm) {
     groupTtlSeconds: body.groupTtlSeconds,
     stock: body.stock,
     totalQuota: body.totalQuota ?? null,
-    perOrderQuantity: body.perOrderQuantity,
+    perOrderQuantity: body.perOrderQuantity ?? PER_ORDER_UNLIMITED,
     startAt: new Date(body.startAt),
     endAt: new Date(body.endAt),
     shippingTemplateId:

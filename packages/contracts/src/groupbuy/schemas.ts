@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { descriptionBlock } from '../catalog/description';
+import { PER_ORDER_UNLIMITED } from '../catalog/per-order';
 import { id, idList, instant, money, pageQuery, paged, sortQuery } from '../_conventions/common';
 import { storefrontRoute } from '../system/storefront-routes';
 
@@ -136,8 +137,8 @@ export const groupbuyActivityForm = z
      */
     expectedStock: z.number().int().min(0).optional(),
     totalQuota: z.number().int().min(0).max(1_000_000).optional(),
-    /** 每单限购份数. */
-    perOrderQuantity: z.number().int().min(1).max(999).default(1),
+    /** 每单限购份数. Absent or `null` is 不限 ({@link PER_ORDER_UNLIMITED}), as in 商品编辑. */
+    perOrderQuantity: z.number().int().min(1).max(PER_ORDER_UNLIMITED).nullable().optional(),
     startAt: instant,
     endAt: instant,
     shippingTemplateId: id.optional(),
@@ -389,6 +390,8 @@ export const pagedGroupbuyOpenGroups = paged(groupbuyOpenGroup);
 export const groupbuyGroupView = z.object({
   groupId: id,
   activityId: id,
+  /** The product the activity sells: 再开一团 and the product row open its page. */
+  productId: id,
   title: z.string(),
   imageUrl: z.string().nullable(),
   price: money,
@@ -632,6 +635,7 @@ export const groupbuyOpenGroupExample: GroupbuyOpenGroup = {
 export const groupbuyGroupViewExample: GroupbuyGroupView = {
   groupId: '501',
   activityId: '1',
+  productId: '11',
   title: '三人成团 · 坚果礼盒',
   imageUrl: 'https://cdn.example.com/p/11.jpg',
   price: '59.00',

@@ -223,14 +223,6 @@ export const storefrontRoutes = defineRoutes({
     share: 'friend',
     linkable: true,
   },
-  /** `id` is the campaign. */
-  groupbuy: {
-    path: 'packages/promo/groupbuy-detail/index',
-    params: z.strictObject({ id }),
-    share: 'friend+timeline',
-    miniCode: true,
-    linkable: true,
-  },
   /** `id` is the group (团). */
   groupbuyTeam: {
     path: 'packages/promo/groupbuy-team/index',
@@ -244,15 +236,6 @@ export const storefrontRoutes = defineRoutes({
     params: none,
     share: 'friend',
     linkable: true,
-  },
-  /** `id` is the campaign. */
-  presale: {
-    path: 'packages/promo/presale-detail/index',
-    params: z.strictObject({ id }),
-    share: 'friend+timeline',
-    miniCode: true,
-    linkable: true,
-    notify: true,
   },
   couponCenter: {
     path: 'packages/promo/coupons/index',

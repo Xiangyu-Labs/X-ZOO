@@ -45,6 +45,9 @@ function serve(overrides: Routes = {}) {
     }),
     'GET /api/v1/groupbuy/activities': () => ({ body: empty }),
     'GET /api/v1/presale/activities': () => ({ body: empty }),
+    // The teams still open on a 拼团 (activities 7 and 9 below), asked for beside its box.
+    'GET /api/v1/groupbuy/activities/7/groups': () => ({ body: { ...empty, pageSize: 5 } }),
+    'GET /api/v1/groupbuy/activities/9/groups': () => ({ body: { ...empty, pageSize: 5 } }),
     'GET /api/v1/coupons': () => ({
       body: {
         ...empty,
@@ -83,6 +86,29 @@ const promotionCard = {
   endAt: '2099-12-01T00:00:00+08:00',
   canBuy: true,
 };
+
+const groupbuyCard = { ...promotionCard, seatsRequired: 2, formingGroups: 1 };
+const groupbuyDetail = (patch: Record<string, unknown> = {}) => ({
+  ...groupbuyCard,
+  sliderImages: [],
+  groupTtlSeconds: 86400,
+  perOrderQuantity: 5,
+  description: null,
+  descriptionBlocks: [],
+  skus: [promotionSku],
+  myOpenGroupId: null,
+  myOpenGroupRole: null,
+  ...patch,
+});
+const openTeam = (groupId: string) => ({
+  groupId,
+  leaderNickname: '小*',
+  leaderAvatarUrl: 'leader.png',
+  seatsTotal: 2,
+  seatsTaken: 1,
+  seatsLeft: 1,
+  expiresAt: '2099-01-01T00:00:00Z',
+});
 
 async function signIn() {
   taroFake.storage.set('shop.session.token', 't1');
@@ -697,6 +723,99 @@ describe('商品详情', () => {
     );
   });
 
+  it('shows the teams still open to a guest, without names or faces, and 去参团 opens one', async () => {
+    const seen = serve({
+      'GET /api/v1/groupbuy/activities': () => ({
+        body: { ...empty, items: [groupbuyCard], total: 1 },
+      }),
+      'GET /api/v1/groupbuy/activities/7/groups': () => ({
+        body: { items: [openTeam('501')], total: 1, page: 1, pageSize: 5 },
+      }),
+    });
+    await renderPage(<ProductPage />);
+    expect(await screen.findByText('还差 1 人成团')).toBeTruthy();
+    expect(screen.getByText('可直接参与，人满即成团')).toBeTruthy();
+    expect(screen.queryByText(/小\*/)).toBeNull();
+    expect(document.querySelectorAll('img[src="leader.png"]').length).toBe(0);
+    // A guest has no team of their own: the activity is not read for one.
+    expect(seen.some((r) => r.key === 'GET /api/v1/groupbuy/activities/7')).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: '去参团，还差 1 人' }));
+    await waitFor(() =>
+      expect(taroFake.calls).toContainEqual({
+        api: 'navigateTo',
+        args: { url: '/packages/promo/groupbuy-team/index?id=501' },
+      }),
+    );
+  });
+
+  it('sends a shopper whose team on this 拼团 is still open to it, not to a second one', async () => {
+    serve({
+      'GET /api/v1/groupbuy/activities': () => ({
+        body: { ...empty, items: [groupbuyCard], total: 1 },
+      }),
+      'GET /api/v1/groupbuy/activities/7': () => ({
+        body: groupbuyDetail({ myOpenGroupId: '777', myOpenGroupRole: 'member' }),
+      }),
+      'GET /api/v1/groupbuy/activities/7/groups': () => ({
+        body: { items: [openTeam('777'), openTeam('501')], total: 2, page: 1, pageSize: 5 },
+      }),
+    });
+    await signIn();
+    await renderPage(<ProductPage />);
+    expect(await screen.findByText('你参加的团正在拼')).toBeTruthy();
+    expect(screen.queryByText('你发起的团正在拼')).toBeNull();
+    // Their own team is not offered again among the open ones.
+    await waitFor(() => expect(screen.getAllByText('还差 1 人成团')).toHaveLength(1));
+    expect(screen.queryByRole('button', { name: /立即开团/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '查看我的团' }));
+    await waitFor(() =>
+      expect(taroFake.calls).toContainEqual({
+        api: 'navigateTo',
+        args: { url: '/packages/promo/groupbuy-team/index?id=777' },
+      }),
+    );
+  });
+
+  it('AGENTS 16 — reads the 拼团 again once signed in: a leader is sent to their team', async () => {
+    serve({
+      'GET /api/v1/groupbuy/activities': () => ({
+        body: { ...empty, items: [groupbuyCard], total: 1 },
+      }),
+      // The server says which team is the shopper's only to a signed-in shopper.
+      'GET /api/v1/groupbuy/activities/7': () => ({
+        body: groupbuyDetail({ myOpenGroupId: '777', myOpenGroupRole: 'leader' }),
+      }),
+    });
+    await renderPage(<ProductPage />);
+    expect(await screen.findByRole('button', { name: '立即开团 ¥49.00' })).toBeTruthy();
+
+    // The silent login lands while the shared product is open.
+    await act(() => signIn());
+    expect(await screen.findByRole('button', { name: '查看我的团' })).toBeTruthy();
+    expect(screen.getByText('你发起的团正在拼')).toBeTruthy();
+  });
+
+  it('shows the team the shopper just opened when they come back from paying', async () => {
+    let mine: string | null = null;
+    serve({
+      'GET /api/v1/groupbuy/activities': () => ({
+        body: { ...empty, items: [groupbuyCard], total: 1 },
+      }),
+      'GET /api/v1/groupbuy/activities/7': () => ({
+        body: groupbuyDetail({ myOpenGroupId: mine, myOpenGroupRole: mine ? 'leader' : null }),
+      }),
+    });
+    await signIn();
+    const { client } = await renderPage(<ProductPage />);
+    expect(await screen.findByRole('button', { name: '立即开团 ¥49.00' })).toBeTruthy();
+    // 确认订单 → 收银台 → 支付结果 mark it stale; the page is shown again.
+    mine = '777';
+    taroFake.hidePage();
+    await client.invalidateQueries({ queryKey: ['groupbuy.detail'], refetchType: 'none' });
+    taroFake.showPage();
+    expect(await screen.findByRole('button', { name: '查看我的团' })).toBeTruthy();
+  });
+
   it('shows the presale banner and checks out at the presale price', async () => {
     const card = { ...promotionCard, shipAfterDays: 10 };
     serve({
@@ -767,6 +886,9 @@ describe('商品详情', () => {
           },
           promotionConflict: false,
         },
+      }),
+      'GET /api/v1/groupbuy/activities/9': () => ({
+        body: groupbuyDetail({ activityId: '9', seatsRequired: 3 }),
       }),
     });
     await signIn();

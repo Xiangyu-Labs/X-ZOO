@@ -31,16 +31,7 @@ function sampleRoute(key: (typeof storefrontRouteKeys)[number]): StorefrontRoute
 describe('小程序码 scene → route', () => {
   it('covers the keys the brief names', () => {
     expect([...MINI_CODE_KEYS].sort()).toEqual(
-      [
-        'article',
-        'couponCenter',
-        'groupbuy',
-        'groupbuyTeam',
-        'home',
-        'page',
-        'presale',
-        'product',
-      ].sort(),
+      ['article', 'couponCenter', 'groupbuyTeam', 'home', 'page', 'product'].sort(),
     );
   });
 

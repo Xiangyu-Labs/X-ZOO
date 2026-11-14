@@ -53,10 +53,8 @@ export const SUB_PACKAGES: readonly SubPackage[] = [
     name: 'promo',
     pages: [
       'groupbuy/index',
-      'groupbuy-detail/index',
       'groupbuy-team/index',
       'presale/index',
-      'presale-detail/index',
       'coupons/index',
       'my-coupons/index',
       'my-groupbuys/index',

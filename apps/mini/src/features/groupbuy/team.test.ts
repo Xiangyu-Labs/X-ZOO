@@ -17,6 +17,7 @@ function view(patch: Partial<TeamView> = {}): TeamView {
   return {
     groupId: '501',
     activityId: '1',
+    productId: '11',
     title: '双人团 · 护理套装',
     imageUrl: null,
     price: '68.00',

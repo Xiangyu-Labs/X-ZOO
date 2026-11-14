@@ -854,6 +854,7 @@ export async function setGroupLeader(
 }
 
 export interface GroupRow extends GroupbuyGroup {
+  activityProductId: number;
   activityTitle: string;
   activityImageUrl: string | null;
   activityPrice: string;
@@ -878,6 +879,7 @@ const realMembers = sql<number>`(select count(*)::int from groupbuy_members m
 
 const groupSelection = {
   group: groupbuyGroups,
+  activityProductId: groupbuyActivities.productId,
   activityTitle: groupbuyActivities.title,
   activityImageUrl: groupbuyActivities.imageUrl,
   activityPrice: groupbuyActivities.price,
@@ -889,6 +891,7 @@ const groupSelection = {
 
 function toGroupRow(row: {
   group: GroupbuyGroup;
+  activityProductId: number;
   activityTitle: string;
   activityImageUrl: string | null;
   activityPrice: string;

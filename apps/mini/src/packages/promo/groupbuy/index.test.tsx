@@ -57,7 +57,7 @@ describe('拼团 list', () => {
       [card()],
       [
         { imageUrl: 'b1.png', link: '/pages/activity/goods_combination/index' },
-        { imageUrl: 'b2.png', link: '/packages/promo/groupbuy-detail/index?id=1' },
+        { imageUrl: 'b2.png', link: '/pages/product/index?id=1' },
       ],
     );
     await renderPage(<GroupbuyListPage />);
@@ -66,7 +66,7 @@ describe('拼团 list', () => {
     fireEvent.click(screen.getByRole('button', { name: '拼团活动 2' }));
     expect(taroFake.calls.at(-1)).toEqual({
       api: 'navigateTo',
-      args: { url: '/packages/promo/groupbuy-detail/index?id=1' },
+      args: { url: '/pages/product/index?id=1' },
     });
   });
 

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { descriptionBlock } from '../catalog/description';
+import { PER_ORDER_UNLIMITED } from '../catalog/per-order';
 import { id, idList, instant, money, pageQuery, paged, sortQuery } from '../_conventions/common';
 
 /**
@@ -111,7 +112,8 @@ export const presaleActivityForm = z
      */
     expectedStock: z.number().int().min(0).optional(),
     totalQuota: z.number().int().min(0).max(1_000_000).optional(),
-    perOrderQuantity: z.number().int().min(1).max(999).default(1),
+    /** 每单限购份数. Absent or `null` is 不限 ({@link PER_ORDER_UNLIMITED}), as in 商品编辑. */
+    perOrderQuantity: z.number().int().min(1).max(PER_ORDER_UNLIMITED).nullable().optional(),
     startAt: instant,
     endAt: instant,
     shipAfterDays: z.number().int().min(0).max(365).default(0),
