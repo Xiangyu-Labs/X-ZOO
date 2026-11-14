@@ -1029,8 +1029,10 @@ export const storefrontSpec = z.object({
 });
 
 export const storefrontProduct = productCard.extend({
-  promotion: storefrontPromotion.nullable().optional(),
-  promotionConflict: z.boolean().optional(),
+  /** The campaign the product is sold under now, or `null` (also while campaigns conflict). */
+  promotion: storefrontPromotion.nullable(),
+  /** Two live campaigns claim the product: nothing can be bought until staff choose one. */
+  promotionConflict: z.boolean(),
   sliderImages: z.array(z.string()),
   videoUrl: z.string().nullable(),
   /** Cover over `videoUrl` until it plays; `null` means show `imageUrl`. */
@@ -1552,6 +1554,8 @@ export const storefrontProductExample: StorefrontProduct = {
   favorited: false,
   reviewSummary: reviewSummaryExample,
   giftCouponIds: ['1'],
+  promotion: null,
+  promotionConflict: false,
 };
 
 export const productReviewExample: ProductReview = {

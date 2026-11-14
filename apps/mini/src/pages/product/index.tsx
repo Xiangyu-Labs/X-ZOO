@@ -8,7 +8,6 @@ import { useCartCount } from '@/data/cart';
 import { useRecordVisit } from '@/data/visits';
 import { DescriptionBlocks, hasDescription } from '@/features/content/description-blocks';
 import { useCheckoutDraft } from '@/features/checkout/draft';
-import { useProductActivities, type ProductActivity } from '@/features/product/activities';
 import { ProductCoupons } from '@/features/product/product-coupons';
 import { ReviewItem } from '@/features/product/review-item';
 import {
@@ -53,6 +52,18 @@ import { errorMessage } from '@/lib/error-message';
 import { strikePrice } from '@/lib/money';
 
 type Product = ResponseOf<'catalog.productDetail'>;
+
+/** The 拼团 / 预售 the product is sold under now, as the price box and action bar read it. */
+interface ProductActivity {
+  kind: 'groupbuy' | 'presale';
+  activityId: string;
+  price: string;
+  endAt: string;
+  canBuy: boolean;
+  seatsRequired?: number;
+  /** 「2 人团」, 「付款后 7 天内发货」. */
+  note: string;
+}
 
 /** The description through the 富文本 block: the same allow-list, parser and look as DIY. */
 /**
@@ -148,40 +159,28 @@ function Detail({
   const setDraft = useCheckoutDraft((state) => state.setDraft);
   const cartCount = useCartCount();
   const contact = useContactIcon(sessionFromOf('product', product.id));
-  // Older server responses have no promotion field. A current server's explicit null
-  // is authoritative: never choose a different campaign from a secondary list.
-  const legacyActivities = useProductActivities(product.id, product.promotion === undefined);
+  // The campaign the product is sold under now, from the product itself; `null` is final.
   const currentPromotion = product.promotion;
-  const activities: ProductActivity[] =
-    product.promotion === undefined
-      ? legacyActivities
-      : currentPromotion
-        ? [
-            {
-              kind: currentPromotion.kind,
-              activityId: currentPromotion.activityId,
-              price: currentPromotion.price,
-              endAt: currentPromotion.endAt,
-              canBuy: currentPromotion.canBuy,
-              ...(currentPromotion.seatsRequired === null
-                ? {}
-                : { seatsRequired: currentPromotion.seatsRequired }),
-              note:
-                currentPromotion.kind === 'presale'
-                  ? shipText(currentPromotion.shipAfterDays ?? 0)
-                  : `${currentPromotion.seatsRequired} 人团`,
-            },
-          ]
-        : [];
   const [, setActivityVersion] = useState(0);
-  const activity = activities.find((item) => Date.parse(item.endAt) > serverNow());
+  const activity: ProductActivity | undefined =
+    currentPromotion && Date.parse(currentPromotion.endAt) > serverNow()
+      ? {
+          kind: currentPromotion.kind,
+          activityId: currentPromotion.activityId,
+          price: currentPromotion.price,
+          endAt: currentPromotion.endAt,
+          canBuy: currentPromotion.canBuy,
+          ...(currentPromotion.seatsRequired === null
+            ? {}
+            : { seatsRequired: currentPromotion.seatsRequired }),
+          note:
+            currentPromotion.kind === 'presale'
+              ? shipText(currentPromotion.shipAfterDays ?? 0)
+              : `${currentPromotion.seatsRequired} 人团`,
+        }
+      : undefined;
   const [activitySheet, setActivitySheet] = useState(false);
   const [skuId, setSkuId] = useState<string | undefined>(undefined);
-  const presaleDetail = useRouteQuery(
-    'presale.detail',
-    { params: { id: activity?.activityId ?? '' } },
-    { enabled: !currentPromotion && activitySheet && activity?.kind === 'presale' },
-  );
   // A 拼团 is read for its rules (how long a team stays open) and, signed in, for the shopper's
   // own open team on it (`myOpenGroupId`): they go to it instead of starting a second one.
   const signedIn = useSignedIn();
@@ -207,9 +206,8 @@ function Detail({
   const joinedTeam = groupbuyDetail.data?.myOpenGroupRole === 'member';
   const openTeam = (groupId: string) =>
     navigate({ route: 'groupbuyTeam', params: { id: groupId } });
-  const activityRead = activity?.kind === 'presale' ? presaleDetail : groupbuyDetail;
-  const activityDetail =
-    currentPromotion ?? (activity?.kind === 'presale' ? presaleDetail.data : groupbuyDetail.data);
+  // Its SKUs at the activity price come with the product.
+  const activityDetail = activity ? currentPromotion : null;
   const selectedActivitySku = activityDetail?.skus.find((sku) => sku.skuId === skuId);
   const activityPrice = selectedActivitySku?.price ?? activity?.price;
   const activityFrom =
@@ -593,15 +591,6 @@ function Detail({
         )}
       </ActionBar>
 
-      {activity && !activityDetail ? (
-        <Sheet visible={activitySheet} onClose={() => setActivitySheet(false)} title="选择规格">
-          {activityRead.isError ? (
-            <ErrorBlock error={activityRead.error} onRetry={() => activityRead.refetch()} />
-          ) : (
-            <Skeleton />
-          )}
-        </Sheet>
-      ) : null}
       {activity && activityDetail ? (
         <ActivitySkuSheet
           visible={activitySheet}
