@@ -192,6 +192,18 @@ describe('订单列表', () => {
     expect(screen.getByText('预售')).toBeInTheDocument();
   });
 
+  it('shows 买家备注 under an order only when the buyer wrote one', async () => {
+    stubApi([
+      row({ id: '9001', orderNo: 'NOTE-1', buyerRemark: '请在工作日送达' }),
+      row({ id: '9002', orderNo: 'BLANK-1', buyerRemark: '   ' }),
+      row({ id: '9003', orderNo: 'NONE-1', buyerRemark: null }),
+    ]);
+    renderAdmin(<OrdersPage />, { identity: staff });
+
+    expect(await screen.findByText('请在工作日送达')).toBeInTheDocument();
+    expect(screen.getAllByText('买家备注')).toHaveLength(1);
+  });
+
   it('offers 发货 on a paid order that still has something to send', async () => {
     stubApi();
     renderAdmin(<OrdersPage />, { identity: staff });
