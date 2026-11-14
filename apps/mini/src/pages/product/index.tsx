@@ -53,9 +53,10 @@ type Product = ResponseOf<'catalog.productDetail'>;
 /** The description through the 富文本 block: the same allow-list, parser and look as DIY. */
 /**
  * 商品详情 (`product { id }`, pages.md §2.1): a fixed design (no longer decorated). Gallery,
- * price and sales, 拼团 / 预售 entry bars, 领券, 已选 (the SkuSheet), 服务 and 参数, the review
- * summary with the first reviews, the description, 为你推荐, and the action bar: 客服, 购物车,
- * 收藏, 加入购物车, 立即购买.
+ * price and sales (under a 拼团 / 预售, its coloured box instead, with the sales in it), 领券,
+ * 已选 (the SkuSheet), 服务 and 参数, the review summary with the first reviews, the
+ * description, 为你推荐, and the action bar: 客服, 购物车, 收藏, 加入购物车, 立即购买 (under an
+ * activity, 立即预订, or 单独购买 and 立即开团, in the box's colours).
  *
  * Browsing needs no session; 加入购物车, 立即购买, 收藏 and 领券 go through `requireLogin`. An
  * off-shelf or deleted product answers 404 (`catalog.productDetail` never returns one), shown
@@ -357,7 +358,10 @@ function Detail({
             <Text className="product__promotion-label">
               {activity.kind === 'presale' ? '限时预售补贴' : `${activity.seatsRequired}人拼团价`}
             </Text>
-            <Text className="product__promotion-note">{activity.note}</Text>
+            {/* 拼团's note is the team size (2 人团), already in the label beside the price. */}
+            {activity.kind === 'presale' ? (
+              <Text className="product__promotion-note">{activity.note}</Text>
+            ) : null}
             {activityStrike ? (
               <Price
                 value={activityStrike}
@@ -365,6 +369,11 @@ function Detail({
                 strike
                 className="product__promotion-original"
               />
+            ) : null}
+            {product.salesDisplay > 0 ? (
+              <Text className="product__promotion-sales">
+                已售 {formatSales(product.salesDisplay)}
+              </Text>
             ) : null}
           </View>
           <View>
@@ -382,13 +391,17 @@ function Detail({
         </View>
       ) : null}
       <View className="product__summary">
-        <View className="product__price-row" hidden={activity !== undefined}>
-          <Price value={product.price} size="lg" />
-          {strike ? <Price value={strike} size="sm" strike /> : null}
-          {product.salesDisplay > 0 ? (
-            <Text className="product__sales">已售 {formatSales(product.salesDisplay)}</Text>
-          ) : null}
-        </View>
+        {/* Not `hidden`: WeChat lets the row's own `display: flex` win over it, so the plain
+            price showed under the activity's box. Under an activity, the box is the price. */}
+        {activity === undefined ? (
+          <View className="product__price-row">
+            <Price value={product.price} size="lg" />
+            {strike ? <Price value={strike} size="sm" strike /> : null}
+            {product.salesDisplay > 0 ? (
+              <Text className="product__sales">已售 {formatSales(product.salesDisplay)}</Text>
+            ) : null}
+          </View>
+        ) : null}
         <View className="product__title-row">
           <Text className="product__name" id="product-name" userSelect>
             {product.name}
@@ -403,34 +416,6 @@ function Detail({
         </View>
         {product.subtitle ? <Text className="product__subtitle">{product.subtitle}</Text> : null}
       </View>
-
-      {activities.length > 0 ? (
-        <View className="product__activities">
-          {activities
-            .filter((activity) => activity.canBuy && Date.parse(activity.endAt) > serverNow())
-            .map((activity) => (
-              <Pressable
-                key={`${activity.kind}-${activity.activityId}`}
-                role="link"
-                label={`${activity.kind === 'groupbuy' ? '拼团' : '预售'} ¥${activity.price}，${activity.note}`}
-                className="product__activity"
-                onClick={() =>
-                  navigate({ route: activity.kind, params: { id: activity.activityId } })
-                }
-              >
-                <Text className="product__activity-kind">
-                  {activity.kind === 'groupbuy' ? '拼团' : '预售'}
-                </Text>
-                <Price value={activity.price} size="sm" />
-                <Text className="product__activity-note">{activity.note}</Text>
-                <Text className="product__activity-go">
-                  {activity.kind === 'groupbuy' ? '去拼团' : '去预订'}
-                </Text>
-                <Icon name="chevron-right" />
-              </Pressable>
-            ))}
-        </View>
-      ) : null}
 
       <View className="product__cells">
         <ProductCoupons productId={product.id} redirect={route} />
@@ -486,16 +471,38 @@ function Detail({
                 size="lg"
                 variant="secondary"
                 block
+                className="product__buy product__buy--groupbuy-single"
+                label={`单独购买 ¥${singlePrice}`}
                 disabled={soldOut}
                 onClick={() => openSku(['buy'])}
               >
-                单独购买 ¥{singlePrice}
+                <BuyLabel price={`¥${singlePrice}`} action="单独购买" />
               </Button>
             ) : null}
-            <Button size="lg" block disabled={!activity.canBuy} onClick={openActivity}>
-              {activity.canBuy
-                ? `${activity.kind === 'groupbuy' ? '立即开团' : '立即预订'} ¥${activityPrice}${activityFrom ? '起' : ''}`
-                : '已售罄'}
+            <Button
+              size="lg"
+              block
+              className={`product__buy product__buy--${activity.kind}`}
+              disabled={!activity.canBuy}
+              onClick={openActivity}
+              {...(activity.canBuy
+                ? {
+                    label: `${activity.kind === 'groupbuy' ? '立即开团' : '立即预订'} ¥${activityPrice}${activityFrom ? '起' : ''}`,
+                  }
+                : {})}
+            >
+              {!activity.canBuy ? (
+                '已售罄'
+              ) : activity.kind === 'groupbuy' ? (
+                // Two buttons beside three icons: price over action, or 「立即开团 ¥49.00起」
+                // runs past the bar on a 375 px phone.
+                <BuyLabel
+                  price={`¥${activityPrice}${activityFrom ? '起' : ''}`}
+                  action="立即开团"
+                />
+              ) : (
+                `立即预订 ¥${activityPrice}${activityFrom ? '起' : ''}`
+              )}
             </Button>
           </>
         ) : soldOut ? (
@@ -684,5 +691,15 @@ function DetailSkeleton() {
         <ProductCardSkeleton layout="list" />
       </View>
     </PageShell>
+  );
+}
+
+/** A buy button's two lines: the price, and under it what the tap does. */
+function BuyLabel({ price, action }: { price: string; action: string }) {
+  return (
+    <View className="product__buy-label">
+      <Text className="product__buy-price">{price}</Text>
+      <Text className="product__buy-action">{action}</Text>
+    </View>
   );
 }
