@@ -394,6 +394,35 @@ describe('确认订单', () => {
     );
     await waitFor(() => expect(previews).toBeGreaterThan(before));
   });
+
+  it('opens the shopper’s own team when a second 开团 is refused', async () => {
+    serve({
+      'POST /api/v1/checkout/preview': () => ({ body: previewFixture() }),
+      'POST /api/v1/user-coupons/applicable': () => ({ body: { subtotal: '118.00', items: [] } }),
+      'POST /api/v1/orders': () => ({
+        status: 409,
+        body: {
+          code: 'GROUPBUY_ALREADY_HAS_OPEN_GROUP',
+          message: '你在这个活动里已有一个团正在拼，可以在「我的拼团」查看',
+          details: { groupId: '501' },
+        },
+      }),
+    });
+    await open({ ...buyNow, kind: 'groupbuy', kindMeta: { activityId: '7' } });
+
+    await ready();
+    fireEvent.click(submitButton());
+    await waitFor(() =>
+      expect(taroFake.calls).toContainEqual({
+        api: 'redirectTo',
+        args: { url: '/packages/promo/groupbuy-team/index?id=501' },
+      }),
+    );
+    expect(taroFake.calls).toContainEqual({
+      api: 'showToast',
+      args: expect.objectContaining({ title: '你在这个活动里已有一个团正在拼' }),
+    });
+  });
 });
 
 describe('确认订单 — when the server says no', () => {

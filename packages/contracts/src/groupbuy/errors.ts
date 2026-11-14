@@ -45,6 +45,11 @@ export const groupbuyErrors = defineErrors({
   GROUPBUY_GROUP_NOT_JOINABLE: { status: 409, message: '该团已满或已结束，换一个团试试' },
   /** `groupbuy_members_group_user_uq` refused the insert: one shopper, one seat, one team. */
   GROUPBUY_ALREADY_IN_GROUP: { status: 409, message: '您已经参与过该团' },
+  /** 开团 while already in a live team of the same activity (as leader or member). */
+  GROUPBUY_ALREADY_HAS_OPEN_GROUP: {
+    status: 409,
+    message: '你在这个活动里已有一个团正在拼，可以在「我的拼团」查看',
+  },
   /** 取消拼团: only the leader of a group nobody has paid into may withdraw it. */
   GROUPBUY_GROUP_NOT_WITHDRAWABLE: { status: 409, message: '该团已有成员付款，无法取消' },
 

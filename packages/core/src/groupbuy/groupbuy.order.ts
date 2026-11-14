@@ -128,6 +128,17 @@ export const groupbuyKindHandler: OrderKindHandler = {
       assertGroupJoinable(group, now);
       const existing = await repo.findMember(tx, { groupId, userId: draft.userId });
       if (existing) throw new DomainError('GROUPBUY_ALREADY_IN_GROUP');
+    } else {
+      // 开团: one live team per shopper per activity, as a leader or a member. The lock is
+      // held to the end of the order transaction, so a double tap's second order waits for
+      // the first one's team and member rows and then finds them.
+      await repo.lockShopperActivity(tx, { activityId, userId: draft.userId });
+      const open = await repo.findMyOpenGroup(tx, { activityId, userId: draft.userId, now });
+      if (open) {
+        throw new DomainError('GROUPBUY_ALREADY_HAS_OPEN_GROUP', {
+          details: { groupId: String(open.id) },
+        });
+      }
     }
 
     const meta: KindMeta = {

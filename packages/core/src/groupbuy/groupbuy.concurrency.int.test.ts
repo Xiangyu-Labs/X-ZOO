@@ -834,4 +834,31 @@ describe('one shopper, two clicks', () => {
     const rows = await members(opened.groupId);
     expect(rows.filter((row) => row.userId === eager)).toHaveLength(1);
   });
+
+  /**
+   * 开团 has no team id to put a unique index on, so `beforeCreate` takes a lock on
+   * (activity, shopper) before it looks for a live team: the second tap waits for the
+   * first's team and then finds it.
+   */
+  it('opens one team, however many times 立即开团 is tapped', async () => {
+    const fixture = await makeActivity({ seatsRequired: 2, stock: 20 });
+    const [eager] = await makeUsers(1);
+
+    const report = await runConcurrently(4, async () => {
+      try {
+        await placeOrder(racer(eager!), { userId: eager!, fixture });
+        return true;
+      } catch {
+        return false;
+      }
+    });
+
+    expect(report.winners).toBe(1);
+    const teams = await harness.ctx.db
+      .select({ id: groupbuyGroups.id })
+      .from(groupbuyGroups)
+      .where(eq(groupbuyGroups.activityId, fixture.activityId));
+    expect(teams).toHaveLength(1);
+    expect((await readLedgers(fixture)).activity).toEqual({ stock: 19, sales: 0 });
+  });
 });

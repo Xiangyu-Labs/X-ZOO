@@ -667,6 +667,37 @@ describe('beforeCreate', () => {
       code: 'GROUPBUY_ALREADY_IN_GROUP',
     });
   });
+
+  it('refuses a second 开团 while the shopper leads a live team, and allows one once it is cancelled', async () => {
+    const fixture = await makeActivity({ stock: 10 });
+    const leader = await makeUser();
+    const first = await placeOrder({ userId: leader, fixture });
+    await expect(placeOrder({ userId: leader, fixture })).rejects.toMatchObject({
+      code: 'GROUPBUY_ALREADY_HAS_OPEN_GROUP',
+      details: { groupId: String(first.groupId) },
+    });
+    // Refused before a row exists: the stock held is the first order's only.
+    expect((await readActivityCounters(fixture)).activity).toEqual({ stock: 9, sales: 0 });
+
+    await cancel(first.orderId);
+    const second = await placeOrder({ userId: leader, fixture });
+    expect(second.groupId).not.toBe(first.groupId);
+  });
+
+  it('refuses 开团 to a member of a live team, but not on another activity', async () => {
+    const fixture = await makeActivity({ seatsRequired: 3, stock: 10 });
+    const leader = await makeUser();
+    const joiner = await makeUser();
+    const opened = await placeOrder({ userId: leader, fixture });
+    await pay(opened.orderId);
+    await placeOrder({ userId: joiner, fixture, groupId: opened.groupId });
+    await expect(placeOrder({ userId: joiner, fixture })).rejects.toMatchObject({
+      code: 'GROUPBUY_ALREADY_HAS_OPEN_GROUP',
+    });
+
+    const other = await makeActivity({ stock: 10 });
+    await expect(placeOrder({ userId: joiner, fixture: other })).resolves.toBeTruthy();
+  });
 });
 
 describe('placing an order', () => {

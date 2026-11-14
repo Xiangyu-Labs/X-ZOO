@@ -8,6 +8,7 @@ import { AddressSheet } from '@/features/checkout/address-sheet';
 import {
   checkoutPrices,
   checkoutRefusal,
+  existingTeamOf,
   couponLinesOf,
   customFormBody,
   customFormProblem,
@@ -333,6 +334,14 @@ function Checkout({ draft }: { draft: CheckoutDraft }) {
             setChoice({ mode: 'none' });
             void coupons.refetch();
             void base.refetch();
+            return;
+          }
+          const team = existingTeamOf(error);
+          if (team) {
+            // A second 开团 on the same activity: take them to the team they already have.
+            toast.text('你在这个活动里已有一个团正在拼');
+            void navigate({ route: 'groupbuyTeam', params: { id: team } }, { replace: true });
+            setDraft(null);
             return;
           }
           const refusal = checkoutRefusal(error, draft);

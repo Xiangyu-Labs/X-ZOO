@@ -1286,6 +1286,18 @@ export async function listMyGroups(
   };
 }
 
+/**
+ * Serialises one shopper's 开团 on one activity until the transaction ends, so the
+ * "already in a live team" read in `beforeCreate` cannot race a second order.
+ */
+export async function lockShopperActivity(
+  tx: Tx,
+  args: { activityId: number; userId: number },
+): Promise<void> {
+  const key = `groupbuy-open:${args.activityId}:${args.userId}`;
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`);
+}
+
 /** The live team this shopper is already in for an activity, if any. */
 export async function findMyOpenGroup(
   db: DbOrTx,
