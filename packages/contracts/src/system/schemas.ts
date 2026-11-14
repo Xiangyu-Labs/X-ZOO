@@ -288,6 +288,15 @@ export const auditLogItem = z.object({
   path: z.string(),
   target: z.string().nullable(),
   status: z.number().int(),
+  /** On a failure (status 400 and up): the error code answered. `null` on success. */
+  errorCode: z.string().nullable(),
+  /** On a failure: the Chinese message the person was shown. */
+  errorMessage: z.string().nullable(),
+  /**
+   * On a 5xx: what went wrong inside (error name and message, no values), for whoever
+   * investigates. Not something the person who clicked ever saw.
+   */
+  errorDetail: z.string().nullable(),
   /** Request body with secrets stripped, as stored. `null` when there was none. */
   payload: z.string().nullable(),
   requestId: z.string(),
@@ -311,6 +320,9 @@ export const auditLogItemExample: AuditLogItem = {
   path: '/admin-api/coupons/1/status',
   target: 'coupon:1',
   status: 200,
+  errorCode: null,
+  errorMessage: null,
+  errorDetail: null,
   payload: '{"status":"disabled"}',
   requestId: '6f1f6f0c-2f3a-4f7e-9f2f-0d2f5a1f2c33',
   ip: '203.0.113.7',
@@ -329,6 +341,8 @@ export const auditLogListQuery = pageQuery
     keyword: z.string().trim().max(128).optional(),
     routeId: z.string().trim().max(128).optional(),
     method: z.enum(['POST', 'PUT', 'PATCH', 'DELETE']).optional(),
+    /** `failed`: only the requests that were refused or broke (status 400 and up). */
+    outcome: z.enum(['succeeded', 'failed']).optional(),
     createdFrom: instant.optional(),
     createdTo: instant.optional(),
   })

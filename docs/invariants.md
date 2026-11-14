@@ -2212,7 +2212,7 @@ The last enabled super admin cannot be disabled or deleted, and nobody can lock 
 
 ### SYS-012
 
-A write is audited with its actor, route and target; every credential-named field and every field the config registry marks secret is stripped at any depth; a read is not audited, and the reader cannot undo the redaction. New rows are always `actor_kind = 'admin'`; the historic `actor_kind = 'staff'` rows (the mobile staff console, deleted at the cutover) stay readable and filterable, and every admin sign-in outcome is audited under `auth.adminLogin` without the body.
+A write is audited with its actor, route and target, whether it succeeded or was refused or broke; a failed one also keeps the error code and the Chinese message the admin was shown, and one that broke (5xx) a 技术信息 line naming the error without any parameter values. Every credential-named field and every field the config registry marks secret is stripped at any depth; a read is not audited unless it broke or is an export (AUTH-013), and the reader cannot undo the redaction. A request refused before its caller is known (bad input, signed out) files no row. New rows are always `actor_kind = 'admin'`; the historic `actor_kind = 'staff'` rows (the mobile staff console, deleted at the cutover) stay readable and filterable, and every admin sign-in outcome is audited under `auth.adminLogin` without the body.
 
 - `apps/web/app/admin-api/admins/system.int.test.ts::/admin-api/admins > creates with 201 and writes an audit row without the password in it`
 - `apps/web/app/admin-api/admins/system.int.test.ts::/admin-api/audit-logs > does not record a read`
@@ -2220,6 +2220,8 @@ A write is audited with its actor, route and target; every credential-named fiel
 - `apps/web/src/server/handle.int.test.ts::what the operation log keeps of a config save > leaves no part of the payment keys in audit_logs`
 - `packages/core/src/auth/admin-login.trail.int.test.ts::what a password-guessing run leaves behind > leaves a readable trail of the failed attempts, without the password`
 - `apps/web/src/server/handle.int.test.ts::the 操作日志 reader lists both kinds of actor > returns admin and staff rows, each naming its actor, and filters by kind`
+- `apps/web/src/server/handle.test.ts::audit log > SYS-012 — records a refused write with the code and the message the admin saw`
+- `apps/web/src/server/handle.test.ts::audit log > SYS-012 — records a request that broke, even a GET, with what broke but no values`
 
 ### SYS-013
 

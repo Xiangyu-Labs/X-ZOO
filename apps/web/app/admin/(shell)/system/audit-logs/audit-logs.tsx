@@ -25,9 +25,12 @@ const METHOD_COLOUR: Record<string, string> = {
  * policy an operator sets in 系统设置, not a button somebody can reach for after
  * a mistake.
  *
- * Only writes are recorded (`handle()` skips GET), and the stored payload has
- * already been redacted — a password field never reaches this table. Console
- * admins write here, and every admin sign-in attempt is a row too. Rows from
+ * Writes are recorded whether they succeeded or failed, and so is any request
+ * that broke (服务器开小差) — with the message the person saw and, for a
+ * breakage, a 技术信息 line for whoever investigates. Reads are not, unless the
+ * handler names one (an export). The stored payload has already been redacted —
+ * a password field never reaches this table. Console admins write here, and
+ * every admin sign-in attempt is a row too. Rows from
  * before the cutover may also name a 店员 (the deleted mobile staff console);
  * the 店员 filter stays so those still read back.
  */
@@ -35,7 +38,7 @@ export function AuditLogsPage() {
   const [viewing, setViewing] = useState<AuditLogItem | null>(null);
 
   return (
-    <PageContainer subTitle="后台的写操作记录；只读，按设置的保留天数自动清理">
+    <PageContainer subTitle="后台的写操作记录，失败的也在；只读，按设置的保留天数自动清理">
       <CrudTable
         route={systemAuditLogList}
         scrollX={1200}
@@ -57,6 +60,15 @@ export function AuditLogsPage() {
             name: 'method',
             label: '方法',
             options: ['POST', 'PUT', 'PATCH', 'DELETE'].map((value) => ({ value, label: value })),
+          },
+          {
+            kind: 'select',
+            name: 'outcome',
+            label: '结果',
+            options: [
+              { value: 'succeeded', label: '成功' },
+              { value: 'failed', label: '失败' },
+            ],
           },
           { kind: 'dateRange', names: ['createdFrom', 'createdTo'], label: '时间' },
         ]}
@@ -89,10 +101,9 @@ export function AuditLogsPage() {
           {
             title: '结果',
             key: 'status',
-            width: 90,
-            render: (_value: unknown, row: AuditLogItem) => (
-              <Tag color={row.status < 400 ? 'success' : 'error'}>{row.status}</Tag>
-            ),
+            width: 240,
+            ellipsis: true,
+            render: (_value: unknown, row: AuditLogItem) => <OutcomeText row={row} />,
           },
           actionsColumn<AuditLogItem>({
             width: 90,
@@ -122,7 +133,20 @@ export function AuditLogsPage() {
             </Descriptions.Item>
             <Descriptions.Item label="路径">{viewing.path}</Descriptions.Item>
             <Descriptions.Item label="对象">{viewing.target ?? '—'}</Descriptions.Item>
-            <Descriptions.Item label="结果">{viewing.status}</Descriptions.Item>
+            <Descriptions.Item label="结果">
+              <OutcomeText row={viewing} />
+            </Descriptions.Item>
+            {viewing.errorCode !== null && (
+              <Descriptions.Item label="技术信息（排查用）">
+                <Typography.Paragraph
+                  style={{ marginBottom: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}
+                >
+                  {[`${viewing.status} ${viewing.errorCode}`, viewing.errorDetail]
+                    .filter(Boolean)
+                    .join('\n')}
+                </Typography.Paragraph>
+              </Descriptions.Item>
+            )}
             <Descriptions.Item label="IP">{viewing.ip ?? '—'}</Descriptions.Item>
             <Descriptions.Item label="请求 ID">
               <Typography.Text copyable>{viewing.requestId}</Typography.Text>
@@ -138,6 +162,17 @@ export function AuditLogsPage() {
         )}
       </Drawer>
     </PageContainer>
+  );
+}
+
+/** 成功, or 失败 with the message the person was shown. */
+function OutcomeText({ row }: { row: AuditLogItem }) {
+  if (row.status < 400) return <Tag color="success">成功</Tag>;
+  return (
+    <>
+      <Tag color="error">失败</Tag>
+      {row.errorMessage}
+    </>
   );
 }
 

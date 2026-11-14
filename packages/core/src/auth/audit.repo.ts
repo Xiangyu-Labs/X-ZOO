@@ -22,6 +22,10 @@ export interface AuditEntry {
   path: string;
   target?: string | null;
   status: number;
+  /** On a failure: the code and Chinese message answered, and (5xx only) the inside story. */
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  errorDetail?: string | null;
   payload?: unknown;
   requestId: string;
   ip?: string | null;
@@ -109,6 +113,9 @@ export async function insertAudit(db: DbOrTx, entry: AuditEntry): Promise<void> 
     path: entry.path.slice(0, 512),
     target: entry.target ?? null,
     status: entry.status,
+    errorCode: entry.errorCode?.slice(0, 64) ?? null,
+    errorMessage: entry.errorMessage?.slice(0, 500) ?? null,
+    errorDetail: entry.errorDetail?.slice(0, 1000) ?? null,
     payload: redactPayload(entry.payload),
     requestId: entry.requestId,
     ip: entry.ip ?? null,

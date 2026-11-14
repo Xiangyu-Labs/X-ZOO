@@ -963,7 +963,7 @@ describe('audit log', () => {
     });
   });
 
-  it('does not record a GET, and does not record a failure', async () => {
+  it('does not record a GET that answered', async () => {
     const GET = handle(adminRoute, async () => ({ ok: true }), { container: container() });
     await GET(
       new Request('https://shop.example/admin-api/things', {
@@ -971,7 +971,9 @@ describe('audit log', () => {
       }),
     );
     expect(audits).toHaveLength(0);
+  });
 
+  it('SYS-012 — records a refused write with the code and the message the admin saw', async () => {
     const POST = handle(
       adminMutation,
       async () => {
@@ -979,13 +981,59 @@ describe('audit log', () => {
       },
       { container: container() },
     );
-    await POST(
+    const response = await POST(
       new Request('https://shop.example/admin-api/things', {
         method: 'POST',
         body: JSON.stringify({ name: 'a' }),
         headers: { cookie: `${ADMIN_COOKIE}=good-super`, 'sec-fetch-site': 'same-origin' },
       }),
     );
+    expect(response.status).toBe(404);
+    expect(audits).toHaveLength(1);
+    expect(audits[0]).toMatchObject({
+      adminId: 1,
+      routeId: 'test.adminWrite',
+      status: 404,
+      errorCode: 'NOT_FOUND',
+      errorMessage: new DomainError('NOT_FOUND').message,
+      errorDetail: null,
+      payload: JSON.stringify({ name: 'a' }),
+    });
+  });
+
+  it('SYS-012 — records a request that broke, even a GET, with what broke but no values', async () => {
+    const GET = handle(
+      adminRoute,
+      async () => {
+        throw new Error('Failed query: select * from things where name = $1\nparams: secret-key', {
+          cause: new Error('relation "things" does not exist'),
+        });
+      },
+      { container: container() },
+    );
+    const response = await GET(
+      new Request('https://shop.example/admin-api/things', {
+        headers: { cookie: `${ADMIN_COOKIE}=good-super` },
+      }),
+    );
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      code: 'INTERNAL',
+      message: '服务器开小差了，请稍后再试',
+    });
+    expect(audits).toHaveLength(1);
+    expect(audits[0]).toMatchObject({ method: 'GET', status: 500, errorCode: 'INTERNAL' });
+    const detail = (audits[0] as { errorDetail: string }).errorDetail;
+    expect(detail).toContain('relation "things" does not exist');
+    expect(detail).not.toContain('secret-key');
+  });
+
+  it('files nothing under an admin for a request refused before the caller is known', async () => {
+    const POST = handle(adminMutation, async () => ({ ok: true }), { container: container() });
+    const response = await POST(
+      new Request('https://shop.example/admin-api/things', { method: 'POST', body: '{}' }),
+    );
+    expect(response.status).toBe(422);
     expect(audits).toHaveLength(0);
   });
 

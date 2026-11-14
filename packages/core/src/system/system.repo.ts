@@ -18,6 +18,7 @@ import {
   gte,
   ilike,
   inArray,
+  lt,
   lte,
   or,
   sql,
@@ -498,6 +499,9 @@ export interface AuditRow {
   path: string;
   target: string | null;
   status: number;
+  errorCode: string | null;
+  errorMessage: string | null;
+  errorDetail: string | null;
   payload: string | null;
   requestId: string;
   ip: string | null;
@@ -514,6 +518,7 @@ export interface AuditListArgs {
   keyword?: string | undefined;
   routeId?: string | undefined;
   method?: string | undefined;
+  outcome?: 'succeeded' | 'failed' | undefined;
   from?: Date | undefined;
   to?: Date | undefined;
   sortOrder?: 'asc' | 'desc' | undefined;
@@ -531,6 +536,8 @@ export async function listAuditLogs(
     args.userId === undefined ? undefined : eq(auditLogs.userId, args.userId),
     args.routeId ? eq(auditLogs.routeId, args.routeId) : undefined,
     args.method ? eq(auditLogs.method, args.method) : undefined,
+    args.outcome === 'failed' ? gte(auditLogs.status, 400) : undefined,
+    args.outcome === 'succeeded' ? lt(auditLogs.status, 400) : undefined,
     args.from ? gte(auditLogs.createdAt, args.from) : undefined,
     args.to ? lte(auditLogs.createdAt, args.to) : undefined,
     args.keyword
