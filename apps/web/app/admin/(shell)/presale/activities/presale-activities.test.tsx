@@ -1,15 +1,7 @@
 import { screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  presaleAdminActivityDetail,
-  presaleAdminActivityList,
-  presaleAdminActivitySetStatus,
-  presaleAdminActivityUpdate,
-} from '@shop/contracts/presale/presale.admin.contract';
-import type {
-  PresaleActivityDetail,
-  PresaleActivityListItem,
-} from '@shop/contracts/presale/schemas';
+import { presaleAdminActivityList } from '@shop/contracts/presale/presale.admin.contract';
+import type { PresaleActivityListItem } from '@shop/contracts/presale/schemas';
 
 import { resetApiConfig } from '@/admin/api/config';
 import { on, stubRoutes, type StubCall } from '@/test/api';
@@ -42,29 +34,9 @@ const row: PresaleActivityListItem = {
   createdAt: '2026-05-01T08:00:00+08:00',
 };
 
-const detail: PresaleActivityDetail = {
-  ...row,
-  sliderImages: [],
-  shippingTemplateId: null,
-  skus: [
-    {
-      skuId: '33',
-      specText: '一级|250g',
-      price: '59.00',
-      stock: 480,
-      sales: 20,
-      quota: null,
-      isEnabled: true,
-    },
-  ],
-};
-
 function stubApi(): StubCall[] {
   return stubRoutes([
     on(presaleAdminActivityList, { items: [row], total: 1, page: 1, pageSize: 20 }),
-    on(presaleAdminActivityDetail, detail),
-    on(presaleAdminActivityUpdate, detail),
-    on(presaleAdminActivitySetStatus, { ...detail, status: 'paused' }),
   ]);
 }
 

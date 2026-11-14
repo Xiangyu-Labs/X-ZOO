@@ -2,16 +2,12 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  groupbuyActivityDetailExample,
   groupbuyActivityExample,
   groupbuyActivityOrderExample,
 } from '@shop/contracts/groupbuy/schemas';
 import {
-  groupbuyAdminActivityDetail,
   groupbuyAdminActivityList,
   groupbuyAdminActivityOrders,
-  groupbuyAdminActivitySetStatus,
-  groupbuyAdminActivityUpdate,
 } from '@shop/contracts/groupbuy/groupbuy.admin.contract';
 
 import { resetApiConfig } from '@/admin/api/config';
@@ -31,15 +27,12 @@ function stubApi(orders = [groupbuyActivityOrderExample]): StubCall[] {
       page: 1,
       pageSize: 20,
     }),
-    on(groupbuyAdminActivityDetail, groupbuyActivityDetailExample),
     on(groupbuyAdminActivityList, {
       items: [groupbuyActivityExample],
       total: 1,
       page: 1,
       pageSize: 20,
     }),
-    on(groupbuyAdminActivityUpdate, groupbuyActivityDetailExample),
-    on(groupbuyAdminActivitySetStatus, { ...groupbuyActivityDetailExample, status: 'paused' }),
   ]);
 }
 
