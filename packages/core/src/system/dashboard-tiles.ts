@@ -113,6 +113,7 @@ export async function attentionTiles(ctx: Ctx) {
     {
       ...countTile({ key: 'system.attention', label: '异常待处理', value, href }),
       attention: true,
+      section: 'todo' as const,
       parts,
     },
   ];
@@ -120,7 +121,8 @@ export async function attentionTiles(ctx: Ctx) {
 
 registerDashboardContributor({
   key: 'attention',
-  // First on the page: it is the one figure that asks somebody to act.
+  // First on the page, at the head of the 待办事项 row (OPS-020): it is the one
+  // figure that asks somebody to act on something that went wrong.
   order: 0,
   tiles: attentionTiles,
 });

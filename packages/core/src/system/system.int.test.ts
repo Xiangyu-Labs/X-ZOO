@@ -1053,6 +1053,7 @@ describe('agreements and the dashboard', () => {
     const header = await dashboardHeader(as(superId));
     expect(header.tiles[0]).toMatchObject({
       key: 'system.attention',
+      section: 'todo',
       label: '异常待处理',
       value: 2,
       href: '/admin/trade/effects',
@@ -1080,6 +1081,7 @@ describe('agreements and the dashboard', () => {
     const header = await dashboardHeader(as(superId));
     expect(header.tiles[0]).toMatchObject({
       key: 'system.attention',
+      section: 'todo',
       value: 4,
       href: '/admin/trade/payment-exceptions',
       parts: [

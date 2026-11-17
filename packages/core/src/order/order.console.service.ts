@@ -1,4 +1,8 @@
 import type { ClientPlatform } from '@shop/contracts/conventions';
+import {
+  adminOrderTabFilter,
+  type AdminOrderTabKey,
+} from '@shop/contracts/order/order.fulfil.schemas';
 import type { OrderItem } from '@shop/contracts/order/schemas';
 import type {
   AdminOrderDetail,
@@ -208,6 +212,20 @@ export function filterOf(query: AdminOrderListQuery): fulfilRepo.AdminOrderFilte
     paidTo: asDate(query.paidTo),
     deleted: query.deleted,
   };
+}
+
+/**
+ * How many orders one 订单列表 tab holds, counted with the very filter the list
+ * applies for it — what the 工作台's 待办 cards show.
+ */
+export async function countInTab(ctx: Ctx, key: AdminOrderTabKey): Promise<number> {
+  const preset = adminOrderTabFilter(key);
+  return fulfilRepo.countAdminOrders(ctx.db, {
+    status: asArray(preset.status),
+    fulfillmentStatus: asArray(preset.fulfillmentStatus),
+    refunding: preset.refunding,
+    deleted: preset.deleted ?? false,
+  });
 }
 
 const PLATFORM_TO_DB: Record<ClientPlatform, 'h5' | 'wechat_oa' | 'wechat_mini'> = {

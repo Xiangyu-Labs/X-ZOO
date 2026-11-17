@@ -14,6 +14,7 @@ import { createTestCtx, type TestCtx } from '@shop/testing';
 import { DomainError } from '../kernel/errors';
 import { clearStatsCache } from './stats.cache';
 import { statsConfig } from './stats.config';
+import { statsDashboardContributor } from './stats.dashboard';
 import * as stats from './stats.service';
 
 /**
@@ -752,6 +753,8 @@ describe('users', () => {
     // the daily buckets say 2 and 2. Summing them would say four visitors.
     expect(tile(page, 'visitors').value).toBe(2);
     expect(line(page, '访客数')).toEqual([2, 2, 0]);
+    // One buyer added two units to the cart: 加购件数 2, 加购人数 1.
+    expect(tile(page, 'cartUsers').value).toBe(1);
   });
 
   it('averages 停留时长 over the views that reported one, in seconds', async () => {
@@ -1030,8 +1033,36 @@ describe('dashboard tiles', () => {
   it('reads today and yesterday in Shanghai days', async () => {
     const today = await stats.todayFigures(harness.ctx);
     // Nothing was paid on the 4th; the 3rd took 300.00 and gave 100.00 back.
-    expect(today.revenue).toBe(0);
-    expect(today.paidOrderCount).toBe(0);
-    expect(today.previous).toEqual({ revenue: 200, paidOrderCount: 1, newUsers: 0 });
+    expect(today.trade?.current).toMatchObject({ revenue: 0, paidOrderCount: 0 });
+    expect(today.trade?.previous).toMatchObject({ revenue: 200, paidOrderCount: 1 });
+    expect(today.users).not.toBeNull();
+  });
+
+  it('#99 — gives each 今日数据 card only to an admin who may open its page, opened on 今天', async () => {
+    const admin = (permissions: string[]) =>
+      harness.ctx.as({ kind: 'admin', id: 1, permissions, isSuper: false });
+    const keys = async (permissions: string[]) =>
+      (await statsDashboardContributor.tiles(admin(permissions))).map((tile) => tile.key);
+
+    expect(await keys([])).toEqual([]);
+    expect(await keys(['stats:trade:read'])).toEqual(['stats.revenue']);
+    expect(await keys(['stats:order:read'])).toEqual(['stats.paidOrders', 'stats.refundOrders']);
+    expect(await keys(['stats:user:read'])).toEqual([
+      'stats.visitors',
+      'stats.pageViews',
+      'stats.cartUsers',
+    ]);
+
+    const [revenue] = await statsDashboardContributor.tiles(admin(['stats:trade:read']));
+    // Yesterday (the 3rd) took 200.00 net; today nothing.
+    expect(revenue).toMatchObject({ value: 0, deltaFromYesterday: -200, section: 'today' });
+    // The 4th in Shanghai on both ends, which the page resolves to that one day.
+    const day = encodeURIComponent('2026-02-03T16:00:00.000Z');
+    expect(revenue!.href).toBe(`/admin/stats/trade?from=${day}&to=${day}`);
+  });
+
+  it('computes only the halves asked for', async () => {
+    const today = await stats.todayFigures(harness.ctx, { trade: false, users: false });
+    expect(today).toMatchObject({ trade: null, users: null });
   });
 });

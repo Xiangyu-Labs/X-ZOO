@@ -5,6 +5,8 @@ import { installFulfilmentHooks } from './order.fulfil.effects';
 import { orderFacts } from './order.facts.repo';
 import { orderStateMachine } from './order.state-machine';
 import { registerOrderFacts, registerOrderStateMachine } from './ports';
+import { registerDashboardContributor } from '../system';
+import { orderDashboardContributor } from './order.dashboard';
 
 /**
  * The order domain's public surface.
@@ -40,7 +42,8 @@ import { registerOrderFacts, registerOrderStateMachine } from './ports';
  * `OrderFactsPort` the catalog asks about purchases and reviewable lines; and
  * the order-paid hooks —
  * the stock commit that turns the reservation into a sale, then auto-delivery —
- * that have to be installed before the first payment lands. Importing the
+ * that have to be installed before the first payment lands; and 工作台's 待办
+ * cards. Importing the
  * domain calls it once; a test that `resetOrderPorts()` calls it again.
  */
 export function registerOrderDomain(): void {
@@ -48,6 +51,8 @@ export function registerOrderDomain(): void {
   registerOrderFacts(orderFacts);
   installStockCommitHook();
   installFulfilmentHooks();
+  // 工作台's 待付款 / 待发货 / 待售后 cards.
+  registerDashboardContributor(orderDashboardContributor);
 }
 
 registerOrderDomain();

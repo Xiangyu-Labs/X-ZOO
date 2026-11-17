@@ -160,14 +160,15 @@ Export (`…/sales/exports`): the category rows as CSV (分类, 支付金额, �
 
 ### Users — `GET /admin-api/stats/users`
 
-| Key           | 名称         | Definition                                                                                       |
-| ------------- | ------------ | ------------------------------------------------------------------------------------------------ |
-| `visitors`    | 访客数       | `count(distinct coalesce(user_id::text, 'ip:' \|\| ip))` over page views                         |
-| `pageViews`   | 浏览量       | count of page views                                                                              |
-| `avgStay`     | 平均停留时长 | `avg(stay_ms) ÷ 1000` over the page views that reported a stay, whole seconds, `0` when none did |
-| `newUsers`    | 新增用户     | registrations in the bucket                                                                      |
-| `payingUsers` | 成交用户数   | `count(distinct orders.user_id)` over paid orders                                                |
-| `totalUsers`  | 累计用户     | live accounts (`deleted_at is null`) created before the end of the window                        |
+| Key           | 名称         | Definition                                                                                        |
+| ------------- | ------------ | ------------------------------------------------------------------------------------------------- |
+| `visitors`    | 访客数       | `count(distinct coalesce(user_id::text, 'ip:' \|\| ip))` over page views                          |
+| `pageViews`   | 浏览量       | count of page views                                                                               |
+| `avgStay`     | 平均停留时长 | `avg(stay_ms) ÷ 1000` over the page views that reported a stay, whole seconds, `0` when none did  |
+| `newUsers`    | 新增用户     | registrations in the bucket                                                                       |
+| `payingUsers` | 成交用户数   | `count(distinct orders.user_id)` over paid orders                                                 |
+| `cartUsers`   | 加购人数     | `count(distinct product_events.user_id)` over add-to-cart events (adding needs a signed-in buyer) |
+| `totalUsers`  | 累计用户     | live accounts (`deleted_at is null`) created before the end of the window                         |
 
 A distinct count is **not** additive: the window's 访客数 is its own query, not
 the sum of its buckets, and the same visitor on two days counts once in the
@@ -237,7 +238,7 @@ one non-zero figure in the window appear.
   default, so a month can be compared with the same month a year earlier);
   the nightly `user.pruneVisits` job deletes older rows. A window reaching
   past it reads 0 for the traffic figures.
-- **加购件数** comes from `product_events` rows of `kind = 'cart'`, written
+- **加购件数 / 加购人数** come from `product_events` rows of `kind = 'cart'`, written
   inside the cart's add transaction. `cart_items` is not a substitute, because
   a row is deleted when the order is placed, so yesterday's additions would
   disappear from history exactly when they start to matter.
@@ -254,7 +255,10 @@ Statistics for features this shop does not have are absent from every
 response rather than present and zero: 余额 / 充值 / 佣金 / 积分 / 付费会员,
 资金流水 and 账单记录 (a balance ledger), 余额统计, and the WeChat-subscribe
 block. There are no separate home-page dashboard endpoints either: the home
-page's tiles arrive through `registerDashboardContributor`, and its charts are
+page's tiles arrive through `registerDashboardContributor` — its 今日数据 row
+(营业额, 订单量, 退款订单数, 访客数, 浏览量, 加购人数) is `todayFigures`, the same
+`tradeFigures` / `userFigures` the pages' tiles use over today and yesterday —
+and its charts are
 `stats/orders`, `stats/users` and `stats/products/ranking` — the same three
 definitions as the pages, not a fourth copy. The same holds for 销售看板:
 `stats/sales` reads the queries 交易统计 and 订单统计 read.

@@ -178,7 +178,7 @@ const ZERO_PLACED = { quantity: 0, orderCount: 0 };
 const ZERO_REFUNDS = { refundAmount: 0, refundOrderCount: 0 };
 const ZERO_QUANTITY = { quantity: 0 };
 const ZERO_VISITS = { pageViews: 0, visitors: 0, avgStayMs: 0 };
-const ZERO_EVENTS = { views: 0, viewers: 0, cartQuantity: 0 };
+const ZERO_EVENTS = { views: 0, viewers: 0, cartQuantity: 0, cartUsers: 0 };
 
 type Window = { from: Date; to: Date };
 
@@ -508,13 +508,16 @@ interface UserFigures {
   avgStaySeconds: number;
   newUsers: number;
   payingUsers: number;
+  /** 加购人数: distinct buyers who added anything to the cart. */
+  cartUsers: number;
 }
 
 async function userFigures(ctx: Ctx, window: Window): Promise<UserFigures> {
-  const [visits, registrations, paid] = await Promise.all([
+  const [visits, registrations, paid, events] = await Promise.all([
     repo.visitAggregate(ctx.db, { ...window, bucket: 'window' }),
     repo.registrationAggregate(ctx.db, { ...window, bucket: 'window' }),
     repo.paidOrderAggregate(ctx.db, { ...window, bucket: 'window' }),
+    repo.productEventAggregate(ctx.db, { ...window, bucket: 'window' }),
   ]);
   return {
     visitors: only(visits, ZERO_VISITS).visitors,
@@ -522,6 +525,7 @@ async function userFigures(ctx: Ctx, window: Window): Promise<UserFigures> {
     avgStaySeconds: Math.round(Number(only(visits, ZERO_VISITS).avgStayMs) / 1000),
     newUsers: only(registrations, { newUsers: 0 }).newUsers,
     payingUsers: only(paid, ZERO_ORDERS).payingUsers,
+    cartUsers: only(events, ZERO_EVENTS).cartUsers,
   };
 }
 
@@ -553,6 +557,7 @@ export async function userStats(ctx: Ctx, input: StatsRangeQuery): Promise<UserS
         ),
         metric('newUsers', '新增用户', 'count', current.newUsers, previous.newUsers),
         metric('payingUsers', '成交用户数', 'count', current.payingUsers, previous.payingUsers),
+        metric('cartUsers', '加购人数', 'count', current.cartUsers, previous.cartUsers),
         // A running total has nothing to compare against: "累计用户 vs the
         // previous window" would be the same number minus the new users.
         metric('totalUsers', '累计用户', 'count', totalUsers, null),
@@ -937,40 +942,76 @@ export async function salesExport(ctx: Ctx, input: StatsRangeQuery): Promise<Sta
 // what the admin home page borrows
 // ---------------------------------------------------------------------------
 
-export interface TodayFigures {
+/** The figures of one Shanghai day that the home page's 今日数据 row shows. */
+export interface DayFigures {
+  /** 营业额, as 交易统计 computes it: paid less refunded. */
   revenue: number;
+  /** 订单量 (= 支付订单数), as 订单统计 computes it. */
   paidOrderCount: number;
-  newUsers: number;
-  previous: { revenue: number; paidOrderCount: number; newUsers: number };
+  /** 退款订单数, as 订单统计 computes it. */
+  refundOrderCount: number;
+  /** 访客数, as 用户统计 computes it. */
+  visitors: number;
+  /** 浏览量, as 用户统计 computes it. */
+  pageViews: number;
+  /** 加购人数, as 用户统计 computes it. */
+  cartUsers: number;
 }
 
+export interface TodayFigures {
+  /** Today's Shanghai midnight, the opening of the window. */
+  day: Date;
+  /** `null` for a half the caller did not ask for. */
+  trade: { current: TradeDay; previous: TradeDay } | null;
+  users: { current: UserDay; previous: UserDay } | null;
+}
+
+type TradeDay = Pick<DayFigures, 'revenue' | 'paidOrderCount' | 'refundOrderCount'>;
+type UserDay = Pick<DayFigures, 'visitors' | 'pageViews' | 'cartUsers'>;
+
+const tradeDay = (figures: TradeFigures): TradeDay => ({
+  revenue: round2(revenueOf(figures)),
+  paidOrderCount: figures.orderCount,
+  refundOrderCount: figures.refundOrderCount,
+});
+
+const userDay = (figures: UserFigures): UserDay => ({
+  visitors: figures.visitors,
+  pageViews: figures.pageViews,
+  cartUsers: figures.cartUsers,
+});
+
 /**
- * Today and yesterday, in Shanghai days, for the dashboard tiles.
+ * Today and yesterday, in Shanghai days, for the home page's 今日数据 row.
  *
- * Its own function rather than a call to `tradeStats`: the home page needs six
- * numbers, not two pages of charts, and it has a three-second budget before
- * the contributor is dropped from the header.
+ * The same `tradeFigures` / `userFigures` the statistics pages compute their
+ * tiles with, over today's window and the one before — so a card and the page
+ * it links to, opened on 今天, show the same number. Not a call to
+ * `tradeStats` itself: the home page needs a handful of numbers, not three
+ * pages of charts, and it has a three-second budget before the contributor is
+ * dropped from the header. Each half is computed only when asked for, so an
+ * admin without 用户统计 does not pay for its queries.
  */
-export async function todayFigures(ctx: Ctx): Promise<TodayFigures> {
+export async function todayFigures(
+  ctx: Ctx,
+  want: { trade: boolean; users: boolean } = { trade: true, users: true },
+): Promise<TodayFigures> {
   const range = resolveRange({}, ctx.clock);
   const today = { from: new Date(range.to.getTime() - 86_400_000), to: range.to };
   const yesterday = { from: new Date(today.from.getTime() - 86_400_000), to: today.from };
 
-  const [current, before, registrations, registrationsBefore] = await Promise.all([
-    tradeFigures(ctx, today),
-    tradeFigures(ctx, yesterday),
-    repo.registrationAggregate(ctx.db, { ...today, bucket: 'window' }),
-    repo.registrationAggregate(ctx.db, { ...yesterday, bucket: 'window' }),
+  const [trade, tradeBefore, users, usersBefore] = await Promise.all([
+    want.trade ? tradeFigures(ctx, today) : null,
+    want.trade ? tradeFigures(ctx, yesterday) : null,
+    want.users ? userFigures(ctx, today) : null,
+    want.users ? userFigures(ctx, yesterday) : null,
   ]);
 
   return {
-    revenue: round2(revenueOf(current)),
-    paidOrderCount: current.orderCount,
-    newUsers: only(registrations, { newUsers: 0 }).newUsers,
-    previous: {
-      revenue: round2(revenueOf(before)),
-      paidOrderCount: before.orderCount,
-      newUsers: only(registrationsBefore, { newUsers: 0 }).newUsers,
-    },
+    day: today.from,
+    trade:
+      trade && tradeBefore ? { current: tradeDay(trade), previous: tradeDay(tradeBefore) } : null,
+    users:
+      users && usersBefore ? { current: userDay(users), previous: userDay(usersBefore) } : null,
   };
 }

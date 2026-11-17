@@ -270,6 +270,7 @@ export const userStatsExample: UserStats = {
     { key: 'avgStay', label: '平均停留时长', value: 65, format: 'duration', previous: 58 },
     { key: 'newUsers', label: '新增用户', value: 96, format: 'count', previous: 104 },
     { key: 'payingUsers', label: '成交用户数', value: 212, format: 'count', previous: 198 },
+    { key: 'cartUsers', label: '加购人数', value: 268, format: 'count', previous: 251 },
     { key: 'totalUsers', label: '累计用户', value: 18422, format: 'count', previous: null },
   ],
   chart: {

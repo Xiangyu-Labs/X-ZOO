@@ -441,6 +441,47 @@ export const adminOrderListQuery = pageQuery
   .extend(sortQuery(['id', 'createdAt', 'paidAt', 'payableAmount']).shape);
 export type AdminOrderListQuery = z.infer<typeof adminOrderListQuery>;
 
+/**
+ * 订单列表's tabs, each a *preset over the filters* rather than a query
+ * parameter of its own (see the list page for why).
+ *
+ * Here and not in the page because the 工作台's 待办 cards count the same
+ * orders: 待付款 / 待发货 / 售后中 on the home page are `count(*)` of exactly
+ * the filter the tab they open applies, so the card and the list's total cannot
+ * drift apart. `key` is what the list reads from `?tab=`.
+ */
+export type AdminOrderTabKey =
+  'all' | 'unpaid' | 'unshipped' | 'unreceived' | 'finished' | 'refunding' | 'deleted';
+
+export type AdminOrderTabFilter = Partial<
+  Pick<AdminOrderListQuery, 'status' | 'fulfillmentStatus' | 'refunding' | 'deleted'>
+>;
+
+export const adminOrderTabs: readonly {
+  key: AdminOrderTabKey;
+  label: string;
+  query: AdminOrderTabFilter;
+}[] = [
+  { key: 'all', label: '全部', query: {} },
+  { key: 'unpaid', label: '待付款', query: { status: 'pending_payment' } },
+  {
+    key: 'unshipped',
+    label: '待发货',
+    query: { status: 'paid', fulfillmentStatus: ['unfulfilled', 'partially_fulfilled'] },
+  },
+  { key: 'unreceived', label: '待收货', query: { status: 'shipped' } },
+  { key: 'finished', label: '已完成', query: { status: ['received', 'completed'] } },
+  // An open after-sales request, not the `partially_refunded` roll-up that
+  // stays on an order after its request has closed.
+  { key: 'refunding', label: '售后中', query: { refunding: true } },
+  { key: 'deleted', label: '回收站', query: { deleted: true } },
+];
+
+/** The filter of one tab; `{}` (全部) for a key the list does not know. */
+export function adminOrderTabFilter(key: AdminOrderTabKey): AdminOrderTabFilter {
+  return adminOrderTabs.find((tab) => tab.key === key)?.query ?? {};
+}
+
 export const pagedAdminOrders = paged(adminOrderListItem);
 
 export const orderIdParams = z.object({ id });

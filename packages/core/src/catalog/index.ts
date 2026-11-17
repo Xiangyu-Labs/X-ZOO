@@ -59,10 +59,12 @@ import {
 } from './catalog.review.service';
 import { catalogSalePort } from './catalog.sale';
 import { catalogStockPort } from './catalog.stock';
+import { registerDashboardContributor } from '../system';
+import { catalogDashboardContributor } from './catalog.dashboard';
 // The config group registers itself on import.
 import './catalog.config';
 
-/** Registers the stock and sale ports; called once on import, again after a reset. */
+/** Registers the ports, handlers and 工作台 card; called once on import, again after a reset. */
 export function registerCatalogDomain(): void {
   registerStockPort(catalogStockPort);
   registerCatalogPort(catalogSalePort);
@@ -72,6 +74,8 @@ export function registerCatalogDomain(): void {
   registerMediaUncheckedHandler('review_image', holdUncheckedReview);
   // 注销: a cancelled shopper's reviews stay, without their name or face.
   onAccountCancelled('catalog', forgetReviewAuthor);
+  // 工作台's 库存预警 card.
+  registerDashboardContributor(catalogDashboardContributor);
 }
 
 registerCatalogDomain();

@@ -38,6 +38,12 @@ function stubApi(header: DashboardHeader = dashboardHeaderExample): StubCall[] {
   ]);
 }
 
+const tileOf = (key: string) => {
+  const tile = dashboardHeaderExample.tiles.find((entry) => entry.key === key);
+  if (!tile) throw new Error(`no example tile ${key}`);
+  return tile;
+};
+
 const identityWith = (permissions: string[]) => ({ ...testIdentity, permissions });
 
 const ALL = ['system:dashboard:read', 'stats:trade:read', 'stats:order:read', 'stats:product:read'];
@@ -109,7 +115,7 @@ describe('工作台', () => {
   it('says 持平 for a figure that did not move since yesterday', async () => {
     stubApi({
       ...dashboardHeaderExample,
-      tiles: [{ ...dashboardHeaderExample.tiles[2]!, deltaFromYesterday: 0 }],
+      tiles: [{ ...tileOf('stats.paidOrders'), deltaFromYesterday: 0 }],
     });
     renderAdmin(<DashboardPage />, { identity: identityWith(ALL) });
     expect(await screen.findByText('较昨日持平')).toBeInTheDocument();
@@ -120,8 +126,9 @@ describe('工作台', () => {
     renderAdmin(<DashboardPage />, { identity: identityWith(ALL) });
 
     expect(await screen.findByText('经营概览（最近30天）')).toBeInTheDocument();
-    // Picked from the stats pages' own metrics, not recomputed here.
-    expect(await screen.findByText('营业额')).toBeInTheDocument();
+    // Picked from the stats pages' own metrics, not recomputed here (营业额 is
+    // also a 今日数据 card).
+    expect(await screen.findAllByText('营业额')).toHaveLength(2);
     expect(await screen.findByText('退款率')).toBeInTheDocument();
     expect(screen.getByText('2.83%')).toBeInTheDocument();
     await waitFor(() => {
@@ -157,7 +164,80 @@ describe('工作台', () => {
     renderAdmin(<DashboardPage />, { identity: identityWith(ALL) });
 
     expect(await screen.findByText('部分指标暂时不可用')).toBeInTheDocument();
+    // The contributor's key is for the logs; staff read Chinese only.
+    expect(screen.queryByText(/storage/)).toBeNull();
     // The tiles that did come back are still on the page.
     expect(screen.getByText('管理员')).toBeInTheDocument();
+  });
+
+  it('#99 — 待办事项: each queue opens the order list on its tab, 库存预警 its page', async () => {
+    stubApi();
+    renderAdmin(<DashboardPage />, { identity: identityWith(ALL) });
+
+    // Past the skeleton, which already carries the row's title.
+    await screen.findByText('待付款');
+    expect(screen.getByText('待办事项')).toBeInTheDocument();
+    for (const [label, href] of [
+      ['待付款', '/admin/orders?tab=unpaid'],
+      ['待发货', '/admin/orders?tab=unshipped'],
+      ['待售后', '/admin/orders?tab=refunding'],
+      ['库存预警', '/admin/catalog/stock-warnings'],
+    ] as const) {
+      expect(screen.getByRole('link', { name: new RegExp(label) })).toHaveAttribute('href', href);
+    }
+    // A queue has no 较昨日: it says what to do instead.
+    expect(screen.getAllByText('点击去处理')).toHaveLength(4);
+  });
+
+  it('#99 — 今日数据: six cards against yesterday, each opening its statistics page', async () => {
+    stubApi();
+    renderAdmin(<DashboardPage />, { identity: identityWith(ALL) });
+
+    await screen.findByText('加购人数');
+    expect(screen.getByText('今日数据')).toBeInTheDocument();
+    for (const [key, page] of [
+      ['stats.revenue', 'trade'],
+      ['stats.paidOrders', 'orders'],
+      ['stats.refundOrders', 'orders'],
+      ['stats.visitors', 'users'],
+      ['stats.pageViews', 'users'],
+      ['stats.cartUsers', 'users'],
+    ] as const) {
+      const tile = tileOf(key);
+      expect(tile.href).toMatch(new RegExp(`^/admin/stats/${page}\\?from=`));
+      // 订单量 and 退款订单数 open the same page, so look for the card by both.
+      const link = screen
+        .getAllByRole('link')
+        .find(
+          (element) =>
+            element.getAttribute('href') === tile.href && element.textContent?.includes(tile.label),
+        );
+      expect(link, key).toBeDefined();
+    }
+    expect(screen.getByText('¥5,320.50')).toBeInTheDocument();
+  });
+
+  it('#99 — colours a rise in 退款订单数 as bad news', async () => {
+    stubApi({
+      ...dashboardHeaderExample,
+      tiles: [tileOf('stats.refundOrders'), tileOf('stats.paidOrders')],
+    });
+    renderAdmin(<DashboardPage />, { identity: identityWith(ALL) });
+
+    const refund = await screen.findByRole('link', { name: /退款订单数/ });
+    expect(refund.querySelector('.ant-typography-danger')).not.toBeNull();
+    const orders = screen.getByRole('link', { name: /订单量/ });
+    expect(orders.querySelector('.ant-typography-success')).not.toBeNull();
+  });
+
+  it('#99 — leaves out a row with no card the admin may see', async () => {
+    stubApi({
+      ...dashboardHeaderExample,
+      tiles: dashboardHeaderExample.tiles.filter((tile) => tile.section !== 'today'),
+    });
+    renderAdmin(<DashboardPage />, { identity: identityWith(ALL) });
+
+    await screen.findByText('待付款');
+    expect(screen.queryByText('今日数据')).toBeNull();
   });
 });
