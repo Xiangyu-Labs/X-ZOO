@@ -5,7 +5,7 @@ import {
   decorDocumentList,
 } from '@shop/contracts/decor/decor.admin.contract';
 import type { ResponseOf } from '@shop/contracts/_conventions/route';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -25,6 +25,41 @@ vi.mock('next/navigation', () => ({
 // The template thumbnails draw a real page: not what this test is about.
 const previewMock = vi.fn((_props: unknown) => null);
 vi.mock('./editor', () => ({ DecorPagePreview: (props: unknown) => previewMock(props) }));
+
+// A thumbnail draws its page only once it scrolls into view. Nothing is in
+// view until a test says so with `scrollIntoView`.
+const watched = new Map<Element, IntersectionObserverCallback>();
+class FakeIntersectionObserver {
+  constructor(private readonly callback: IntersectionObserverCallback) {}
+  observe(element: Element) {
+    watched.set(element, this.callback);
+  }
+  unobserve(element: Element) {
+    watched.delete(element);
+  }
+  takeRecords(): IntersectionObserverEntry[] {
+    return [];
+  }
+  disconnect() {
+    for (const [element, callback] of watched) {
+      if (callback === this.callback) watched.delete(element);
+    }
+  }
+}
+vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+
+function scrollIntoView(card: HTMLElement): void {
+  for (const [element, callback] of watched) {
+    if (card.contains(element)) {
+      act(() =>
+        callback(
+          [{ target: element, isIntersecting: true } as unknown as IntersectionObserverEntry],
+          {} as IntersectionObserver,
+        ),
+      );
+    }
+  }
+}
 
 type Summary = ResponseOf<typeof decorDesignations>['home'] & object;
 
@@ -176,11 +211,17 @@ describe('店铺装修列表', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '新建页面' }));
     const dialog = await screen.findByRole('dialog');
+    // Opening the dialog draws no template; one scrolled into view draws itself.
     expect(previewMock).not.toHaveBeenCalled();
-
-    await userEvent.click(within(dialog).getByRole('button', { name: '专题活动' }));
-    await waitFor(() => expect(previewMock).toHaveBeenCalledTimes(1));
-    await userEvent.click(within(dialog).getByRole('button', { name: '空白页面' }));
+    scrollIntoView(within(dialog).getByRole('button', { name: '专题活动' }));
+    await waitFor(() =>
+      expect(previewMock).toHaveBeenCalledWith(expect.objectContaining({ title: '专题活动预览' })),
+    );
+    expect(
+      previewMock.mock.calls.every(
+        ([props]) => (props as { title: string }).title === '专题活动预览',
+      ),
+    ).toBe(true);
 
     await userEvent.type(within(dialog).getByLabelText('页面名称'), '周末活动');
     expect(within(dialog).getByRole('button', { name: '空白页面' })).toHaveAttribute(

@@ -10,7 +10,7 @@ import {
 import { Form, Input, Modal, Radio, Spin, Typography } from 'antd';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 
 import { useRouteMutation } from '../api';
 import { useDetailHref } from '../kit/table/list-return';
@@ -32,6 +32,33 @@ const THUMB_SCALE = 0.4;
 const THUMB_WIDTH = 375;
 const THUMB_HEIGHT = 640;
 
+/**
+ * True from the first time `ref` comes near the visible area, and for good
+ * after that. Each thumbnail is a whole page in an `<iframe>`: drawing every
+ * template the moment the dialog opens is what made it slow, so a card draws
+ * its page only when it scrolls into view. Without `IntersectionObserver`
+ * every card draws, as before.
+ */
+function useSeenOnce(ref: RefObject<Element | null>): boolean {
+  const [seen, setSeen] = useState(() => typeof IntersectionObserver === 'undefined');
+  useEffect(() => {
+    const element = ref.current;
+    if (seen || !element) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setSeen(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '200px' },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref, seen]);
+  return seen;
+}
+
 function TemplateCard({
   template,
   selected,
@@ -41,6 +68,8 @@ function TemplateCard({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const thumb = useRef<HTMLDivElement>(null);
+  const seen = useSeenOnce(thumb);
   return (
     <button
       type="button"
@@ -72,6 +101,7 @@ function TemplateCard({
         />
       ) : null}
       <div
+        ref={thumb}
         style={{
           width: THUMB_WIDTH * THUMB_SCALE,
           height: THUMB_HEIGHT * THUMB_SCALE,
@@ -82,7 +112,7 @@ function TemplateCard({
         }}
       >
         {template.document ? (
-          selected ? (
+          seen || selected ? (
             <div
               style={{
                 width: THUMB_WIDTH,
@@ -99,25 +129,7 @@ function TemplateCard({
                 title={`${template.name}预览`}
               />
             </div>
-          ) : (
-            <div
-              style={{
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 4,
-                padding: 12,
-                textAlign: 'center',
-                color: 'var(--ant-color-text-tertiary)',
-                fontSize: 12,
-              }}
-            >
-              <span>{template.document.blocks.length} 个组件</span>
-              <span style={{ color: 'var(--ant-color-text-quaternary)' }}>选中后预览</span>
-            </div>
-          )
+          ) : null
         ) : (
           <div
             style={{
