@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config';
 
 const here = import.meta.dirname;
 const alias = { '@': fileURLToPath(new URL('./src', import.meta.url)) };
-const serverTests = ['src/server/**/*.test.ts', 'app/**/route.test.ts'];
+const serverTests = ['src/server/**/*.test.ts', 'src/build/**/*.test.ts', 'app/**/route.test.ts'];
 const intTests = ['src/**/*.int.test.ts', 'app/**/*.int.test.ts'];
 const exclude = ['**/node_modules/**', '**/.next/**'];
 
@@ -12,7 +12,7 @@ const exclude = ['**/node_modules/**', '**/.next/**'];
  * Three projects, named like the shared preset so `--project unit|int` means the same here:
  *
  *   unit         admin UI, happy-dom
- *   unit-server  `src/server` and route handlers, node
+ *   unit-server  `src/server`, `src/build` and route handlers, node
  *   int          anything needing PostgreSQL/Redis, through the @shop/testing harness
  */
 export default defineConfig({
