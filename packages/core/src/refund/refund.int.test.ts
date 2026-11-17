@@ -1287,6 +1287,20 @@ describe('商家发起售后', () => {
     await expect(open(order)).resolves.toMatchObject({ amount: '50.00' });
   });
 
+  it('checks the ceiling against the agreed amount, not the units’ full worth', async () => {
+    const order = await completedOrder();
+    // ¥30 of the ¥100 paid is left to give back; one unit is worth ¥50.
+    await harness.ctx.db
+      .update(orders)
+      .set({ refundedAmount: '70.00' })
+      .where(eq(orders.id, order.orderId));
+
+    await expect(open(order, { amount: '40.00' })).rejects.toMatchObject({
+      code: 'REFUND_EXCEEDS_PAID',
+    });
+    await expect(open(order, { amount: '20.00' })).resolves.toMatchObject({ amount: '20.00' });
+  });
+
   it('REFUND-016 — settles a 仅退款 of ¥0 on an order that collected money, without the gateway', async () => {
     const order = await completedOrder();
 

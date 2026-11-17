@@ -341,6 +341,31 @@ describe('input parsing', () => {
     });
   });
 
+  it('answers a webhook refusal in the gateway ack shape, not the error envelope', async () => {
+    const webhookRoute = defineRoute({
+      id: 'test.webhook',
+      method: 'POST',
+      path: '/api/v1/webhooks/test',
+      auth: 'webhook',
+      summary: 'webhook',
+      tags: ['test'],
+      response: z.object({ code: z.enum(['SUCCESS', 'FAIL']), message: z.string() }),
+      examples: [{ name: 'ok', response: { code: 'SUCCESS', message: '成功' } }],
+    });
+    const POST = handle(
+      webhookRoute,
+      async () => {
+        throw new DomainError('UNAUTHENTICATED', { message: '签名验证失败' });
+      },
+      { container: container() },
+    );
+    const response = await POST(
+      new Request('https://shop.example/api/v1/webhooks/test', { method: 'POST', body: '{}' }),
+    );
+    expect(response.status).toBe(401);
+    expect(await body(response)).toEqual({ code: 'FAIL', message: '签名验证失败' });
+  });
+
   it('rejects a body that is not JSON', async () => {
     const POST = handle(bodyRoute, async () => ({ ok: true }), { container: container() });
     const response = await POST(

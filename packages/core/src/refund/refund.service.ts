@@ -393,6 +393,13 @@ export async function priceRequest(
     throw new DomainError('REFUND_AMOUNT_ZERO');
   }
 
+  // The shop's agreed amount first: the ceiling is about the money that will
+  // actually leave, so a ¥50 settlement on ¥100 of goods with ¥60 left must pass.
+  const priced: PricedRequest =
+    wanted.amount === undefined
+      ? { lines, amount, quantity, freight }
+      : settleFor(Money.parse(wanted.amount), { lines, amount, quantity, freight });
+
   // The ceiling counts what other open requests have already spoken for, so
   // two requests on two different lines cannot together exceed what was paid.
   const ceiling = remainingCeiling({
@@ -400,14 +407,12 @@ export async function priceRequest(
     refundedAmount: order.refundedAmount,
     openAmount: await repo.openRefundTotal(tx, orderId),
   });
-  if (amount.gt(ceiling)) {
+  if (priced.amount.gt(ceiling)) {
     throw new DomainError('REFUND_EXCEEDS_PAID', {
-      details: { requested: amount.toString(), remaining: ceiling.toString() },
+      details: { requested: priced.amount.toString(), remaining: ceiling.toString() },
     });
   }
-
-  if (wanted.amount === undefined) return { lines, amount, quantity, freight };
-  return settleFor(Money.parse(wanted.amount), { lines, amount, quantity, freight });
+  return priced;
 }
 
 /**

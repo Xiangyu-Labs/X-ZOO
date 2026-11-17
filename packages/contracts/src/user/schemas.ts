@@ -1,11 +1,12 @@
 import { z } from 'zod';
 import {
+  clearable,
   clientPlatform,
   id,
   instant,
   newPassword,
-  pageQuery,
   paged,
+  pageQuery,
   sortQuery,
 } from '../_conventions/common';
 import {
@@ -103,10 +104,11 @@ export type UserProfile = z.infer<typeof userProfile>;
  *
  * `nickname` is trimmed; one that is only whitespace is refused.
  */
+/** Only what is sent changes. `null` (or `''`) clears the avatar, the real name and the birthday. */
 export const userProfileForm = z.object({
   nickname: z.string().min(1).max(64).optional(),
-  avatarUrl: z.string().max(512).optional(),
-  realName: z.string().max(32).optional(),
+  avatarUrl: z.string().max(512).nullish(),
+  realName: z.string().max(32).nullish(),
   birthday: instant.nullish(),
 });
 export type UserProfileForm = z.infer<typeof userProfileForm>;
@@ -148,25 +150,16 @@ export type UserAddress = z.infer<typeof userAddress>;
 export const userAddressForm = z.object({
   receiverName: z.string().min(1).max(32),
   receiverPhone: phoneNumber,
-  provinceId: id.optional(),
-  cityId: id.optional(),
-  districtId: id.optional(),
+  provinceId: clearable(id),
+  cityId: clearable(id),
+  districtId: clearable(id),
   provinceName: z.string().min(1).max(64),
   cityName: z.string().min(1).max(64),
-  districtName: z.string().max(64).optional(),
+  districtName: clearable(z.string().max(64)),
   detail: z.string().min(1).max(255),
-  postCode: z
-    .string()
-    .regex(/^\d{6}$/, '邮政编码为 6 位数字')
-    .optional(),
-  lng: z
-    .string()
-    .regex(/^-?\d{1,3}(\.\d{1,6})?$/, '经度格式不正确')
-    .optional(),
-  lat: z
-    .string()
-    .regex(/^-?\d{1,2}(\.\d{1,6})?$/, '纬度格式不正确')
-    .optional(),
+  postCode: clearable(z.string().regex(/^\d{6}$/, '邮政编码为 6 位数字')),
+  lng: clearable(z.string().regex(/^-?\d{1,3}(\.\d{1,6})?$/, '经度格式不正确')),
+  lat: clearable(z.string().regex(/^-?\d{1,2}(\.\d{1,6})?$/, '纬度格式不正确')),
   /** The first address a customer saves becomes the default whatever this says. */
   isDefault: z.boolean().default(false),
 });

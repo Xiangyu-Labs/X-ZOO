@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { id, instant, money, pageQuery, paged, sortQuery } from '../_conventions/common';
+import { id, instant, money, oneOrMany, paged, pageQuery, sortQuery } from '../_conventions/common';
 import { orderRef } from '../order/order.ref.schemas';
 
 /**
@@ -279,7 +279,7 @@ export const pagedMyRefunds = paged(refundListItem);
 
 export const adminRefundListQuery = pageQuery
   .extend({
-    status: z.union([refundStatus, z.array(refundStatus)]).optional(),
+    status: oneOrMany(refundStatus).optional(),
     kind: refundKind.optional(),
     returnStage: refundReturnStage.optional(),
     orderId: id.optional(),

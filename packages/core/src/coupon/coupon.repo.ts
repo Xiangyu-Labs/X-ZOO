@@ -407,6 +407,9 @@ export async function listProductGiftTemplates(
         ),
         liveTemplate(),
         eq(couponTemplates.status, 'active'),
+        // The same claim window every other issuing path honours.
+        or(isNull(couponTemplates.claimFrom), lte(couponTemplates.claimFrom, args.now)),
+        or(isNull(couponTemplates.claimTo), gte(couponTemplates.claimTo, args.now)),
         or(eq(couponTemplates.isUnlimitedSupply, true), gt(couponTemplates.remainingCount, 0)),
         or(isNull(couponTemplates.validTo), gte(couponTemplates.validTo, args.now)),
       ),
@@ -533,7 +536,12 @@ export async function disableClosedTemplates(
       and(
         eq(couponTemplates.status, 'active'),
         liveTemplate(),
-        lt(couponTemplates.claimTo, args.now),
+        or(
+          lt(couponTemplates.claimTo, args.now),
+          // A fixed spending window that has closed can issue nothing but dead
+          // coupons, claim window or not (`isClaimWindowOpen`).
+          lt(couponTemplates.validTo, args.now),
+        ),
       ),
     )
     .orderBy(asc(couponTemplates.id))

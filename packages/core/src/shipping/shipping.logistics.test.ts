@@ -82,8 +82,8 @@ describe('logisticsPort.track', () => {
 
   const warnings: { fields: Record<string, unknown>; message: string }[] = [];
 
-  /** Tracking on, nothing cached, and every warning kept. */
-  function ctx(): Ctx {
+  /** Tracking on, nothing cached (unless `redis` says otherwise), and every warning kept. */
+  function ctx(redis: unknown = { get: async () => null, set: async () => 'OK' }): Ctx {
     warnings.length = 0;
     return {
       logger: {
@@ -91,7 +91,7 @@ describe('logisticsPort.track', () => {
           warnings.push({ fields, message });
         },
       },
-      redis: { get: async () => null, set: async () => 'OK' },
+      redis,
       config: {
         get: async (def: ConfigGroupDef) =>
           def.schema.parse({ provider: 'aliyun-market', appCode: 'code' }),
@@ -131,6 +131,50 @@ describe('logisticsPort.track', () => {
     });
     expect(urls[0]?.searchParams.get('type')).toBe('SFEXPRESS');
     expect(urls[0]?.searchParams.get('no')).toBe('SF1:1234');
+  });
+
+  it('keeps a 顺丰 lookup without the phone apart from one with it in the cache', async () => {
+    const store = new Map<string, string>();
+    const redis = {
+      get: async (key: string) => store.get(key) ?? null,
+      set: async (key: string, value: string) => {
+        store.set(key, value);
+        return 'OK';
+      },
+    };
+    const urls = capture();
+    await logisticsPort.track(ctx(redis), { companyCode: 'shunfeng', trackingNo: 'SF1' });
+    await logisticsPort.track(ctx(redis), {
+      companyCode: 'shunfeng',
+      trackingNo: 'SF1',
+      phone: '13800001234',
+    });
+    expect(urls.map((url) => url.searchParams.get('no'))).toEqual(['SF1', 'SF1:1234']);
+    // Another carrier ignores the phone, so it shares one entry.
+    await logisticsPort.track(ctx(redis), { companyCode: 'yuantong', trackingNo: 'YT1' });
+    await logisticsPort.track(ctx(redis), {
+      companyCode: 'yuantong',
+      trackingNo: 'YT1',
+      phone: '13800001234',
+    });
+    expect(urls).toHaveLength(3);
+  });
+
+  it('still answers when Redis is down, reading and writing', async () => {
+    const urls = capture();
+    const down = async () => {
+      throw new Error('ECONNREFUSED');
+    };
+    const result = await logisticsPort.track(ctx({ get: down, set: down }), {
+      companyCode: 'yuantong',
+      trackingNo: 'YT1',
+    });
+    expect(result.state).toBe('in_transit');
+    expect(urls).toHaveLength(1);
+    expect(warnings.map((warning) => warning.message)).toEqual([
+      '物流查询缓存读取失败',
+      '物流查询缓存写入失败',
+    ]);
   });
 
   it('leaves the carrier to the vendor when our code has no counterpart', async () => {

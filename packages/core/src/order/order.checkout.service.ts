@@ -164,11 +164,16 @@ async function requestedLines(
  * *not* checked here: the preview would only be telling the shopper about a
  * number that can change before they submit, and the create path settles it
  * for real with a conditional `reserve`.
+ *
+ * `productQuantity` is what the whole order asks of the line's product, summed
+ * over every variant: the purchase limit is the product's, so two variants of
+ * 3 each against a 限购 5 are 6, not two passing 3s.
  */
 function assertSellable(
   sku: SkuForSale | undefined,
   skuId: number,
   quantity: number,
+  productQuantity: number,
   purchased: number,
 ): asserts sku is SkuForSale {
   if (!sku || sku.deleted || !sku.onSale) {
@@ -184,12 +189,16 @@ function assertSellable(
     });
   }
   const limit = sku.purchaseLimitQuantity;
-  if (sku.purchaseLimitMode === 'per_order' && limit !== null && quantity > limit) {
+  if (sku.purchaseLimitMode === 'per_order' && limit !== null && productQuantity > limit) {
     throw new DomainError('ORDER_PURCHASE_LIMIT_REACHED', {
       details: { skuId: toId(skuId), limit },
     });
   }
-  if (sku.purchaseLimitMode === 'lifetime' && limit !== null && purchased + quantity > limit) {
+  if (
+    sku.purchaseLimitMode === 'lifetime' &&
+    limit !== null &&
+    purchased + productQuantity > limit
+  ) {
     throw new DomainError('ORDER_PURCHASE_LIMIT_REACHED', {
       details: { skuId: toId(skuId), limit, purchased },
     });
@@ -364,9 +373,23 @@ async function buildDraft(
     productIds: [...skus.values()].map((sku) => sku.productId),
   });
 
+  const perProduct = new Map<number, number>();
+  for (const line of requested) {
+    const productId = skus.get(line.skuId)?.productId;
+    if (productId === undefined) continue;
+    perProduct.set(productId, (perProduct.get(productId) ?? 0) + line.quantity);
+  }
+
   const lines: DraftLine[] = requested.map((line) => {
     const sku = skus.get(line.skuId);
-    assertSellable(sku, line.skuId, line.quantity, purchased.get(sku?.productId ?? -1) ?? 0);
+    const productId = sku?.productId ?? -1;
+    assertSellable(
+      sku,
+      line.skuId,
+      line.quantity,
+      perProduct.get(productId) ?? line.quantity,
+      purchased.get(productId) ?? 0,
+    );
     const unitPrice = Money.parse(sku.unitPrice);
     return {
       cartItemId: line.cartItemId,

@@ -28,6 +28,32 @@ export async function productActivities(
     .orderBy(asc(flashSaleActivities.id));
 }
 
+/** `productActivityIds` for many products at once: what a product card needs to know. */
+export async function productActivitySummaries(
+  db: DbOrTx,
+  productIds: readonly number[],
+  includeIds: readonly number[],
+): Promise<{ id: number; productId: number; status: string; startAt: Date; endAt: Date }[]> {
+  if (productIds.length === 0) return [];
+  return db
+    .select({
+      id: flashSaleActivities.id,
+      productId: flashSaleActivities.productId,
+      status: flashSaleActivities.status,
+      startAt: flashSaleActivities.startAt,
+      endAt: flashSaleActivities.endAt,
+    })
+    .from(flashSaleActivities)
+    .where(
+      and(
+        inArray(flashSaleActivities.productId, [...productIds]),
+        or(
+          ne(flashSaleActivities.status, 'ended'),
+          includeIds.length === 0 ? undefined : inArray(flashSaleActivities.id, [...includeIds]),
+        ),
+      ),
+    );
+}
 export async function activitySkus(
   db: DbOrTx,
   activityId: number,

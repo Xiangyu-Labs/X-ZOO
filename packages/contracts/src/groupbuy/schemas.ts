@@ -1,7 +1,17 @@
 import { z } from 'zod';
 import { descriptionBlock } from '../catalog/description';
 import { PER_ORDER_UNLIMITED } from '../catalog/per-order';
-import { id, idList, instant, money, pageQuery, paged, sortQuery } from '../_conventions/common';
+import {
+  clearable,
+  id,
+  idList,
+  instant,
+  money,
+  oneOrMany,
+  paged,
+  pageQuery,
+  sortQuery,
+} from '../_conventions/common';
 import { storefrontRoute } from '../system/storefront-routes';
 
 /**
@@ -115,14 +125,14 @@ export const groupbuyActivityForm = z
   .object({
     productId: id,
     title: z.string().min(1).max(255),
-    intro: z.string().max(255).optional(),
-    imageUrl: z.string().max(512).optional(),
+    intro: clearable(z.string().max(255)),
+    imageUrl: clearable(z.string().max(512)),
     sliderImages: z.array(z.string().max(512)).max(10).default([]),
     status: groupbuyActivityStatus.default('draft'),
     /** Fallback group price, used when the product has a single SKU. */
     price: money,
-    originalPrice: money.optional(),
-    cost: money.optional(),
+    originalPrice: clearable(money),
+    cost: clearable(money),
     seatsRequired: z.number().int().min(2).max(100),
     /** 拼团有效时长, in seconds — stored and edited as such. */
     groupTtlSeconds: z
@@ -136,12 +146,12 @@ export const groupbuyActivityForm = z
      * changed while orders moved it, the save is refused with `*_STOCK_CHANGED`.
      */
     expectedStock: z.number().int().min(0).optional(),
-    totalQuota: z.number().int().min(0).max(1_000_000).optional(),
+    totalQuota: clearable(z.number().int().min(0).max(1_000_000)),
     /** 每单限购份数. Absent or `null` is 不限 ({@link PER_ORDER_UNLIMITED}), as in 商品编辑. */
     perOrderQuantity: z.number().int().min(1).max(PER_ORDER_UNLIMITED).nullable().optional(),
     startAt: instant,
     endAt: instant,
-    shippingTemplateId: id.optional(),
+    shippingTemplateId: clearable(id),
     sortOrder: z.number().int().min(0).max(9999).default(0),
     skus: z.array(groupbuyActivitySkuInput).max(200).default([]),
   })
@@ -166,7 +176,7 @@ export type GroupbuyActivityForm = z.infer<typeof groupbuyActivityForm>;
 export const groupbuyActivityListQuery = pageQuery
   .extend({
     keyword: z.string().trim().max(64).optional(),
-    status: z.union([groupbuyActivityStatus, z.array(groupbuyActivityStatus)]).optional(),
+    status: oneOrMany(groupbuyActivityStatus).optional(),
     productId: id.optional(),
   })
   .extend(sortQuery(['id', 'sortOrder', 'sales', 'startAt', 'createdAt']).shape);
@@ -227,7 +237,7 @@ export type GroupbuyGroupDetail = z.infer<typeof groupbuyGroupDetail>;
 export const groupbuyGroupListQuery = pageQuery
   .extend({
     activityId: id.optional(),
-    status: z.union([groupbuyGroupStatus, z.array(groupbuyGroupStatus)]).optional(),
+    status: oneOrMany(groupbuyGroupStatus).optional(),
     leaderUserId: id.optional(),
   })
   .extend(sortQuery(['id', 'createdAt', 'expiresAt']).shape);

@@ -43,6 +43,7 @@ import { closeOrderPayments, ensureNoOpenAttempts, settleZeroAmountOrder } from 
 
 export {
   ackOrThrow,
+  OVERSIZED_NOTIFY,
   applyExceptionRefundNotification,
   closeOrderPayments,
   ensureNoOpenAttempts,

@@ -281,6 +281,8 @@ export const systemProfileChangePassword = defineRoute({
   path: '/admin-api/profile/password',
   auth: 'admin',
   permission: 'auth:profile:update',
+  // The sign-in itself: an API token acting for this admin never changes it.
+  consoleOnly: true,
   summary: '修改我的密码',
   tags: ['system'],
   body: profilePasswordBody,

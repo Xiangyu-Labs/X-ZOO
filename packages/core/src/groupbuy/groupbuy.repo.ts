@@ -1238,6 +1238,22 @@ export async function promoteMember(
   });
 }
 
+/** Whether the team still has a leader in it (`groupbuy_members_leader_uq`'s slot is taken). */
+export async function hasJoinedLeader(db: DbOrTx, groupId: number): Promise<boolean> {
+  const rows = await db
+    .select({ id: groupbuyMembers.id })
+    .from(groupbuyMembers)
+    .where(
+      and(
+        eq(groupbuyMembers.groupId, groupId),
+        eq(groupbuyMembers.status, 'joined'),
+        eq(groupbuyMembers.role, 'leader'),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
 export async function countJoinedMembers(db: DbOrTx, groupId: number): Promise<number> {
   const [row] = await db
     .select({ value: count() })
@@ -1557,6 +1573,33 @@ export async function listActivityOrders(
 }
 
 /** Internal product-editor read, unpaged so legacy conflicts cannot be hidden by a list cap. */
+/** `productActivityIds` for many products at once: what a product card needs to know. */
+export async function productActivitySummaries(
+  db: DbOrTx,
+  productIds: readonly number[],
+  includeIds: readonly number[],
+): Promise<{ id: number; productId: number; status: string; startAt: Date; endAt: Date }[]> {
+  if (productIds.length === 0) return [];
+  return db
+    .select({
+      id: groupbuyActivities.id,
+      productId: groupbuyActivities.productId,
+      status: groupbuyActivities.status,
+      startAt: groupbuyActivities.startAt,
+      endAt: groupbuyActivities.endAt,
+    })
+    .from(groupbuyActivities)
+    .where(
+      and(
+        inArray(groupbuyActivities.productId, [...productIds]),
+        isNull(groupbuyActivities.deletedAt),
+        or(
+          ne(groupbuyActivities.status, 'ended'),
+          includeIds.length === 0 ? undefined : inArray(groupbuyActivities.id, [...includeIds]),
+        ),
+      ),
+    );
+}
 export async function productActivityIds(
   db: DbOrTx,
   productId: number,

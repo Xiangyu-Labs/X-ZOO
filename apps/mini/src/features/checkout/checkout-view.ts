@@ -95,8 +95,8 @@ export function customFormProblem(
 export function customFormBody(
   fields: readonly CustomFormField[],
   answers: CustomAnswers,
-): Record<string, unknown> | undefined {
-  const body: Record<string, unknown> = {};
+): Record<string, string | number | string[]> | undefined {
+  const body: Record<string, string | number | string[]> = {};
   for (const field of fields) {
     const answer = answers[field.key];
     if (answer === undefined) continue;

@@ -200,8 +200,9 @@ export async function adminUpdate(
     const result = await repo.updateProfile(tx, {
       id,
       ...(body.nickname === undefined ? {} : { nickname: body.nickname }),
-      ...(body.realName === undefined ? {} : { realName: body.realName }),
-      ...(body.adminRemark === undefined ? {} : { adminRemark: body.adminRemark }),
+      // A blank name or remark is cleared, like `null`: `''` is never a stored value.
+      ...(body.realName === undefined ? {} : { realName: body.realName || null }),
+      ...(body.adminRemark === undefined ? {} : { adminRemark: body.adminRemark || null }),
       ...(body.birthday === undefined
         ? {}
         : { birthday: body.birthday === null ? null : new Date(body.birthday) }),

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { anonymousActor, createCtx, type Ctx } from '@shop/core/kernel';
 import { handleEvent, verifyUrl, type OaWebhookResult } from '@shop/core/wechat-oa';
-import { getContainer, searchParamsToObject } from '../../../../../src/server';
+import { getContainer, readWebhookBody, searchParamsToObject } from '../../../../../src/server';
 
 /**
  * `/api/v1/webhooks/wechat-oa` — 公众号服务器配置 points here.
@@ -70,11 +70,20 @@ export async function POST(request: Request): Promise<Response> {
     string,
     string | undefined
   >;
-  const body = await request.text();
+  const body = await readWebhookBody(request);
+  if (body === null) return tooLarge();
   const result = await handleEvent(ctxFor(request, 'wechatOa.webhookEvent'), { query, body });
   // `success` under `text/xml` is accepted by WeChat, and one content type for
   // both answers removes the branch that gets the header wrong.
   return respond(result, 'text/xml; charset=utf-8');
+}
+
+/** Past the webhook ceiling: not a WeChat delivery, and not read any further. */
+function tooLarge(): Response {
+  return new Response('payload too large', {
+    status: 413,
+    headers: { 'content-type': 'text/plain; charset=utf-8' },
+  });
 }
 
 export const dynamic = 'force-dynamic';

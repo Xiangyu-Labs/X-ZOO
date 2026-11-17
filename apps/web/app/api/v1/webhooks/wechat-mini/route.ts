@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { anonymousActor, createCtx, type Ctx } from '@shop/core/kernel';
 import { handleMiniPush, verifyMiniPushUrl, type MiniPushResult } from '@shop/core/wechat';
-import { getContainer, searchParamsToObject } from '../../../../../src/server';
+import { getContainer, readWebhookBody, searchParamsToObject } from '../../../../../src/server';
 
 /**
  * `/api/v1/webhooks/wechat-mini` — the mini program's 消息推送 (数据格式 JSON).
@@ -54,13 +54,22 @@ export async function GET(request: Request): Promise<Response> {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  const body = await request.text();
+  const body = await readWebhookBody(request);
+  if (body === null) return tooLarge();
   return respond(
     await handleMiniPush(ctxFor(request, 'wechat.miniWebhookEvent'), {
       query: queryOf(request),
       body,
     }),
   );
+}
+
+/** Past the webhook ceiling: not a WeChat delivery, and not read any further. */
+function tooLarge(): Response {
+  return new Response('payload too large', {
+    status: 413,
+    headers: { 'content-type': 'text/plain; charset=utf-8' },
+  });
 }
 
 export const dynamic = 'force-dynamic';

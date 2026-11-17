@@ -55,7 +55,9 @@ export async function updateProfile(ctx: Ctx, body: UserProfileForm): Promise<Us
     if (verdict === 'risky') throw new DomainError('USER_NICKNAME_REJECTED');
   }
   const avatarUrl =
-    body.avatarUrl === undefined ? undefined : await acceptedAvatar(ctx, userId, body.avatarUrl);
+    body.avatarUrl === undefined
+      ? undefined
+      : await acceptedAvatar(ctx, userId, body.avatarUrl ?? '');
   const { defaultAvatar } = await ctx.config.get(storefrontAuthConfig);
   const avatarToCheck =
     avatarUrl !== undefined &&
@@ -69,8 +71,8 @@ export async function updateProfile(ctx: Ctx, body: UserProfileForm): Promise<Us
       id: userId,
       ...(nickname === undefined ? {} : { nickname }),
       ...(avatarUrl === undefined ? {} : { avatarUrl }),
-      ...(body.realName === undefined ? {} : { realName: body.realName }),
-      // `nullish` in the form: `null` clears the birthday, absent leaves it.
+      // `nullish` in the form: `null` (or a blank name) clears it, absent leaves it.
+      ...(body.realName === undefined ? {} : { realName: body.realName?.trim() || null }),
       ...(body.birthday === undefined
         ? {}
         : { birthday: body.birthday === null ? null : new Date(body.birthday) }),

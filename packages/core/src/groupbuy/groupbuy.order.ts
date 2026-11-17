@@ -426,6 +426,21 @@ async function handlePaid(
     return;
   }
 
+  // The leader left while only unpaid members remained, so nobody could
+  // inherit then (`settleDeparture` hands the team to payers only). The first
+  // of them to pay takes it now, under the group lock `takeSeat` holds, and
+  // `leader_user_id` stops naming the shopper who left.
+  if (member.role === 'member' && !(await repo.hasJoinedLeader(tx, member.groupId))) {
+    const promoted = await repo.promoteMember(tx, { memberId: member.id, now });
+    if (promoted.won) {
+      await repo.setGroupLeader(tx, {
+        groupId: member.groupId,
+        leaderUserId: member.userId,
+        now,
+      });
+    }
+  }
+
   await recordEffect(tx, ctx, {
     scope: 'order',
     scopeId: String(event.orderId),

@@ -67,6 +67,12 @@ const port: ProductPromotionPort = {
     return out;
   },
 
+  async summaries(ctx, productIds, includeIds) {
+    return (await repo.productActivitySummaries(ctx.db, productIds, includeIds)).map((row) => ({
+      ...row,
+      activityId: String(row.id),
+    }));
+  },
   async save(ctx, { product, settings, activityId }) {
     if (!settings.startAt) throw new DomainError('CATALOG_PROMOTION_INVALID');
     const startAt = new Date(settings.startAt);

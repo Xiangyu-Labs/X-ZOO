@@ -1,4 +1,8 @@
-import { adminProductPromotion, saveProductPromotion } from './catalog.promotion';
+import {
+  adminProductPromotion,
+  cartBlockedProductIds,
+  saveProductPromotion,
+} from './catalog.promotion';
 import { lockPromotionProduct } from './catalog.promotion.repo';
 import type { PageQuery } from '@shop/contracts/conventions';
 import type {
@@ -495,13 +499,21 @@ export async function adminProductDelete(ctx: Ctx, input: { id: string }): Promi
   });
 }
 
-/** Out of the recycle bin, always as `off_shelf`. */
+/**
+ * Out of the recycle bin, always as `off_shelf`. A deleted product gives its SPU up, so a live
+ * product may have taken it since; the operator renames one of them first.
+ */
 export async function adminProductRestore(
   ctx: Ctx,
   input: { id: string },
 ): Promise<AdminProductDetail> {
   const id = Number(input.id);
   return ctx.withTx(async (tx) => {
+    const deleted = await repo.findProduct(tx, id, { includeDeleted: true });
+    if (deleted?.deletedAt && deleted.spu) {
+      const taken = await repo.spuTakenBy(tx, { spu: deleted.spu, exceptProductId: id });
+      if (taken !== null) throw new DomainError('CATALOG_PRODUCT_SPU_TAKEN');
+    }
     const { won } = await repo.restoreProduct(tx, { id, now: ctx.clock.now() });
     if (!won) {
       const exists = await repo.findProduct(tx, id, { includeDeleted: true });
@@ -951,10 +963,32 @@ export async function productCardsFor(
 ): Promise<ProductCard[]> {
   const products = await repo.findSellableProducts(ctx.db, productIds);
   const labels = await repo.labelsFor(ctx.db, [...products.keys()]);
-  return productIds
-    .map((pid) => products.get(pid))
-    .filter((row): row is repo.ProductRow => row !== undefined)
-    .map((row) => toProductCard(row, labels.get(row.id) ?? []));
+  return withCartRule(
+    ctx,
+    productIds
+      .map((pid) => products.get(pid))
+      .filter((row): row is repo.ProductRow => row !== undefined)
+      .map((row) => toProductCard(row, labels.get(row.id) ?? [])),
+  );
+}
+
+/**
+ * `canAddToCart` as 加入购物车 will answer it. `toProductCard` only knows the
+ * product; a product a started 预售 owns, or two clashing campaigns, is refused
+ * by the cart (`CATALOG_PRESALE_REQUIRED` / `CATALOG_PROMOTION_CONFLICT`), so a
+ * storefront card must not offer the button either.
+ */
+export async function withCartRule<T extends ProductCard>(
+  ctx: Ctx,
+  cards: readonly T[],
+): Promise<T[]> {
+  const blocked = await cartBlockedProductIds(
+    ctx,
+    cards.filter((card) => card.canAddToCart).map((card) => Number(card.id)),
+  );
+  return cards.map((card) =>
+    blocked.has(Number(card.id)) ? { ...card, canAddToCart: false } : card,
+  );
 }
 
 // ---------------------------------------------------------------------------

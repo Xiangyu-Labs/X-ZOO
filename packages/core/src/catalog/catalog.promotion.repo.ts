@@ -1,7 +1,7 @@
 import type { DbOrTx, Tx } from '@shop/db';
 import { productPromotions } from '@shop/db/schema/catalog-promotion';
 import { products } from '@shop/db/schema/catalog';
-import { eq, sql } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { lockRow } from '../kernel/tx';
 
 export type PromotionLink = typeof productPromotions.$inferSelect;
@@ -12,6 +12,16 @@ export async function findPromotionLink(db: DbOrTx, productId: number) {
     .from(productPromotions)
     .where(eq(productPromotions.productId, productId));
   return row ?? null;
+}
+export async function findPromotionLinks(
+  db: DbOrTx,
+  productIds: readonly number[],
+): Promise<PromotionLink[]> {
+  if (productIds.length === 0) return [];
+  return db
+    .select()
+    .from(productPromotions)
+    .where(inArray(productPromotions.productId, [...productIds]));
 }
 export async function setPromotionLink(
   tx: Tx,

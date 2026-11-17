@@ -992,6 +992,33 @@ describe('refunding a paid order', () => {
       leaderUserId: paidMember,
     });
   });
+
+  it('hands the team to the first unpaid member to pay when the leader refunds with no paid heir', async () => {
+    const fixture = await makeActivity({ seatsRequired: 3, stock: 10 });
+    const leader = await makeUser();
+    const late = await makeUser();
+    const opened = await placeOrder({ userId: leader, fixture });
+    await pay(opened.orderId);
+    const pending = await placeOrder({ userId: late, fixture, groupId: opened.groupId });
+
+    await refund(opened.orderId);
+    // Nobody paid is left to inherit; the team keeps forming for the unpaid one.
+    expect(await readGroup(opened.groupId)).toMatchObject({ status: 'forming', seatsTaken: 0 });
+
+    await pay(pending.orderId);
+    expect(await readGroup(opened.groupId)).toMatchObject({
+      status: 'forming',
+      seatsTaken: 1,
+      leaderUserId: late,
+    });
+    const roles = await harness.ctx.db
+      .select({ userId: groupbuyMembers.userId, role: groupbuyMembers.role })
+      .from(groupbuyMembers)
+      .where(
+        and(eq(groupbuyMembers.groupId, opened.groupId), eq(groupbuyMembers.status, 'joined')),
+      );
+    expect(roles).toEqual([{ userId: late, role: 'leader' }]);
+  });
 });
 
 describe('the expiry sweep', () => {

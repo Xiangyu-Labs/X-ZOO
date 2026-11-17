@@ -26,6 +26,8 @@ export const cartErrors = defineErrors({
   CART_VIRTUAL_CARD_QUANTITY: { status: 422, message: '卡密商品每次只能购买 1 件' },
   /** `products.purchase_limit_mode` / `purchase_limit_quantity`. `details` carries `{ limit }`. */
   CART_PURCHASE_LIMIT_REACHED: { status: 409, message: '超出该商品的限购数量' },
+  /** 换规格 to a SKU of a different product. `details` carries `{ skuId }`. */
+  CART_SKU_PRODUCT_MISMATCH: { status: 422, message: '只能更换为同一商品的其他规格' },
   /** `products.min_purchase_quantity`. `details` carries `{ minimum }`. */
   CART_BELOW_MIN_PURCHASE: { status: 422, message: '未达到该商品的起购数量' },
 });

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { id, instant, pageQuery, paged, sortQuery } from '../_conventions/common';
+import { clearable, id, instant, pageQuery, paged, sortQuery } from '../_conventions/common';
 
 /**
  * Shapes shared by the WeChat Official Account routes.
@@ -180,8 +180,8 @@ export const wechatAutoReplyForm = z
   .object({
     triggerKind: wechatReplyTrigger,
     /** Required for `keyword`, forbidden otherwise — `wechat_auto_replies_keyword_shape`. */
-    keyword: z.string().min(1).max(64).optional(),
-    matchMode: wechatReplyMatchMode.optional(),
+    keyword: clearable(z.string().min(1).max(64)),
+    matchMode: clearable(wechatReplyMatchMode),
     replyType: wechatReplyType.default('text'),
     payload: wechatReplyPayload,
     isEnabled: z.boolean().default(true),
@@ -347,7 +347,7 @@ export type WechatQrcode = z.infer<typeof wechatQrcode>;
 
 export const wechatQrcodeForm = z.object({
   name: z.string().min(1).max(100),
-  categoryId: id.optional(),
+  categoryId: clearable(id),
   /**
    * Left out, the service generates one. Supplied, it must be unique —
    * `WECHAT_OA_QRCODE_SCENE_TAKEN`, because the scene string is the only thing
@@ -365,8 +365,8 @@ export const wechatQrcodeForm = z.object({
    * — WeChat's own limit, enforced here so the failure is a 422 and not a 502.
    */
   expireSeconds: z.number().int().min(0).max(2_592_000).default(0),
-  replyType: wechatReplyType.optional(),
-  replyPayload: wechatReplyPayload.optional(),
+  replyType: clearable(wechatReplyType),
+  replyPayload: clearable(wechatReplyPayload),
 });
 export type WechatQrcodeForm = z.infer<typeof wechatQrcodeForm>;
 

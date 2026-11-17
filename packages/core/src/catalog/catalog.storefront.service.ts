@@ -19,7 +19,7 @@ import { catalogConfig } from './catalog.config';
 import { descriptionOut } from './catalog.description';
 import * as repo from './catalog.repo';
 import { normaliseKeyword, summariseReviews } from './catalog.rules';
-import { pageBounds, platformOf, toProductCard } from './catalog.service';
+import { pageBounds, platformOf, toProductCard, withCartRule } from './catalog.service';
 
 /**
  * What a shopper sees: the category menu, the product list and page, search,
@@ -154,7 +154,10 @@ export async function productList(
     rows.map((r) => r.id),
   );
   return {
-    items: rows.map((row) => toProductCard(row, labels.get(row.id) ?? [])),
+    items: await withCartRule(
+      ctx,
+      rows.map((row) => toProductCard(row, labels.get(row.id) ?? [])),
+    ),
     total,
     page: query.page,
     pageSize: query.pageSize,
@@ -343,14 +346,24 @@ export async function clearSearchHistory(ctx: Ctx): Promise<void> {
  * `available: false`, so the list says 已下架 the way its product page does.
  */
 async function listedCards(
-  db: Ctx['db'],
+  ctx: Ctx,
   productIds: readonly number[],
 ): Promise<Map<number, { product: ProductCard; available: boolean }>> {
-  const products = await repo.productsByIds(db, productIds);
-  const labels = await repo.labelsFor(db, [...products.keys()]);
+  const products = await repo.productsByIds(ctx.db, productIds);
+  const labels = await repo.labelsFor(ctx.db, [...products.keys()]);
+  const ruled = new Map(
+    (
+      await withCartRule(
+        ctx,
+        [...products.values()].map((product) =>
+          toProductCard(product, labels.get(product.id) ?? []),
+        ),
+      )
+    ).map((card) => [Number(card.id), card]),
+  );
   const cards = new Map<number, { product: ProductCard; available: boolean }>();
   for (const product of products.values()) {
-    const card = toProductCard(product, labels.get(product.id) ?? []);
+    const card = ruled.get(product.id)!;
     const available = product.status === 'on_shelf' && product.deletedAt === null;
     cards.set(product.id, {
       product: available ? card : { ...card, stock: 0, canAddToCart: false },
@@ -368,7 +381,7 @@ export async function favoriteList(
   const userId = requireUserId(ctx);
   const { rows, total } = await repo.listFavorites(ctx.db, { userId, ...pageBounds(query) });
   const cards = await listedCards(
-    ctx.db,
+    ctx,
     rows.map((r) => r.productId),
   );
 
@@ -506,7 +519,7 @@ export async function historyList(
   });
 
   const cards = await listedCards(
-    ctx.db,
+    ctx,
     rows.map((r) => r.productId),
   );
 

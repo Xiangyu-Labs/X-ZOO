@@ -1500,6 +1500,30 @@ describe('grantOrderGifts', () => {
     ).toBe(1);
   });
 
+  it('issues a product gift only inside its claim window', async () => {
+    const productId = await makeProduct();
+    const attached = await makeTemplate({
+      claimMode: 'admin_grant',
+      claimFrom: new Date('2026-06-05T00:00:00Z'),
+      claimTo: new Date('2026-06-10T00:00:00Z'),
+    });
+    await harness.ctx.db.insert(productGiftCoupons).values({ productId, templateId: attached });
+    const userId = await makeUser();
+    const gift = async () =>
+      (
+        await grant({
+          userId,
+          orderId: await makeOrder(userId),
+          productIds: [productId],
+          paidAmount: Money.parse('1.00'),
+        })
+      ).granted;
+
+    expect(await gift()).toBe(0);
+    harness.clock.set('2026-06-06T00:00:00.000Z');
+    expect(await gift()).toBe(1);
+  });
+
   it('issues order-value gifts only above the threshold', async () => {
     await makeTemplate({ claimMode: 'order_gift', giftMinOrderAmount: '200.00' });
     const userId = await makeUser();
@@ -1590,5 +1614,19 @@ describe('jobs', () => {
 
     expect((await templateRow(closing)).status).toBe('disabled');
     expect((await templateRow(open)).status).toBe('active');
+  });
+
+  it('disables a fixed-window campaign with no claim end once its spending window closes', async () => {
+    const lapsed = await makeTemplate({
+      validityMode: 'fixed_window',
+      validDays: null,
+      validFrom: new Date('2026-05-01T00:00:00Z'),
+      validTo: new Date('2026-06-02T00:00:00Z'),
+    });
+
+    expect(await disableClosedCampaigns(harness.ctx)).toBe(0);
+    harness.clock.advance(3 * 24 * 60 * 60 * 1000);
+    expect(await disableClosedCampaigns(harness.ctx)).toBe(1);
+    expect((await templateRow(lapsed)).status).toBe('disabled');
   });
 });

@@ -98,6 +98,29 @@ export async function verifyMiniPushUrl(
   ctx: Ctx,
   query: Record<string, string | undefined>,
 ): Promise<MiniPushResult> {
+  return unavailableOnFailure(ctx, () => verifySignedUrl(ctx, query));
+}
+
+/**
+ * A failure of ours (the database, the config, a bug) answers 503 so WeChat delivers again,
+ * instead of escaping to the framework as a 500 page.
+ */
+async function unavailableOnFailure(
+  ctx: Ctx,
+  run: () => Promise<MiniPushResult>,
+): Promise<MiniPushResult> {
+  try {
+    return await run();
+  } catch (error) {
+    ctx.logger.error({ err: error }, 'mini push failed');
+    return UNAVAILABLE;
+  }
+}
+
+async function verifySignedUrl(
+  ctx: Ctx,
+  query: Record<string, string | undefined>,
+): Promise<MiniPushResult> {
   const { token } = await credentials(ctx);
   const timestamp = query['timestamp'] ?? '';
   const ok =
@@ -126,6 +149,10 @@ export interface MiniPushRequest {
 
 export async function handleMiniPush(ctx: Ctx, req: MiniPushRequest): Promise<MiniPushResult> {
   if (Buffer.byteLength(req.body, 'utf8') > MAX_BODY_BYTES) return FORBIDDEN;
+  return unavailableOnFailure(ctx, () => handleSignedPush(ctx, req));
+}
+
+async function handleSignedPush(ctx: Ctx, req: MiniPushRequest): Promise<MiniPushResult> {
   const creds = await credentials(ctx);
   const timestamp = req.query['timestamp'] ?? '';
   const nonce = req.query['nonce'] ?? '';

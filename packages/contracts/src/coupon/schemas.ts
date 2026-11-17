@@ -1,5 +1,15 @@
 import { z } from 'zod';
-import { id, idList, instant, money, pageQuery, paged, sortQuery } from '../_conventions/common';
+import {
+  clearable,
+  id,
+  idList,
+  instant,
+  money,
+  oneOrMany,
+  paged,
+  pageQuery,
+  sortQuery,
+} from '../_conventions/common';
 import { adminUserListQuery } from '../user/schemas';
 
 /**
@@ -109,18 +119,18 @@ export const couponTemplateForm = z
     minSpend: money.default('0.00'),
     validityMode: couponValidityMode,
     /** `fixed_window` only. */
-    validFrom: instant.optional(),
-    validTo: instant.optional(),
+    validFrom: clearable(instant),
+    validTo: clearable(instant),
     /** `days_after_claim` only. */
-    validDays: z.number().int().min(1).max(3650).optional(),
-    claimFrom: instant.optional(),
-    claimTo: instant.optional(),
+    validDays: clearable(z.number().int().min(1).max(3650)),
+    claimFrom: clearable(instant),
+    claimTo: clearable(instant),
     isUnlimitedSupply: z.boolean().default(false),
     /** Required unless `isUnlimitedSupply`. On update this is the new *total*; see the service. */
-    totalCount: z.number().int().min(1).max(10_000_000).optional(),
-    perUserLimit: z.number().int().min(1).max(1000).optional(),
+    totalCount: clearable(z.number().int().min(1).max(10_000_000)),
+    perUserLimit: clearable(z.number().int().min(1).max(1000)),
     /** `order_gift` only: the paid amount that earns the coupon. Omitted = every paid order. */
-    giftMinOrderAmount: money.optional(),
+    giftMinOrderAmount: clearable(money),
     sortOrder: z.number().int().min(0).max(9999).default(0),
     productIds: z.array(id).max(500).default([]),
     categoryIds: z.array(id).max(200).default([]),
@@ -186,7 +196,7 @@ export type CouponTemplateForm = z.infer<typeof couponTemplateForm>;
 export const couponTemplateListQuery = pageQuery
   .extend({
     keyword: z.string().trim().max(64).optional(),
-    status: z.union([couponTemplateStatus, z.array(couponTemplateStatus)]).optional(),
+    status: oneOrMany(couponTemplateStatus).optional(),
     scope: couponScope.optional(),
     claimMode: couponClaimMode.optional(),
   })
@@ -287,7 +297,7 @@ export const adminUserCouponListQuery = pageQuery
   .extend({
     templateId: id.optional(),
     userId: id.optional(),
-    status: z.union([userCouponStatus, z.array(userCouponStatus)]).optional(),
+    status: oneOrMany(userCouponStatus).optional(),
   })
   .extend(sortQuery(['id', 'createdAt', 'validTo']).shape);
 export type AdminUserCouponListQuery = z.infer<typeof adminUserCouponListQuery>;

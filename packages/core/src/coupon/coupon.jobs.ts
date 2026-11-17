@@ -42,7 +42,9 @@ export async function expireOverdueCoupons(ctx: Ctx): Promise<number> {
 }
 
 /**
- * Disables `active` templates whose claim window has closed.
+ * Disables `active` templates whose claim window has closed, or whose fixed
+ * spending window has (a template with no `claim_to` would otherwise stay
+ * 进行中 forever).
  *
  * Also belt-and-braces: `listClaimable` filters on `claim_to` too. Flipping the
  * status is what stops a closed campaign showing as 进行中 in the admin list.

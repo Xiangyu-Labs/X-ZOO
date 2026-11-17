@@ -1,6 +1,6 @@
 import { paymentWechatNotify } from '@shop/contracts/payment/payment.webhook.contract';
 import * as payment from '@shop/core/payment';
-import { handle } from '../../../../../src/server';
+import { handle, readWebhookBody } from '../../../../../src/server';
 
 /**
  * `/api/v1/webhooks/wechat-pay` — 支付结果通知.
@@ -14,13 +14,15 @@ import { handle } from '../../../../../src/server';
  * is, because `handle()` takes the status from the contract. WeChat reads the
  * status and, on a 200, `code`; anything else means "deliver this again".
  */
-export const POST = handle(paymentWechatNotify, async (ctx) =>
-  payment.ackOrThrow(
+export const POST = handle(paymentWechatNotify, async (ctx) => {
+  const rawBody = await readWebhookBody(ctx.request);
+  if (rawBody === null) return payment.ackOrThrow(payment.OVERSIZED_NOTIFY);
+  return payment.ackOrThrow(
     await payment.handleTransactionNotify(ctx, {
       headers: Object.fromEntries(ctx.request.headers),
-      rawBody: await ctx.request.text(),
+      rawBody,
     }),
-  ),
-);
+  );
+});
 
 export const dynamic = 'force-dynamic';

@@ -662,6 +662,21 @@ describe('products', () => {
     });
   });
 
+  it('lets a new product take the SPU of one in the recycle bin, and refuses restoring that one', async () => {
+    const binned = await makeProduct(asAdmin(), { spu: 'SPU-1' });
+    await service.adminProductDelete(asAdmin(), { id: binned.id });
+    const reused = await makeProduct(asAdmin(), { spu: 'SPU-1' });
+    expect(reused.spu).toBe('SPU-1');
+
+    await expect(service.adminProductRestore(asAdmin(), { id: binned.id })).rejects.toMatchObject({
+      code: 'CATALOG_PRODUCT_SPU_TAKEN',
+    });
+    const stillBinned = await repo.findProduct(harness.ctx.db, Number(binned.id), {
+      includeDeleted: true,
+    });
+    expect(stillBinned?.deletedAt).not.toBeNull();
+  });
+
   it('refuses a product filed under a category that does not exist', async () => {
     await expect(
       service.adminProductCreate(asAdmin(), productForm({ categoryIds: ['999999'] })),
@@ -2001,6 +2016,47 @@ describe('taxonomy', () => {
         sortOrder: 0,
       }),
     ).rejects.toMatchObject({ code: 'CATALOG_NAME_TAKEN' });
+  });
+
+  it('frees a deleted label, label group, param template and protection name for reuse', async () => {
+    const label = {
+      categoryId: null,
+      name: '新品',
+      style: 'text',
+      isVisible: true,
+      isEnabled: true,
+      sortOrder: 0,
+    } as const;
+    await taxonomy.adminLabelDelete(asAdmin(), {
+      id: (await taxonomy.adminLabelCreate(asAdmin(), label)).id,
+    });
+    await expect(taxonomy.adminLabelCreate(asAdmin(), label)).resolves.toMatchObject({
+      name: '新品',
+    });
+
+    const group = { name: '促销', sortOrder: 0 };
+    await taxonomy.adminLabelCategoryDelete(asAdmin(), {
+      id: (await taxonomy.adminLabelCategoryCreate(asAdmin(), group)).id,
+    });
+    await expect(taxonomy.adminLabelCategoryCreate(asAdmin(), group)).resolves.toMatchObject({
+      name: '促销',
+    });
+
+    const template = { name: '产地', isEnabled: true, sortOrder: 0 };
+    await taxonomy.adminParamTemplateDelete(asAdmin(), {
+      id: (await taxonomy.adminParamTemplateCreate(asAdmin(), template)).id,
+    });
+    await expect(taxonomy.adminParamTemplateCreate(asAdmin(), template)).resolves.toMatchObject({
+      name: '产地',
+    });
+
+    const protection = { title: '七天无理由', isEnabled: true, sortOrder: 0 };
+    await taxonomy.adminProtectionDelete(asAdmin(), {
+      id: (await taxonomy.adminProtectionCreate(asAdmin(), protection)).id,
+    });
+    await expect(taxonomy.adminProtectionCreate(asAdmin(), protection)).resolves.toMatchObject({
+      title: '七天无理由',
+    });
   });
 
   it('renders only enabled, visible labels on a product card', async () => {
