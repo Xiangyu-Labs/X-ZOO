@@ -69,7 +69,7 @@ const moderator = {
 };
 
 describe('商品评价', () => {
-  it('picks the product of a 虚拟评价 with the SKU picker, filling product and SKU', async () => {
+  it('picks the product of a 同步评价 with the SKU picker, filling product and SKU', async () => {
     const product = { ...adminProductListItemExample, id: '12', name: '手冲挂耳咖啡' };
     stubRoutes([
       on(catalogAdminReviewList, { items: [row], total: 1, page: 1, pageSize: 20 }),
@@ -86,7 +86,7 @@ describe('商品评价', () => {
     });
     await screen.findByText(row.content ?? '');
 
-    await user.click(screen.getByRole('button', { name: '添加虚拟评价' }));
+    await user.click(screen.getByRole('button', { name: '同步评价' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).queryByText(/G 流/)).toBeNull();
     await user.click(within(dialog).getByRole('button', { name: '选择商品规格' }));
@@ -110,7 +110,7 @@ describe('商品评价', () => {
     renderAdmin(withStubAssets(<ProductReviewsPage />), { identity: moderator });
     await screen.findByText(row.content ?? '');
 
-    await user.click(screen.getByRole('button', { name: '添加虚拟评价' }));
+    await user.click(screen.getByRole('button', { name: '同步评价' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByLabelText('商品 ID')).toBeInTheDocument();
     expect(within(dialog).queryByRole('button', { name: '选择商品规格' })).toBeNull();

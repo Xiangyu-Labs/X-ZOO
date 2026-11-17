@@ -312,7 +312,7 @@ export const protectionFields: FieldSpec<Extract<keyof ProductProtectionForm, st
 ];
 
 /**
- * 虚拟评价.
+ * 同步评价.
  *
  * `createdAt` is a real field rather than an oversight: a seeded review dated
  * today, on a shop that opened last year, fools nobody.
@@ -351,7 +351,7 @@ export const reviewFields: FieldSpec<Extract<keyof AdminReviewForm, string>>[] =
 ];
 
 /**
- * 虚拟评价's product: 选择商品规格 opens the `<SkuPicker>`, which fills both the
+ * 同步评价's product: 选择商品规格 opens the `<SkuPicker>`, which fills both the
  * product and the SKU, so a mistyped id cannot land the review on the wrong
  * product. The id box stays editable for a product that is off the shelf
  * (the picker lists on-shelf products only). The picker reads the product

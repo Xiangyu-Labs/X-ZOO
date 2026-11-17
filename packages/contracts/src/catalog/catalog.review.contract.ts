@@ -78,7 +78,7 @@ export const catalogAdminReviewCreate = defineRoute({
   path: '/admin-api/catalog/reviews',
   auth: 'admin',
   permission: 'catalog:review:write',
-  summary: '添加虚拟评价',
+  summary: '同步评价',
   tags: ['catalog'],
   body: adminReviewForm,
   response: adminProductReview,
