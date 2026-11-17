@@ -10,6 +10,12 @@ seconds: Prettier, ESLint package by package, and, when the mini-program or a pa
 from source is touched, the `mini`, `mini-styles` and `banned` guards. It reads the working tree,
 so stage whole files. It is a first net, not the checklist below.
 
+The `*.gen.ts` files and `openapi.json` are gitignored, so a fresh clone or worktree has none.
+Outside CI, `pnpm install` runs `pnpm gen` once, and the `pre-commit` hook runs it again before
+its checks (about 0.1 s when turbo's cache has the outputs). If a test or a single-package command
+run outside turbo says it cannot find `routes.gen.ts`, `errors.gen.ts`, `menu.gen.ts` or another
+`*.gen.ts`, run `pnpm gen`; do not commit with `--no-verify` to get past it.
+
 ## The merge checklist
 
 Run from the repository root. Every step must pass; a step that cannot run is reported as not run,

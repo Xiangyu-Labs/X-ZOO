@@ -18,7 +18,7 @@
     "guards": "turbo run guards",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
+    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true; [ -n \"$CI\" ] || turbo run gen --output-logs=errors-only || echo 'prepare: `pnpm gen` failed; fix the error above and run it again' >&2"
   },
   "devDependencies": {
     "prettier": "^3.9.8",

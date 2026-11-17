@@ -18,6 +18,15 @@ mapfile -t staged < <(git diff --cached --name-only --diff-filter=ACMR)
 
 fail=0
 
+# ESLint's type-aware rules and the guards import `*.gen.ts`, which are gitignored: a fresh
+# worktree has none, and a stale one misses the contract or job just added. Turbo caches the
+# outputs (shared across worktrees), so this takes ~0.1 s when nothing changed.
+if ! gen_log=$(pnpm --silent gen --output-logs=errors-only 2>&1); then
+  printf '%s\n' "$gen_log" >&2
+  echo 'pre-commit: `pnpm gen` failed; the checks below would report missing modules' >&2
+  exit 1
+fi
+
 pnpm exec prettier --check --ignore-unknown --log-level warn "${staged[@]}" || fail=1
 
 declare -A byPackage=()
