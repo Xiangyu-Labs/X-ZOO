@@ -73,10 +73,8 @@ export async function shipmentContextFor(
     ),
   ];
   const companies = new Map<number, string>();
-  if (companyIds.length > 0) {
-    for (const company of await fulfilRepo.listExpressCompanies(ctx.db)) {
-      companies.set(company.id, company.name);
-    }
+  for (const company of await fulfilRepo.listExpressCompaniesByIds(ctx.db, companyIds)) {
+    companies.set(company.id, company.name);
   }
   return { items: new Map(items.map((item) => [item.id, item])), companies };
 }
@@ -576,7 +574,8 @@ export async function trackShipment(
   const company =
     row.expressCompanyId === null
       ? null
-      : await fulfilRepo.findExpressCompany(ctx.db, row.expressCompanyId);
+      : // A carrier disabled after the parcel left still carries it: track it.
+        await fulfilRepo.findExpressCompanyEvenDisabled(ctx.db, row.expressCompanyId);
   const port = resolveLogisticsPort();
   const base = {
     shipmentId: toId(row.id),
@@ -912,5 +911,6 @@ export async function adminTrackShipment(
 
 // The 快递公司 picker belongs to the `shipping` domain:
 // `expressCompanies.pickerList` in `core/src/shipping/`.
-// `fulfilRepo.listExpressCompanies` / `findExpressCompany` stay here — 发货
-// still has to validate the carrier it was handed.
+// `fulfilRepo.findExpressCompany` stays here — 发货 still has to validate the
+// carrier it was handed (enabled only); reading an existing shipment uses the
+// `EvenDisabled` / `ByIds` lookups, which do not filter on `isEnabled`.

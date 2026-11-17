@@ -562,7 +562,12 @@ describe('editing and cancelling a shipment', () => {
 // ---------------------------------------------------------------------------
 
 describe('tracking', () => {
-  async function express(): Promise<{ shipmentId: string; userId: number; adminId: number }> {
+  async function express(): Promise<{
+    shipmentId: string;
+    orderId: string;
+    userId: number;
+    adminId: number;
+  }> {
     const product = await makeProduct();
     const company = await makeExpressCompany();
     const placed = await paidOrder([product]);
@@ -572,7 +577,12 @@ describe('tracking', () => {
       { id: String(placed.orderId) },
       expressBody(company),
     );
-    return { shipmentId: shipment.id, userId: placed.userId, adminId };
+    return {
+      shipmentId: shipment.id,
+      orderId: String(placed.orderId),
+      userId: placed.userId,
+      adminId,
+    };
   }
 
   it('answers "unknown" rather than failing when no logistics provider is registered', async () => {
@@ -614,6 +624,26 @@ describe('tracking', () => {
     });
     const tracking = await order.adminTrackShipment(asAdmin(adminId), { id: shipmentId });
     expect(tracking).toMatchObject({ available: false, state: 'unknown' });
+  });
+
+  it('still names and tracks the carrier after it is disabled', async () => {
+    const { shipmentId, adminId, orderId, userId } = await express();
+    await harness.ctx.db.update(expressCompanies).set({ isEnabled: false });
+    // `beforeEach` resets the port; this test installs its own.
+    const seen: string[] = [];
+    registerLogisticsPort({
+      async track(_ctx, input) {
+        seen.push(input.companyCode);
+        return { state: 'in_transit' as const, traces: [] };
+      },
+    });
+
+    const mine = await order.myShipments(as(userId), { id: orderId });
+    expect(mine.items[0]!.expressCompanyName).toMatch(/^顺丰/);
+    const tracking = await order.adminTrackShipment(asAdmin(adminId), { id: shipmentId });
+    expect(tracking.expressCompanyName).toMatch(/^顺丰/);
+    expect(tracking.available).toBe(true);
+    expect(seen).toHaveLength(1);
   });
 
   it('tells a stranger the parcel does not exist', async () => {

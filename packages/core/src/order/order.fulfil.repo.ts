@@ -307,12 +307,19 @@ export async function markShipmentsDelivered(
 // express companies (the shipping domain's reference data)
 // ---------------------------------------------------------------------------
 
-export async function listExpressCompanies(db: DbOrTx): Promise<ExpressCompanyRow[]> {
+/**
+ * The companies shipments name, enabled or not: a carrier retired after the
+ * parcel left still took it, and the order page and the export must say so.
+ */
+export async function listExpressCompaniesByIds(
+  db: DbOrTx,
+  ids: readonly number[],
+): Promise<ExpressCompanyRow[]> {
+  if (ids.length === 0) return [];
   return db
     .select()
     .from(expressCompanies)
-    .where(eq(expressCompanies.isEnabled, true))
-    .orderBy(desc(expressCompanies.sortOrder), asc(expressCompanies.id));
+    .where(inArray(expressCompanies.id, [...new Set(ids)]));
 }
 
 /**
