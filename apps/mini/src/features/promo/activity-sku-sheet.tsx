@@ -35,8 +35,11 @@ export interface ActivitySkuSheetProps {
   confirmText: string;
   /** Return the action's promise: the button stays locked until it settles (AGENTS 17). */
   onConfirm: (sku: ActivitySku, quantity: number) => void | Promise<unknown>;
-  /** 预售: the price and the button in the 预售 box's pink (#101). Without it, the shop's colours. */
-  tone?: 'presale' | undefined;
+  /**
+   * 预售 (#101), 拼团 (#102): the price and the button in the 预售 box's pink. Without it, the
+   * shop's colours.
+   */
+  tone?: 'presale' | 'groupbuy' | undefined;
 }
 
 /** A SKU's spec values in words: 「玫瑰 / 大号」, or 默认规格 for a product without specs. */

@@ -53,8 +53,11 @@ export interface SkuSheetProps {
   busy?: SkuAction | 'confirm' | null | undefined;
   /** A sale mode's own words for a button (限时秒杀: 立即抢购 for 立即购买). */
   labels?: Partial<Record<SkuAction | 'confirm', string>> | undefined;
-  /** 秒杀: the price and 立即抢购 in the 秒杀 box's pink (#100). Without it, the shop's colours. */
-  tone?: 'flashsale' | undefined;
+  /**
+   * 秒杀 (#100), 拼团's 单独购买 (#102): the price and the buy button in the 活动 pink. Without
+   * it, the shop's colours.
+   */
+  tone?: 'flashsale' | 'groupbuy' | undefined;
 }
 
 const LABEL: Record<SkuAction | 'confirm', string> = {

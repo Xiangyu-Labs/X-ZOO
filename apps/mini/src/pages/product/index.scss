@@ -297,11 +297,12 @@
   color: #fff;
 }
 .shop-btn.product__buy--groupbuy {
-  background: linear-gradient(110deg, #238cff, #437cf5);
+  background: linear-gradient(110deg, #e9578c, #f58ca9);
 }
+// 拼团's buttons in the 预售 pink (#102): 立即开团 its gradient, 单独购买 the light pink beside it.
 .shop-btn.product__buy--groupbuy-single {
-  background: #e8f1ff;
-  color: #2f6fe0;
+  background: rgba(233, 87, 140, 0.12);
+  color: #c83d70;
 }
 .shop-btn.product__buy--presale {
   background: linear-gradient(110deg, #e9578c, #f58ca9);

@@ -115,11 +115,12 @@
   }
 }
 
-// 秒杀 (#100): the price and 立即抢购 in the 秒杀 box's pink, as on the product page's action bar;
-// 加入购物车 keeps its colour. Two classes on the element, so they win over the price's and the
-// button's own colours whatever order the stylesheets load in. Same shape as 预售's
-// `activity-sku--presale` (#101).
-.sku-sheet--flashsale {
+// 秒杀 (#100) and 拼团's 单独购买 (#102): the price and 立即抢购 / 立即购买 in the 活动 pink, as on
+// the product page's action bar; 加入购物车 keeps its colour. Two classes on the element, so they
+// win over the price's and the button's own colours whatever order the stylesheets load in. Same
+// shape as 预售's `activity-sku--presale` (#101).
+.sku-sheet--flashsale,
+.sku-sheet--groupbuy {
   .shop-price.sku-sheet__price {
     color: #e9578c;
   }
