@@ -123,6 +123,11 @@
   line-height: 52px;
 }
 
+.buttonMuted {
+  background: $primary-soft;
+  color: $primary-text;
+}
+
 // --- one column, picture on the left ----------------------------------------
 .list {
   padding: 0 $gutter 4px;

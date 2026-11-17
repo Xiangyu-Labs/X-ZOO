@@ -345,8 +345,8 @@ describe('FlashSaleList', () => {
       />,
     );
     expect(screen.getByText('限时秒杀')).toBeTruthy();
-    expect(screen.getAllByText('秒杀')).toHaveLength(2);
-    expect(screen.getAllByText('秒杀价')).toHaveLength(2);
+    expect(screen.getAllByText('秒杀')).toHaveLength(3);
+    expect(screen.getAllByText('秒杀价')).toHaveLength(3);
     expect(screen.getAllByText('去抢购')).toHaveLength(2);
     expect(screen.getByText('¥69.00')).toBeTruthy();
     expect(screen.getByText('已抢光')).toBeTruthy();
@@ -371,7 +371,45 @@ describe('FlashSaleList', () => {
         host={{ canvas: true }}
       />,
     );
-    expect(screen.getByText('暂无进行中的秒杀，商城中不显示此组件')).toBeTruthy();
+    expect(screen.getByText('暂无进行中或即将开始的秒杀，商城中不显示此组件')).toBeTruthy();
+  });
+
+  it('shows a 秒杀 not started yet as 即将开始 with 距开始, and turns it live at the start', () => {
+    vi.useFakeTimers();
+    let now = FIXTURE_NOW;
+    const serverNow = () => now;
+    const { container } = render(
+      <FlashSaleList
+        props={{ ...fixtureFlashSaleList, showCountdown: false }}
+        data={{ campaigns: fixtureFlashSales }}
+        host={{ serverNow }}
+      />,
+    );
+    const button = () =>
+      container.querySelector('[data-campaign="73"]')?.textContent?.includes('即将开始');
+    expect(button()).toBe(true);
+    expect(screen.getAllByText('即将开始')).toHaveLength(1);
+    // Ticks without a countdown shown, only to flip the button at the start.
+    expect(vi.getTimerCount()).toBe(1);
+    now = Date.parse(fixtureFlashSales[2]!.startAt);
+    act(() => {
+      vi.advanceTimersByTime(1_000);
+    });
+    expect(button()).toBe(false);
+    expect(screen.getAllByText('去抢购')).toHaveLength(3);
+    cleanup();
+
+    now = FIXTURE_NOW;
+    const withCountdown = render(
+      <FlashSaleList
+        props={fixtureFlashSaleList}
+        data={{ campaigns: fixtureFlashSales }}
+        host={{ serverNow }}
+      />,
+    );
+    expect(withCountdown.container.querySelector('[data-countdown="73"]')?.textContent).toBe(
+      '距开始 01:30:00',
+    );
   });
 });
 

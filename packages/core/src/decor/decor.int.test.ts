@@ -1486,38 +1486,48 @@ describe('the batch-2 blocks (G2)', () => {
     return created.id;
   }
 
-  it('DECOR-013: 限时秒杀 shows picked products only while they are on 秒杀, and warns on the rest', async () => {
+  it('DECOR-013: 限时秒杀 shows picked products while on 秒杀 — and before, with 即将开始 — and warns on the rest', async () => {
     const plain = await product();
     const soon = await flashProduct('秒杀甲', '39.90');
     const other = await flashProduct('秒杀乙');
+    const manual = { mode: 'manual', ids: [plain, other, soon] };
     const blocks = [
-      block('f', 'flashSaleList', { source: { mode: 'manual', ids: [plain, other, soon] } }),
+      block('f', 'flashSaleList', { source: manual }),
       block('fa', 'flashSaleList', { source: { mode: 'auto', limit: 1 } }),
+      block('live', 'flashSaleList', { source: manual, showUpcoming: false }),
     ];
+    const productIds = (page: { blocks: { data: Record<string, unknown> }[] }, index: number) =>
+      (page.blocks[index]!.data.campaigns as { productId: string }[]).map((c) => c.productId);
 
-    // Before the window: nothing on 秒杀 yet — empty slots, and every pick is a warning.
+    // Before the window: shown as upcoming (the 秒杀价 it will charge), not when live only.
     const before = await previewOf(blocks);
-    expect(before.blocks[0]!.data).toEqual({ campaigns: [] });
-    const { id } = await drafted('custom', blocks);
-    expect((await decor.getDocument(ctx, { id })).warnings.map((w) => w.message)).toEqual([
-      `秒杀商品 ${plain} 当前不在秒杀中或不存在，商城中不会显示`,
-      `秒杀商品 ${other} 当前不在秒杀中或不存在，商城中不会显示`,
-      `秒杀商品 ${soon} 当前不在秒杀中或不存在，商城中不会显示`,
+    expect(productIds(before, 0)).toEqual([other, soon]);
+    expect(productIds(before, 1)).toHaveLength(1);
+    expect(productIds(before, 2)).toEqual([]);
+    expect(before.blocks[0]!.data.campaigns).toEqual([
+      expect.objectContaining({ title: '秒杀乙', price: '49.00', originalPrice: '60.00' }),
+      expect.objectContaining({ price: '39.90', startAt: '2026-06-01T02:00:00.000Z' }),
     ]);
+    // A pick set up ahead of its 秒杀 is fine; only the product with none warns.
+    const { id } = await drafted('custom', blocks);
+    const warnings = async () =>
+      (await decor.getDocument(ctx, { id })).warnings.map((warning) => warning.message);
+    const noFlashSale = `秒杀商品 ${plain} 没有进行中或未开始的秒杀，商城中不会显示`;
+    expect(await warnings()).toEqual([noFlashSale, noFlashSale]);
 
     harness.clock.set('2026-06-01T02:00:00.000Z');
-    const page = await previewOf(blocks);
-    const productIds = (index: number) =>
-      (page.blocks[index]!.data.campaigns as { productId: string }[]).map((c) => c.productId);
-    expect(productIds(0)).toEqual([other, soon]);
-    expect(productIds(1)).toHaveLength(1);
-    expect(page.blocks[0]!.data.campaigns).toEqual([
-      expect.objectContaining({ title: '秒杀乙', price: '49.00', originalPrice: '60.00' }),
+    const live = await previewOf(blocks);
+    expect(productIds(live, 0)).toEqual([other, soon]);
+    expect(productIds(live, 2)).toEqual([other, soon]);
+    expect(live.blocks[2]!.data.campaigns).toEqual([
+      expect.objectContaining({ price: '49.00' }),
       expect.objectContaining({ price: '39.90', endAt: '2026-06-01T04:00:00.000Z' }),
     ]);
-    expect((await decor.getDocument(ctx, { id })).warnings.map((w) => w.message)).toEqual([
-      `秒杀商品 ${plain} 当前不在秒杀中或不存在，商城中不会显示`,
-    ]);
+
+    // Ended: gone everywhere, and now every pick warns.
+    harness.clock.set('2026-06-01T04:00:00.000Z');
+    expect(productIds(await previewOf(blocks), 0)).toEqual([]);
+    expect(await warnings()).toHaveLength(6);
   });
 
   it('DECOR-004: a picked campaign that is not running is a warning, checked by id', async () => {

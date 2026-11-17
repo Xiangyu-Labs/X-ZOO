@@ -54,48 +54,46 @@ export async function flashSalePrices(
 }
 
 /**
- * The storefront cards of these live flash sales: the lowest 秒杀价 checkout
- * would charge now, beside that SKU's own price. A campaign none of whose
- * visible SKUs it undercuts any more (the SKU price was lowered after) sells
- * nothing at 秒杀价, so it has no card.
+ * The storefront cards of these flash sales: the lowest 秒杀价 checkout charges
+ * inside the window, beside that SKU's own price — for a live campaign what it
+ * charges now (`flashSalePrices`), for an upcoming one what it will charge at
+ * the start. A campaign none of whose visible SKUs it undercuts any more (the
+ * SKU price was lowered after) sells nothing at 秒杀价, so it has no card.
  */
-async function toCards(
-  ctx: Ctx,
-  rows: readonly repo.LiveActivityRow[],
-  now: Date,
-): Promise<FlashSaleCard[]> {
+async function toCards(ctx: Ctx, rows: readonly repo.ShownActivityRow[]): Promise<FlashSaleCard[]> {
   if (rows.length === 0) return [];
   const skusByProduct = await catalogRepo.listSkusForProducts(
     ctx.db,
     rows.map((row) => row.productId),
   );
-  const own = new Map<number, { price: string; stock: number }>();
-  for (const skus of skusByProduct.values()) {
-    for (const sku of skus) {
-      if (sku.isVisible) own.set(sku.id, { price: sku.price, stock: sku.stock });
-    }
+  const flash = new Map<string, string>();
+  for (const sku of await repo.activityPrices(
+    ctx.db,
+    rows.map((row) => row.id),
+  )) {
+    flash.set(`${sku.activityId}:${sku.skuId}`, sku.price);
   }
-  const flash = await flashSalePrices(ctx.db, own, now);
   return rows.flatMap((row) => {
-    const onSale = (skusByProduct.get(row.productId) ?? []).filter(
-      (sku) => sku.isVisible && flash.get(sku.id)?.activityId === row.id,
-    );
+    const onSale = (skusByProduct.get(row.productId) ?? []).flatMap((sku) => {
+      const price = flash.get(`${row.id}:${sku.id}`);
+      return sku.isVisible && price !== undefined && undercuts(price, sku.price)
+        ? [{ sku, price }]
+        : [];
+    });
     if (onSale.length === 0) return [];
     let cheapest = onSale[0]!;
-    for (const sku of onSale) {
-      if (Money.parse(flash.get(sku.id)!.price).lt(Money.parse(flash.get(cheapest.id)!.price))) {
-        cheapest = sku;
-      }
+    for (const item of onSale) {
+      if (Money.parse(item.price).lt(Money.parse(cheapest.price))) cheapest = item;
     }
-    const stock = onSale.reduce((sum, sku) => sum + sku.stock, 0);
+    const stock = onSale.reduce((sum, item) => sum + item.sku.stock, 0);
     return [
       {
         activityId: String(row.id),
         productId: String(row.productId),
         title: row.title,
         imageUrl: row.imageUrl || null,
-        price: flash.get(cheapest.id)!.price,
-        originalPrice: cheapest.price,
+        price: cheapest.price,
+        originalPrice: cheapest.sku.price,
         stock,
         startAt: row.startAt.toISOString(),
         endAt: row.endAt.toISOString(),
@@ -106,17 +104,19 @@ async function toCards(
 }
 
 /**
- * 限时秒杀 on now (`catalog.flashSaleList`): soonest-ending first, or with
+ * 限时秒杀 on now (`catalog.flashSaleList`): soonest-ending first — with
+ * `upcoming`, then the ones not started yet, soonest-starting — or with
  * `productIds` exactly those products in that order (a DIY block's pick; a
- * product not on 秒杀 now is skipped). Read-only: the 秒杀价 is charged by
- * ordinary checkout (`flashSalePrices`), never by anything here.
+ * product not on 秒杀 is skipped). Read-only: the 秒杀价 is charged by ordinary
+ * checkout (`flashSalePrices`), never by anything here.
  */
 export async function flashSaleList(
   ctx: Ctx,
   query: FlashSaleListQuery,
 ): Promise<Paged<FlashSaleCard>> {
+  const upcoming = query.upcoming ?? false;
   if (query.productIds !== undefined) {
-    const cards = await flashSaleCardsFor(ctx, query.productIds);
+    const cards = await flashSaleCardsFor(ctx, query.productIds, { upcoming });
     const from = (query.page - 1) * query.pageSize;
     return {
       items: cards.slice(from, from + query.pageSize),
@@ -125,37 +125,40 @@ export async function flashSaleList(
       pageSize: query.pageSize,
     };
   }
-  const now = ctx.clock.now();
-  const { rows, total } = await repo.liveActivities(ctx.db, {
-    now,
+  const { rows, total } = await repo.shownActivities(ctx.db, {
+    now: ctx.clock.now(),
+    upcoming,
     limit: query.pageSize,
     offset: (query.page - 1) * query.pageSize,
   });
   return {
-    items: await toCards(ctx, rows, now),
+    items: await toCards(ctx, rows),
     total,
     page: query.page,
     pageSize: query.pageSize,
   };
 }
 
-/** The cards of these products' live flash sales, in the order given; malformed, repeated or idle ids are skipped. */
+/**
+ * The cards of these products' flash sales — live, and with `upcoming` also
+ * not started yet — in the order given; malformed, repeated or idle ids are
+ * skipped.
+ */
 export async function flashSaleCardsFor(
   ctx: Ctx,
   productIds: readonly string[],
+  options: { upcoming: boolean } = { upcoming: false },
 ): Promise<FlashSaleCard[]> {
   const wanted = [...new Set(productIds.filter((id) => /^[1-9]\d{0,14}$/.test(id)))].map(Number);
   if (wanted.length === 0) return [];
-  const now = ctx.clock.now();
-  const { rows } = await repo.liveActivities(ctx.db, {
-    now,
+  const { rows } = await repo.shownActivities(ctx.db, {
+    now: ctx.clock.now(),
+    upcoming: options.upcoming,
     productIds: wanted,
     limit: wanted.length,
     offset: 0,
   });
-  const cards = new Map(
-    (await toCards(ctx, rows, now)).map((card) => [Number(card.productId), card]),
-  );
+  const cards = new Map((await toCards(ctx, rows)).map((card) => [Number(card.productId), card]));
   return wanted.flatMap((id) => {
     const card = cards.get(id);
     return card ? [card] : [];

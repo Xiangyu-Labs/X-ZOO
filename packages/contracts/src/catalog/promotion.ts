@@ -173,10 +173,16 @@ export const flashSaleListQuery = pageQuery.extend({
    * Exactly these products' flash sales, in this order — what a DIY 限时秒杀
    * block's 手动选择 saved. Products, not campaigns: a product saved again after
    * its window gets a new campaign row, and the pick should follow it. A product
-   * not on 秒杀 right now (no campaign, outside its window, off the shelf) is
-   * skipped, not an error.
+   * not on 秒杀 (no campaign, outside its window, off the shelf) is skipped,
+   * not an error.
    */
   productIds: idList.optional(),
+  /**
+   * Also the 秒杀 that have not started yet (即将开始), after the live ones and
+   * soonest-starting first. Their card carries the 秒杀价 as it will be at the
+   * start; `startAt` in the future tells the client it is not on yet.
+   */
+  upcoming: z.stringbool().optional(),
 });
 export type FlashSaleListQuery = z.infer<typeof flashSaleListQuery>;
 export const pagedFlashSaleCards = paged(flashSaleCard);

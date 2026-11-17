@@ -109,9 +109,14 @@ const CHECKERS: Record<ReferenceKind, { label: string; unavailable: string; visi
   },
   flashSale: {
     label: '秒杀商品',
-    unavailable: '当前不在秒杀中或不存在',
+    // A pick for a 秒杀 that starts later is fine: the page is often set up ahead.
+    unavailable: '没有进行中或未开始的秒杀',
     visible: async (ctx, ids) =>
-      new Set((await catalog.flashSaleCardsFor(ctx, ids)).map((item) => item.productId)),
+      new Set(
+        (await catalog.flashSaleCardsFor(ctx, ids, { upcoming: true })).map(
+          (item) => item.productId,
+        ),
+      ),
   },
   page: {
     label: '微页面',

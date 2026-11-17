@@ -4,6 +4,7 @@ declare const styles: {
   readonly body: string;
   readonly bottom: string;
   readonly button: string;
+  readonly buttonMuted: string;
   readonly card: string;
   readonly cards: string;
   readonly foot: string;

@@ -2,7 +2,7 @@ import type { DbOrTx, Tx } from '@shop/db';
 import { flashSaleActivities, flashSaleActivitySkus } from '@shop/db/schema/flash-sale';
 import { productPromotions } from '@shop/db/schema/catalog-promotion';
 import { productSkus, products } from '@shop/db/schema/catalog';
-import { and, asc, count, eq, gt, inArray, isNull, lte, ne, or } from 'drizzle-orm';
+import { and, asc, count, eq, gt, inArray, isNull, lte, ne, or, sql } from 'drizzle-orm';
 import { conditionalUpdate, type ConditionalUpdateResult } from '../kernel/tx';
 
 export type FlashSaleRow = typeof flashSaleActivities.$inferSelect;
@@ -167,7 +167,7 @@ export async function livePrices(
   return out;
 }
 
-export interface LiveActivityRow {
+export interface ShownActivityRow {
   id: number;
   productId: number;
   title: string;
@@ -177,26 +177,35 @@ export interface LiveActivityRow {
 }
 
 /**
- * The flash sales a shopper sees now: active, `startAt <= now < endAt`, still
- * the product's current campaign, the product on the shelf and not deleted —
- * the same rows `livePrices` charges by. Soonest-ending first. With
+ * The flash sales a shopper sees: active, not ended (`now < endAt`), started
+ * unless `upcoming`, still the product's current campaign, the product on the
+ * shelf and not deleted — the same rows `livePrices` charges by once they
+ * start. Live first, soonest-ending; then the upcoming, soonest-starting. With
  * `productIds`, only those products' (one current campaign each, so at most one
  * row per product; the caller puts them in the picked order).
  */
-export async function liveActivities(
+export async function shownActivities(
   db: DbOrTx,
-  filters: { now: Date; productIds?: readonly number[] | undefined; limit: number; offset: number },
-): Promise<{ rows: LiveActivityRow[]; total: number }> {
+  filters: {
+    now: Date;
+    upcoming: boolean;
+    productIds?: readonly number[] | undefined;
+    limit: number;
+    offset: number;
+  },
+): Promise<{ rows: ShownActivityRow[]; total: number }> {
+  const { now } = filters;
   const where = and(
     eq(flashSaleActivities.status, 'active'),
-    lte(flashSaleActivities.startAt, filters.now),
-    gt(flashSaleActivities.endAt, filters.now),
+    filters.upcoming ? undefined : lte(flashSaleActivities.startAt, now),
+    gt(flashSaleActivities.endAt, now),
     eq(products.status, 'on_shelf'),
     isNull(products.deletedAt),
     filters.productIds === undefined
       ? undefined
       : inArray(flashSaleActivities.productId, [...filters.productIds]),
   );
+  const notStarted = sql`${flashSaleActivities.startAt} > ${now}`;
   const rows = await db
     .select({
       id: flashSaleActivities.id,
@@ -216,7 +225,13 @@ export async function liveActivities(
       ),
     )
     .where(where)
-    .orderBy(asc(flashSaleActivities.endAt), asc(flashSaleActivities.id))
+    .orderBy(
+      asc(notStarted),
+      asc(
+        sql`case when ${notStarted} then ${flashSaleActivities.startAt} else ${flashSaleActivities.endAt} end`,
+      ),
+      asc(flashSaleActivities.id),
+    )
     .limit(filters.limit)
     .offset(filters.offset);
   const [totalRow] = await db
@@ -232,4 +247,20 @@ export async function liveActivities(
     )
     .where(where);
   return { rows, total: totalRow?.value ?? 0 };
+}
+
+/** The 秒杀价 of each SKU in these campaigns, whatever their window. */
+export async function activityPrices(
+  db: DbOrTx,
+  activityIds: readonly number[],
+): Promise<{ activityId: number; skuId: number; price: string }[]> {
+  if (activityIds.length === 0) return [];
+  return db
+    .select({
+      activityId: flashSaleActivitySkus.activityId,
+      skuId: flashSaleActivitySkus.skuId,
+      price: flashSaleActivitySkus.price,
+    })
+    .from(flashSaleActivitySkus)
+    .where(inArray(flashSaleActivitySkus.activityId, [...activityIds]));
 }

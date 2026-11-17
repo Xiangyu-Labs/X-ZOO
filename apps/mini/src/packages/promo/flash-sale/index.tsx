@@ -1,6 +1,8 @@
 import { Text, View } from '@tarojs/components';
 import { useInfiniteRouteQuery } from '@shop/api-client/react';
+import { activityPhase } from '@/features/promo/activity';
 import { formatDateTime } from '@/lib/format';
+import { serverNow } from '@/lib/server-clock';
 import { navigate, useShare } from '@/platform';
 import { Button } from '@/ui/button';
 import { Empty } from '@/ui/empty';
@@ -13,13 +15,16 @@ import './index.scss';
 const ROUTE = { route: 'flashSaleList', params: {} } as const;
 
 /**
- * 限时秒杀 (`flashSaleList`): the products on 秒杀 now, soonest-ending first — where a DIY
- * 限时秒杀 block's 「更多」 goes. A card opens the product, which shows the 秒杀 and sells at
- * its price through ordinary checkout.
+ * 限时秒杀 (`flashSaleList`): the products on 秒杀 now, soonest-ending first, then the ones
+ * not started yet (即将开始, with when they start) — where a DIY 限时秒杀 block's 「更多」
+ * goes. A card opens the product, which shows the 秒杀 and sells at its price through
+ * ordinary checkout.
  */
 export default function FlashSaleListPage() {
   useShare(ROUTE, { title: '限时秒杀' });
-  const list = useInfiniteRouteQuery('catalog.flashSaleList', { query: { pageSize: 20 } });
+  const list = useInfiniteRouteQuery('catalog.flashSaleList', {
+    query: { pageSize: 20, upcoming: 'true' },
+  });
 
   return (
     <PageShell title="限时秒杀">
@@ -29,27 +34,32 @@ export default function FlashSaleListPage() {
           query={list}
           itemKey={(card) => card.activityId}
           className="flash-sale-list__items"
-          renderItem={(card) => (
-            <ProductCard
-              product={{
-                id: card.productId,
-                name: card.title,
-                subtitle: `${formatDateTime(card.endAt)} 结束`,
-                imageUrl: card.imageUrl ?? '',
-                cardImageUrl: null,
-                price: card.originalPrice ?? card.price,
-                originalPrice: null,
-                stock: card.stock,
-                salesDisplay: 0,
-                labels: [],
-                canAddToCart: false,
-              }}
-              layout="list"
-              activity={card.canBuy ? '秒杀' : '已抢光'}
-              activityPrice={card.originalPrice ? card.price : undefined}
-              onClick={() => navigate({ route: 'product', params: { id: card.productId } })}
-            />
-          )}
+          renderItem={(card) => {
+            const upcoming = activityPhase(card, serverNow()) === 'upcoming';
+            return (
+              <ProductCard
+                product={{
+                  id: card.productId,
+                  name: card.title,
+                  subtitle: upcoming
+                    ? `${formatDateTime(card.startAt)} 开始`
+                    : `${formatDateTime(card.endAt)} 结束`,
+                  imageUrl: card.imageUrl ?? '',
+                  cardImageUrl: null,
+                  price: card.originalPrice ?? card.price,
+                  originalPrice: null,
+                  stock: card.stock,
+                  salesDisplay: 0,
+                  labels: [],
+                  canAddToCart: false,
+                }}
+                layout="list"
+                activity={upcoming ? '即将开始' : card.canBuy ? '秒杀' : '已抢光'}
+                activityPrice={card.originalPrice ? card.price : undefined}
+                onClick={() => navigate({ route: 'product', params: { id: card.productId } })}
+              />
+            );
+          }}
           skeleton={[0, 1, 2].map((key) => (
             <ProductCardSkeleton key={key} layout="list" />
           ))}
