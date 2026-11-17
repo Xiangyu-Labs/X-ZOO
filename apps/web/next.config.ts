@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import { dedupeServerChunks } from './src/build/dedupe-server-chunks';
 
 /**
  * How many workers `next build` may start. Next sizes its pool from
@@ -78,6 +79,16 @@ const nextConfig: NextConfig = {
   // `next dev` otherwise writes AGENTS.md / CLAUDE.md into this package, and an
   // unexpected CLAUDE.md inside a worktree would compete with the repo's own.
   agentRules: false,
+  compiler: {
+    // Turbopack emits the shared server graph once per group of routes; the copies would
+    // all be loaded at boot. See src/build/dedupe-server-chunks.ts.
+    async runAfterProductionCompile({ distDir }) {
+      const { removed, bytes } = await dedupeServerChunks(distDir);
+      console.log(
+        `dedupe-server-chunks: removed ${removed} duplicate chunks (${(bytes / 2 ** 20).toFixed(1)} MB)`,
+      );
+    },
+  },
   typescript: {
     // `pnpm --filter @shop/web typecheck` is the gate; don't pay for it twice.
     ignoreBuildErrors: true,
