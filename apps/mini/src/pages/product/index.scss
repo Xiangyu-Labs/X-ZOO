@@ -229,9 +229,7 @@
   padding: 16px 24px;
   gap: 16px;
   color: #fff;
-  background: linear-gradient(110deg, #238cff, #437cf5);
-}
-.product__promotion--presale {
+  // One activity pink for 拼团, 预售 and 秒杀: 拼团's box was blue beside its pink buttons (#102).
   background: linear-gradient(110deg, #e9578c, #f58ca9);
 }
 // 预售 (#101): the countdown and 已售 a little lower, against the box's bottom edge: the countdown
@@ -290,7 +288,7 @@
   opacity: 0.9;
 }
 
-// The action bar under an activity, in its box's colours (blue 拼团, pink 预售). Two classes, so
+// The action bar under an activity, in its box's pink. Two classes, so
 // they win over the button's own variant colours whatever order the stylesheets load in.
 .shop-btn.product__buy {
   border: 0;
@@ -321,10 +319,7 @@
   font-size: 22px;
 }
 
-// 限时秒杀 (#97): the 预售 pink, with its own 「秒杀中」 tag and 立即抢购 button.
-.product__promotion--flashsale {
-  background: linear-gradient(110deg, #e9578c, #f58ca9);
-}
+// 限时秒杀 (#97): the activity pink, with its own 「秒杀中」 tag and 立即抢购 button.
 .product__flashsale-badge {
   margin-left: 10px;
   padding: 2px 8px;
