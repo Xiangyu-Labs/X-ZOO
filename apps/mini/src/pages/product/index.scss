@@ -336,11 +336,13 @@
 .shop-btn.product__buy--flashsale {
   background: linear-gradient(110deg, #e9578c, #f58ca9);
 }
-// 秒杀's countdown and 已售 a little lower than 拼团's and 预售's (#100): the countdown level
-// with the 秒杀价's figures rather than its top, 已售 under it by the same step.
-.product__promotion--flashsale .product__promotion-countdown {
+// 秒杀's (#100) and 拼团's (#103) countdown and 已售 a little lower: the countdown level with the
+// activity price's figures rather than its top, 已售 level with the 划线价 under it.
+.product__promotion--flashsale .product__promotion-countdown,
+.product__promotion--groupbuy .product__promotion-countdown {
   margin-top: 22px;
 }
-.product__promotion--flashsale .product__promotion-sales {
+.product__promotion--flashsale .product__promotion-sales,
+.product__promotion--groupbuy .product__promotion-sales {
   margin-top: 14px;
 }
