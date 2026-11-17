@@ -6,6 +6,7 @@ import { fixedClock, systemClock } from './clock';
 import { DomainError, forbidden, notFound, resolveError } from './errors';
 import {
   fromId,
+  InvalidIdError,
   generateOrderNo,
   generateOutTradeNo,
   randomToken,
@@ -89,8 +90,9 @@ describe('ids', () => {
     expect(() => toId(0)).toThrow(TypeError);
     expect(() => toId(-1)).toThrow(TypeError);
     expect(() => toId(1.5)).toThrow(TypeError);
-    for (const bad of ['', '0', '01', 'x', '-1', '1.0', '9007199254740993']) {
+    for (const bad of ['', '0', '01', 'x', '-1', '1.0', '9007199254740992', '9007199254740993']) {
       expect(() => fromId(bad), bad).toThrow(TypeError);
+      expect(() => fromId(bad), bad).toThrow(InvalidIdError);
     }
   });
 });

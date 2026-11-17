@@ -183,6 +183,7 @@ export async function addressCreate(ctx: Ctx, body: UserAddressForm): Promise<Us
   const userId = requireUserId(ctx);
   const config = await ctx.config.get(storefrontAuthConfig);
   return ctx.withTx(async (tx) => {
+    await repo.lockAddressBook(tx, userId);
     const existing = await repo.countAddresses(tx, userId);
     if (existing >= config.addressLimit) {
       throw new DomainError('USER_ADDRESS_LIMIT_REACHED', {
@@ -213,6 +214,7 @@ export async function addressUpdate(
   const userId = requireUserId(ctx);
   const id = fromId(params.id);
   return ctx.withTx(async (tx) => {
+    await repo.lockAddressBook(tx, userId);
     const now = ctx.clock.now();
     const current = await repo.findAddress(tx, { id, userId });
     if (!current) throw new DomainError('USER_ADDRESS_NOT_FOUND');
@@ -265,6 +267,7 @@ export async function addressSetDefault(ctx: Ctx, params: { id: string }): Promi
   const userId = requireUserId(ctx);
   const id = fromId(params.id);
   return ctx.withTx(async (tx) => {
+    await repo.lockAddressBook(tx, userId);
     const now = ctx.clock.now();
     await repo.clearDefaultAddress(tx, { userId, exceptId: id, now });
     const result = await repo.setDefaultAddress(tx, { id, userId, now });

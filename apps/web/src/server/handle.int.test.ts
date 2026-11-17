@@ -210,13 +210,53 @@ describe('the admin auth routes', () => {
     );
     expect(after.status).toBe(401);
     expect((await after.json()).code).toBe('AUTH_SESSION_EXPIRED');
+
+    // Retrying logout with the now-expired cookie still answers 200 and clears the cookie.
+    const retry = await logout(post('/admin-api/auth/logout', undefined, withCookie));
+    expect(retry.status).toBe(200);
+    expect(await retry.json()).toEqual({ ok: true });
+    expect(retry.headers.get('set-cookie')).toContain('Max-Age=0');
+
+    // Logging out with no cookie at all also answers 200 and clears the cookie.
+    const bare = await logout(post('/admin-api/auth/logout', undefined));
+    expect(bare.status).toBe(200);
+    expect(bare.headers.get('set-cookie')).toContain('Max-Age=0');
   });
 
-  it('401s /me without a cookie', async () => {
+  it('401s /me without a cookie or with a malformed percent-encoded cookie', async () => {
     const { GET: me } = await import('../../app/admin-api/auth/me/route');
     const response = await me(new Request('https://shop.example/admin-api/auth/me'));
     expect(response.status).toBe(401);
     expect((await response.json()).code).toBe('UNAUTHENTICATED');
+
+    const malformed = await me(
+      new Request('https://shop.example/admin-api/auth/me', {
+        headers: { cookie: `${ADMIN_COOKIE}=%E0%A4%A` },
+      }),
+    );
+    expect(malformed.status).toBe(401);
+    expect((await malformed.json()).code).toBe('UNAUTHENTICATED');
+  });
+
+  it('422s an oversized numeric id param instead of 500', async () => {
+    const token = await seedAdmin({ isSuper: true });
+    const { POST: login } = await import('../../app/admin-api/auth/login/route');
+    const { DELETE: deleteCoupon } = await import('../../app/admin-api/coupons/[id]/route');
+    const loggedIn = await login(
+      post('/admin-api/auth/login', { account: 'admin', password: PASSWORD }),
+    );
+    const cookie = sessionCookie(loggedIn)!;
+    expect(token).toBeGreaterThan(0);
+
+    const response = await deleteCoupon(
+      new Request('https://shop.example/admin-api/coupons/99999999999999999', {
+        method: 'DELETE',
+        headers: { cookie: `${ADMIN_COOKIE}=${cookie}`, 'sec-fetch-site': 'same-origin' },
+      }),
+      { params: { id: '99999999999999999' } },
+    );
+    expect(response.status).toBe(422);
+    expect((await response.json()).code).toBe('VALIDATION_FAILED');
   });
 
   it('blocks a cross-site logout that carries the cookie', async () => {

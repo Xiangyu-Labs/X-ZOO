@@ -302,7 +302,8 @@ describe('the default address', () => {
       service.addressSetDefault(forkUser(index, user.id), { id: created[index]!.id }),
     );
 
-    expect(report.fulfilled.length).toBeGreaterThanOrEqual(1);
+    expect(report.fulfilled).toHaveLength(WORKERS);
+    expect(report.rejected).toEqual([]);
     const defaults = await harness.ctx.db
       .select({ id: userAddresses.id })
       .from(userAddresses)
@@ -311,6 +312,72 @@ describe('the default address', () => {
     // And whichever won is the one the storefront reads back.
     const current = await service.defaultAddress(ctx);
     expect(Number(current.address!.id)).toBe(defaults[0]!.id);
+  });
+
+  it('creates six addresses at once (all requesting default) with zero 500s and one default', async () => {
+    const user = await makeUser();
+    const report = await runConcurrently(WORKERS, (index) =>
+      service.addressCreate(forkUser(index, user.id), {
+        receiverName: `收货人${index}`,
+        receiverPhone: PHONE,
+        provinceName: '北京市',
+        cityName: '北京市',
+        districtName: '朝阳区',
+        detail: `建国路 ${index} 号`,
+        isDefault: true,
+      }),
+    );
+
+    expect(report.fulfilled).toHaveLength(WORKERS);
+    expect(report.rejected).toEqual([]);
+    const defaults = await harness.ctx.db
+      .select({ id: userAddresses.id })
+      .from(userAddresses)
+      .where(and(eq(userAddresses.userId, user.id), eq(userAddresses.isDefault, true)));
+    expect(defaults).toHaveLength(1);
+  });
+
+  it('updates six addresses to default at once with zero 500s and one default', async () => {
+    const user = await makeUser();
+    const ctx = harness.as({ kind: 'user', id: user.id, permissions: [], isSuper: false });
+    const created: Array<{ id: string }> = [];
+    for (let i = 0; i < WORKERS; i += 1) {
+      created.push(
+        await service.addressCreate(ctx, {
+          receiverName: `收货人${i}`,
+          receiverPhone: PHONE,
+          provinceName: '北京市',
+          cityName: '北京市',
+          districtName: '朝阳区',
+          detail: `建国路 ${i} 号`,
+          isDefault: false,
+        }),
+      );
+    }
+
+    const report = await runConcurrently(WORKERS, (index) =>
+      service.addressUpdate(
+        forkUser(index, user.id),
+        { id: created[index]!.id },
+        {
+          receiverName: `收货人${index}`,
+          receiverPhone: PHONE,
+          provinceName: '北京市',
+          cityName: '北京市',
+          districtName: '朝阳区',
+          detail: `新路 ${index} 号`,
+          isDefault: true,
+        },
+      ),
+    );
+
+    expect(report.fulfilled).toHaveLength(WORKERS);
+    expect(report.rejected).toEqual([]);
+    const defaults = await harness.ctx.db
+      .select({ id: userAddresses.id })
+      .from(userAddresses)
+      .where(and(eq(userAddresses.userId, user.id), eq(userAddresses.isDefault, true)));
+    expect(defaults).toHaveLength(1);
   });
 });
 

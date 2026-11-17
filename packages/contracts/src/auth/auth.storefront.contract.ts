@@ -402,7 +402,7 @@ export const authLogout = defineRoute({
   id: 'auth.logout',
   method: 'DELETE',
   path: '/api/v1/auth/sessions/current',
-  auth: 'user',
+  auth: 'user-optional',
   summary: '退出登录',
   tags: ['auth'],
   response: okResult,

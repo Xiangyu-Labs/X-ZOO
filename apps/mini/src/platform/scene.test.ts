@@ -19,8 +19,8 @@ import { toPath } from './nav';
  */
 const MINI_CODE_KEYS = storefrontRouteKeys.filter((key) => storefrontRouteDef(key).miniCode);
 
-/** The longest id the database hands out (bigint), to keep the scene's 32 bytes honest. */
-const LONG_ID = '9223372036854775807';
+/** The longest id the kernel's `fromId` accepts (`Number.MAX_SAFE_INTEGER`). */
+const LONG_ID = String(Number.MAX_SAFE_INTEGER);
 
 function sampleRoute(key: (typeof storefrontRouteKeys)[number]): StorefrontRoute {
   const names: readonly string[] = storefrontRoutes[key].params;

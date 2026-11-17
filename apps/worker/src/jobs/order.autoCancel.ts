@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { id } from '@shop/contracts/conventions';
 import { autoCancel } from '@shop/core/order';
 import { defineJob } from '../define-job';
 
@@ -16,7 +17,7 @@ import { defineJob } from '../define-job';
  */
 export default defineJob({
   name: 'order.autoCancel',
-  schema: z.object({ orderId: z.string().regex(/^[1-9]\d*$/) }),
+  schema: z.object({ orderId: id }),
   concurrency: 4,
   handler: async (ctx, payload) => {
     const orderId = Number(payload.orderId);

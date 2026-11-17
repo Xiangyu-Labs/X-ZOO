@@ -129,8 +129,9 @@ export function ConfigGroupForm<R extends AnyRouteDef, T extends AnyRouteDef = A
   focusKey,
 }: ConfigGroupFormProps<R, T>) {
   const [form] = Form.useForm();
-  // Typed secrets live outside the form value so they can never be round-tripped.
-  const [secrets, setSecrets] = useState<Record<string, string>>({});
+  // Typed secrets (or explicit `null` to clear) live outside the form value so
+  // they can never be round-tripped.
+  const [secrets, setSecrets] = useState<Record<string, string | null>>({});
   const { token } = theme.useToken();
 
   const watched = Form.useWatch([], form) as ConfigValues | undefined;
@@ -272,9 +273,17 @@ export function ConfigGroupForm<R extends AnyRouteDef, T extends AnyRouteDef = A
         <SecretField
           field={field}
           isSet={Boolean(values?.[field.key])}
-          value={secrets[field.key] ?? ''}
+          value={secrets[field.key]}
           disabled={disabled}
-          onChange={(next) => setSecrets((prev) => ({ ...prev, [field.key]: next }))}
+          onChange={(next) =>
+            setSecrets((prev) => {
+              if (next === undefined) {
+                const { [field.key]: _removed, ...rest } = prev;
+                return rest;
+              }
+              return { ...prev, [field.key]: next };
+            })
+          }
         />
       ) : (
         <Form.Item
@@ -547,34 +556,55 @@ function SecretField({
 }: {
   field: ConfigFieldDescriptor;
   isSet: boolean;
-  value: string;
+  value: string | null | undefined;
   disabled: boolean;
-  onChange: (value: string) => void;
+  onChange: (value: string | null | undefined) => void;
 }) {
+  const clearing = value === null;
+  const inputValue = typeof value === 'string' ? value : '';
   return (
     <Form.Item
       label={
         <span>
           {field.label}{' '}
           <Tag
-            color={isSet ? 'success' : 'default'}
+            color={clearing ? 'warning' : isSet ? 'success' : 'default'}
             bordered={false}
             data-testid={`secret-state-${field.key}`}
           >
-            {isSet ? '已设置' : '未设置'}
+            {clearing ? '待清空' : isSet ? '已设置' : '未设置'}
           </Tag>
         </span>
       }
       extra={field.help ?? '留空表示不修改已保存的值'}
     >
-      <Input.Password
-        value={value}
-        disabled={disabled}
-        autoComplete="new-password"
-        placeholder={isSet ? '已设置，留空则不修改' : (field.placeholder ?? '请输入')}
-        data-testid={`secret-input-${field.key}`}
-        onChange={(event) => onChange(event.target.value)}
-      />
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <Input.Password
+          value={inputValue}
+          disabled={disabled}
+          autoComplete="new-password"
+          placeholder={
+            clearing
+              ? '保存后将清空已保存的值'
+              : isSet
+                ? '已设置，留空则不修改'
+                : (field.placeholder ?? '请输入')
+          }
+          data-testid={`secret-input-${field.key}`}
+          onChange={(event) => {
+            const next = event.target.value;
+            onChange(next === '' ? undefined : next);
+          }}
+        />
+        {isSet && !disabled ? (
+          <Button
+            data-testid={`secret-clear-${field.key}`}
+            onClick={() => onChange(clearing ? undefined : null)}
+          >
+            {clearing ? '撤销' : '清空'}
+          </Button>
+        ) : null}
+      </div>
     </Form.Item>
   );
 }

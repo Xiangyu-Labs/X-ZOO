@@ -205,6 +205,37 @@ describe('<ConfigGroupForm> secrets', () => {
     expect(sent['siteName']).toBe('示例商城');
   });
 
+  it('clears an already-set secret as null when 清空 is clicked', async () => {
+    const user = userEvent.setup();
+    const { bodies } = stubSave();
+    renderAdmin(<ConfigGroupForm descriptor={descriptor} values={values} route={saveRoute} />);
+
+    await user.click(screen.getByTestId('secret-clear-apiSecret'));
+    expect(screen.getByTestId('secret-state-apiSecret')).toHaveTextContent('待清空');
+    await user.click(screen.getByRole('button', { name: zhName('保存') }));
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    const sent = (bodies[0] as { values: Record<string, unknown> }).values;
+    expect(sent).toHaveProperty('apiSecret', null);
+    expect(sent).not.toHaveProperty('smsSecret');
+  });
+
+  it('can undo clearing a secret before saving', async () => {
+    const user = userEvent.setup();
+    const { bodies } = stubSave();
+    renderAdmin(<ConfigGroupForm descriptor={descriptor} values={values} route={saveRoute} />);
+
+    await user.click(screen.getByTestId('secret-clear-apiSecret'));
+    expect(screen.getByTestId('secret-state-apiSecret')).toHaveTextContent('待清空');
+    await user.click(screen.getByTestId('secret-clear-apiSecret'));
+    expect(screen.getByTestId('secret-state-apiSecret')).toHaveTextContent('已设置');
+    await user.click(screen.getByRole('button', { name: zhName('保存') }));
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    const sent = (bodies[0] as { values: Record<string, unknown> }).values;
+    expect(sent).not.toHaveProperty('apiSecret');
+  });
+
   it('sends the group as a path param', async () => {
     const user = userEvent.setup();
     const calls = stubRoutes([on(saveRoute, { ok: true })]);

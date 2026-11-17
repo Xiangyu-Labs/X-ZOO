@@ -103,6 +103,7 @@ export function buildContainer(env: Env = loadEnv()): Container {
     maxRetriesPerRequest: null,
     enableReadyCheck: true,
   });
+  redis.on('error', (err) => logger.warn({ err }, 'redis connection error'));
   const clock = systemClock;
   const queue = createBullQueue({ connection: redis, queueName: env.QUEUE_NAME });
   const storage = createLocalStorage({

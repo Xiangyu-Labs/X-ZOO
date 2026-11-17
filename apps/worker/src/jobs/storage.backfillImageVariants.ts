@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { id } from '@shop/contracts/conventions';
 import { backfillImageVariants } from '@shop/core/storage';
 import { defineJob } from '../define-job';
 
@@ -22,10 +23,7 @@ export default defineJob({
   name: BACKFILL_IMAGE_VARIANTS_JOB,
   schema: z
     .object({
-      afterId: z
-        .string()
-        .regex(/^[1-9]\d*$/)
-        .optional(),
+      afterId: id.optional(),
       limit: z.number().int().min(1).max(500).default(50),
       force: z.boolean().default(false),
     })

@@ -76,6 +76,7 @@ export async function enqueueCommand(
   }
   const env = loadEnv();
   const connection = new Redis(env.REDIS_URL, { maxRetriesPerRequest: null });
+  connection.on('error', (err) => out.error(err instanceof Error ? err.message : String(err)));
   const queue = createBullQueue({ connection, queueName: env.QUEUE_NAME });
   try {
     await queue.enqueue(plan.jobName, plan.payload);

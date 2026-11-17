@@ -619,6 +619,31 @@ describe('config', () => {
     );
   });
 
+  it('clears a stored secret back to its default when sent as null', async () => {
+    const ctx = as(superId);
+    await configSave(
+      ctx,
+      { group: 'wechat-oa' },
+      { values: { token: 'cb-token', encodingAesKey: 'aes-secret' } },
+    );
+    expect((await configGet(ctx, { group: 'wechat-oa' })).values['token']).toBe(true);
+    expect((await configGet(ctx, { group: 'wechat-oa' })).values['encodingAesKey']).toBe(true);
+
+    // Empty string / boolean still leave the stored secret alone…
+    await configSave(ctx, { group: 'wechat-oa' }, { values: { token: '', encodingAesKey: true } });
+    expect((await configGet(ctx, { group: 'wechat-oa' })).values['token']).toBe(true);
+    expect((await configGet(ctx, { group: 'wechat-oa' })).values['encodingAesKey']).toBe(true);
+
+    // …while explicit `null` clears it back to its default `''`.
+    await configSave(
+      ctx,
+      { group: 'wechat-oa' },
+      { values: { token: null, encodingAesKey: null } },
+    );
+    expect((await configGet(ctx, { group: 'wechat-oa' })).values['token']).toBe(false);
+    expect((await configGet(ctx, { group: 'wechat-oa' })).values['encodingAesKey']).toBe(false);
+  });
+
   it('puts a cleared field back to its default instead of keeping the old value', async () => {
     // The admin sends `null` for a picture removed or a number emptied.
     const ctx = as(superId);

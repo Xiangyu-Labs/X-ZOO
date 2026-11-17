@@ -4,6 +4,7 @@ import { defineRoute } from '@shop/contracts/conventions';
 import {
   DomainError,
   fixedClock,
+  InvalidIdError,
   memoryQueue,
   memoryStorage,
   silentLogger,
@@ -731,13 +732,70 @@ describe('cookies', () => {
     expect(response.headers.get('set-cookie')).toContain('Max-Age=0');
   });
 
-  it('readCookie finds one cookie among several', () => {
+  it('readCookie finds one cookie among several and ignores malformed percent encodings', () => {
     const request = new Request('https://x/y', {
       headers: { cookie: `other=1; ${ADMIN_COOKIE}=abc%20def; third=3` },
     });
     expect(readCookie(request, ADMIN_COOKIE)).toBe('abc def');
     expect(readCookie(request, 'missing')).toBeNull();
     expect(readCookie(new Request('https://x/y'), ADMIN_COOKIE)).toBeNull();
+    expect(
+      readCookie(
+        new Request('https://x/y', { headers: { cookie: `${ADMIN_COOKIE}=%E0%A4%A` } }),
+        ADMIN_COOKIE,
+      ),
+    ).toBeNull();
+  });
+
+  it('admin-optional allows expired/missing cookies while still blocking cross-site requests with a cookie', async () => {
+    const optRoute = defineRoute({
+      id: 'test.adminOpt',
+      method: 'POST',
+      path: '/admin-api/auth/opt',
+      auth: 'admin-optional',
+      summary: 'opt',
+      tags: ['test'],
+      response: z.object({ actorKind: z.string() }),
+      examples: [{ name: 'ok', response: { actorKind: 'anonymous' } }],
+    });
+    const POST = handle(optRoute, (ctx) => ({ actorKind: ctx.actor.kind }), {
+      container: container(),
+    });
+
+    // Missing cookie -> 200 as anonymous
+    const noCookie = await POST(
+      new Request('https://shop.example/admin-api/auth/opt', {
+        method: 'POST',
+        headers: { 'sec-fetch-site': 'same-origin' },
+      }),
+    );
+    expect(noCookie.status).toBe(200);
+    expect(await body(noCookie)).toEqual({ actorKind: 'anonymous' });
+
+    // Expired cookie -> 200 as anonymous
+    const expired = await POST(
+      new Request('https://shop.example/admin-api/auth/opt', {
+        method: 'POST',
+        headers: {
+          cookie: `${ADMIN_COOKIE}=expired-token`,
+          'sec-fetch-site': 'same-origin',
+        },
+      }),
+    );
+    expect(expired.status).toBe(200);
+    expect(await body(expired)).toEqual({ actorKind: 'anonymous' });
+
+    // Cross-site with cookie -> still 403
+    const crossSite = await POST(
+      new Request('https://shop.example/admin-api/auth/opt', {
+        method: 'POST',
+        headers: {
+          cookie: `${ADMIN_COOKIE}=expired-token`,
+          'sec-fetch-site': 'cross-site',
+        },
+      }),
+    );
+    expect(crossSite.status).toBe(403);
   });
 });
 
@@ -757,6 +815,28 @@ describe('error mapping', () => {
       message: '账号或密码不正确',
       details: { hint: 'x' },
     });
+  });
+
+  it('maps InvalidIdError to 422 VALIDATION_FAILED without swallowing other TypeErrors', async () => {
+    const invalidHandler = handle(
+      okRoute,
+      async () => {
+        throw new InvalidIdError('fromId: id 超出安全整数范围');
+      },
+      { container: container() },
+    );
+    expect((await invalidHandler(new Request('https://shop.example/api/v1/things'))).status).toBe(
+      422,
+    );
+
+    const bugHandler = handle(
+      okRoute,
+      async () => {
+        throw new TypeError('cannot read property foo of undefined');
+      },
+      { container: container() },
+    );
+    expect((await bugHandler(new Request('https://shop.example/api/v1/things'))).status).toBe(500);
   });
 
   it('turns anything else into a 500 INTERNAL that leaks nothing', async () => {

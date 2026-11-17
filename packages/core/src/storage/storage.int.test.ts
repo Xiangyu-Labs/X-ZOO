@@ -10,6 +10,7 @@ import { createTestCtx, type TestCtx } from '@shop/testing';
 import type { Actor, Ctx } from '../kernel/context';
 import { DomainError } from '../kernel/errors';
 import { cleanOrphanAttachments } from './storage.jobs';
+import * as repo from './storage.repo';
 import { backfillImageVariants, generateImageVariants } from './image-variants';
 import type { Transport } from './safe-fetch';
 import { siteConfig } from '../system';
@@ -32,6 +33,7 @@ import {
   GENERATE_IMAGE_VARIANTS_JOB,
   isStoredImageUrl,
   resetStorageDriverCache,
+  resolveStorage,
   scanTokenCreate,
   scanTokenStatusGet,
   scanUpload,
@@ -760,6 +762,104 @@ describe('cleanOrphans', () => {
     harness.clock.set('2026-10-13T08:00:00.000Z');
     expect(await cleanOrphanAttachments(ctx)).toMatchObject({ removed: 1, kept: 0 });
     expect(await harness.ctx.db.select().from(attachments)).toHaveLength(0);
+  });
+
+  it('does not let older tombstones from another driver block sweeping the active driver', async () => {
+    const ctx = as(adminActor(adminId));
+    // Seed 3 expired `s3` tombstones first (lower ids) and 1 `local` tombstone
+    // after them, then sweep with `limit: 2`.
+    const oldDeletedAt = new Date('2026-09-01T00:00:00.000Z');
+    for (let i = 0; i < 3; i += 1) {
+      await repo.insertAttachment(harness.ctx.db, {
+        categoryId: null,
+        storageKey: `attachment/2026/09/s3-old-${i}.png`,
+        driver: 's3',
+        bucket: 'old-bucket',
+        url: `https://cdn.example.com/s3-old-${i}.png`,
+        name: `s3-${i}.png`,
+        originalName: null,
+        kind: 'image',
+        mime: 'image/png',
+        size: 25,
+        sha256: String(i).padStart(64, '0'),
+        width: 1,
+        height: 1,
+        durationMs: null,
+        uploadedByAdminId: adminId,
+        uploadedByUserId: null,
+      });
+    }
+    await harness.ctx.db.update(attachments).set({ deletedAt: oldDeletedAt });
+
+    const localOne = await attachmentUpload(ctx, {}, png(1, 1, 9));
+    const localKey = await storageKeyOf(localOne.attachment.id);
+    await attachmentDeleteMany(ctx, { ids: [localOne.attachment.id] });
+
+    harness.clock.set('2026-10-05T08:00:00.000Z');
+    const report = await cleanOrphanAttachments(ctx, { limit: 2 });
+    expect(report).toEqual({ examined: 1, removed: 1, kept: 0, failed: 0 });
+    expect(await harness.ctx.storage.exists(localKey)).toBe(false);
+    // The 3 s3 tombstones were left untouched rather than deleted or blocking local cleanup.
+    const remaining = await harness.ctx.db.select().from(attachments);
+    expect(remaining).toHaveLength(3);
+    expect(remaining.every((r) => r.driver === 's3')).toBe(true);
+  });
+});
+
+describe('storage driver & dedupe isolation', () => {
+  it('rebuilds the memoised S3 client when s3SecretAccessKey rotates', async () => {
+    const ctx = as(adminActor(adminId));
+    await ctx.config.set(storageConfig, {
+      driver: 's3',
+      s3Bucket: 'shop-bucket',
+      s3Region: 'ap-shanghai',
+      s3Endpoint: 'https://cos.ap-shanghai.myqcloud.com',
+      s3AccessKeyId: 'AKID_TEST',
+      s3SecretAccessKey: 'secret-v1',
+      s3PublicBaseUrl: 'https://cdn.example.com',
+    });
+
+    const first = await resolveStorage(ctx);
+    const same = await resolveStorage(ctx);
+    expect(same.storage).toBe(first.storage);
+
+    await ctx.config.set(storageConfig, { s3SecretAccessKey: 'secret-v2' });
+    const rotated = await resolveStorage(ctx);
+    expect(rotated.storage).not.toBe(first.storage);
+  });
+
+  it('scopes sha256 dedupe by bucket on S3 so switching buckets never returns an old bucket URL', async () => {
+    const digest = 'a'.repeat(64);
+    await repo.insertAttachment(harness.ctx.db, {
+      categoryId: null,
+      storageKey: 'attachment/2026/09/bucket-a.png',
+      driver: 's3',
+      bucket: 'bucket-a',
+      url: 'https://bucket-a.example.com/attachment/2026/09/bucket-a.png',
+      name: 'a.png',
+      originalName: null,
+      kind: 'image',
+      mime: 'image/png',
+      size: 25,
+      sha256: digest,
+      width: 1,
+      height: 1,
+      durationMs: null,
+      uploadedByAdminId: adminId,
+      uploadedByUserId: null,
+    });
+
+    expect(await repo.findByDigest(harness.ctx.db, digest, 's3', 'bucket-a')).toBeDefined();
+    expect(await repo.findByDigest(harness.ctx.db, digest, 's3', 'bucket-b')).toBeUndefined();
+    expect(await repo.findByDigest(harness.ctx.db, digest, 'local', null)).toBeUndefined();
+  });
+
+  it('applies storage.localPublicPrefix to uploaded local attachment URLs', async () => {
+    const ctx = as(adminActor(adminId));
+    await ctx.config.set(storageConfig, { driver: 'local', localPublicPrefix: '/media/' });
+
+    const uploaded = await attachmentUpload(ctx, {}, png(1, 1, 77));
+    expect(uploaded.attachment.url).toMatch(/^\/media\/attachment\//);
   });
 });
 
