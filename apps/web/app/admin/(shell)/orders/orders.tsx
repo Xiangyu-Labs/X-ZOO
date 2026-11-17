@@ -9,7 +9,11 @@ import {
   orderAdminList,
   orderAdminStatistics,
 } from '@shop/contracts/order/order.admin.contract';
-import type { OrderDeletionsResult } from '@shop/contracts/order/order.fulfil.schemas';
+import {
+  adminOrderTabs,
+  type AdminOrderTabKey,
+  type OrderDeletionsResult,
+} from '@shop/contracts/order/order.fulfil.schemas';
 
 import { callRoute, presentApiError, presentSuccess, useRouteQuery } from '@/admin/api';
 import { ConfirmButton } from '@/admin/kit/confirm-button';
@@ -40,23 +44,10 @@ import {
  * filter bar underneath stays usable on top of it.
  */
 
-type TabKey = 'all' | 'unpaid' | 'unshipped' | 'unreceived' | 'finished' | 'refunding' | 'deleted';
+type TabKey = AdminOrderTabKey;
 
-const TABS: { key: TabKey; label: string; query: Record<string, unknown> }[] = [
-  { key: 'all', label: '全部', query: {} },
-  { key: 'unpaid', label: '待付款', query: { status: 'pending_payment' } },
-  {
-    key: 'unshipped',
-    label: '待发货',
-    query: { status: 'paid', fulfillmentStatus: ['unfulfilled', 'partially_fulfilled'] },
-  },
-  { key: 'unreceived', label: '待收货', query: { status: 'shipped' } },
-  { key: 'finished', label: '已完成', query: { status: ['received', 'completed'] } },
-  // An open after-sales request, not the `partially_refunded` roll-up that
-  // stays on an order after its request has closed.
-  { key: 'refunding', label: '售后中', query: { refunding: true } },
-  { key: 'deleted', label: '回收站', query: { deleted: true } },
-];
+// Shared with the 工作台's 待办 cards, which count exactly these filters.
+const TABS = adminOrderTabs;
 
 const isTab = (value: string | undefined): value is TabKey =>
   TABS.some((entry) => entry.key === value);

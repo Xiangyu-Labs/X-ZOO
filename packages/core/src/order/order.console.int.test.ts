@@ -9,7 +9,11 @@ import { admins } from '@shop/db/schema/auth';
 import { effects as effectsTable } from '@shop/db/schema/system';
 import { userAddresses, users } from '@shop/db/schema/user';
 import { createTestCtx, type TestCtx } from '@shop/testing';
-import type { AdminOrderListQuery } from '@shop/contracts/order/order.fulfil.schemas';
+import {
+  adminOrderTabFilter,
+  type AdminOrderListQuery,
+  type AdminOrderTabKey,
+} from '@shop/contracts/order/order.fulfil.schemas';
 import { registerCatalogDomain } from '../catalog';
 import { registerNotificationDomain } from '../notification';
 import { registerShippingFreightPort } from '../shipping';
@@ -17,6 +21,7 @@ import type { Actor, Ctx } from '../kernel/context';
 import { Money } from '../kernel/money';
 import { withTx } from '../kernel/tx';
 import * as order from './index';
+import { orderDashboardContributor } from './order.dashboard';
 import { installFulfilmentHooks } from './order.fulfil.effects';
 import { resetFulfilmentPorts } from './order.fulfil.ports';
 import { orderStateMachine } from './order.state-machine';
@@ -781,6 +786,32 @@ describe('ORDER-014 — 退款中 means an after-sales request still open', () =
 // ---------------------------------------------------------------------------
 
 describe('the work queue and the totals', () => {
+  it('#99 — 工作台 counts each 待办 card with its tab’s filter and links to that tab', async () => {
+    const adminId = await makeAdmin();
+    await placeOrder(); // 待付款
+    const waiting = await placeOrder();
+    await pay(waiting); // 待发货
+    const refunding = await placeOrder();
+    await complete(refunding);
+    await fileRefund(refunding, 'applied'); // 售后中
+
+    const tiles = await orderDashboardContributor.tiles(asAdmin(adminId));
+    const tabs: AdminOrderTabKey[] = ['unpaid', 'unshipped', 'refunding'];
+    expect(tiles.map((tile) => tile.label)).toEqual(['待付款', '待发货', '待售后']);
+    for (const [index, tab] of tabs.entries()) {
+      const listed = await order.orderConsole.adminList(
+        asAdmin(adminId),
+        listQuery(adminOrderTabFilter(tab)),
+      );
+      expect(tiles[index], tab).toMatchObject({
+        value: listed.total,
+        href: `/admin/orders?tab=${tab}`,
+        section: 'todo',
+      });
+      expect(listed.total, tab).toBe(1);
+    }
+  });
+
   it('counts what an operator has to do right now', async () => {
     const adminId = await makeAdmin();
     const company = await makeExpressCompany();

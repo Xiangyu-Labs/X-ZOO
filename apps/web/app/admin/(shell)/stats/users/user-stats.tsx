@@ -42,11 +42,11 @@ export function UserStatsPage() {
 
   return (
     <StatsPageFrame
-      subTitle="新增用户按注册时间，成交用户按支付时间，累计用户是区间结束时的总数；停留时长只计已上报的访问"
+      subTitle="新增用户按注册时间，成交用户按支付时间，加购人数是加过购物车的人数（按人去重），累计用户是区间结束时的总数；停留时长只计已上报的访问"
       range={range}
       data={data}
       loading={isPending}
-      metricColumns={6}
+      metricColumns={4}
       chartTitle="用户趋势"
     >
       <Card

@@ -746,9 +746,9 @@ export const sitePublicConfigExample: SitePublicConfig = {
  * The cards across the top of the admin home page.
  *
  * The shape is a *list of contributed tiles*, not a fixed record, because the
- * numbers come from several domains: `system` and `storage` contribute their
- * own and `stats` registers the order and user ones through
- * `DashboardContributor`. A tile whose contributor is not registered simply is
+ * numbers come from several domains through `DashboardContributor`: `order`
+ * (待付款 / 待发货 / 待售后) and `catalog` (库存预警) the 待办 row, `stats` the
+ * 今日数据 row, `system` and `storage` their own. A tile whose contributor is not registered simply is
  * not in the list — the page never shows a zero it invented.
  */
 export const dashboardTile = z.object({
@@ -766,6 +766,15 @@ export const dashboardTile = z.object({
    * non-zero value in the warning colour. Absent means an ordinary figure.
    */
   attention: z.boolean().optional(),
+  /**
+   * Which row of 工作台 the tile belongs to: `todo` is 待办事项 (work waiting,
+   * each a link to the filtered list), `today` is 今日数据 (today against
+   * yesterday, each a link to its statistics page). Absent: the row of other
+   * figures under them.
+   */
+  section: z.enum(['todo', 'today']).optional(),
+  /** A rise is bad news (退款订单数): the page colours the delta the other way round. */
+  lowerIsBetter: z.boolean().optional(),
   /**
    * An `attention` tile's sources, one link each — 「异常支付 2 · 待处理任务 0 ·
    * 失败的后台任务 1」 — so the operator goes straight to the screen with the
@@ -788,6 +797,42 @@ export type DashboardHeader = z.infer<typeof dashboardHeader>;
 export const dashboardHeaderExample: DashboardHeader = {
   tiles: [
     {
+      key: 'order.unpaid',
+      label: '待付款',
+      value: 5,
+      format: 'count',
+      href: '/admin/orders?tab=unpaid',
+      deltaFromYesterday: null,
+      section: 'todo',
+    },
+    {
+      key: 'order.unshipped',
+      label: '待发货',
+      value: 12,
+      format: 'count',
+      href: '/admin/orders?tab=unshipped',
+      deltaFromYesterday: null,
+      section: 'todo',
+    },
+    {
+      key: 'order.refunding',
+      label: '待售后',
+      value: 2,
+      format: 'count',
+      href: '/admin/orders?tab=refunding',
+      deltaFromYesterday: null,
+      section: 'todo',
+    },
+    {
+      key: 'catalog.stockWarnings',
+      label: '库存预警',
+      value: 7,
+      format: 'count',
+      href: '/admin/catalog/stock-warnings',
+      deltaFromYesterday: null,
+      section: 'todo',
+    },
+    {
       key: 'system.attention',
       label: '异常待处理',
       value: 3,
@@ -795,6 +840,7 @@ export const dashboardHeaderExample: DashboardHeader = {
       href: '/admin/trade/payment-exceptions',
       deltaFromYesterday: null,
       attention: true,
+      section: 'todo',
       parts: [
         {
           key: 'payment.exceptions',
@@ -805,6 +851,61 @@ export const dashboardHeaderExample: DashboardHeader = {
         { key: 'effects', label: '待处理任务', value: 0, href: '/admin/trade/effects' },
         { key: 'failedJobs', label: '失败的后台任务', value: 1, href: '/admin/system/failed-jobs' },
       ],
+    },
+    {
+      key: 'stats.revenue',
+      label: '营业额',
+      value: 5320.5,
+      format: 'money',
+      href: '/admin/stats/trade?from=2026-09-21T16%3A00%3A00.000Z&to=2026-09-21T16%3A00%3A00.000Z',
+      deltaFromYesterday: 410.2,
+      section: 'today',
+    },
+    {
+      key: 'stats.paidOrders',
+      label: '订单量',
+      value: 41,
+      format: 'count',
+      href: '/admin/stats/orders?from=2026-09-21T16%3A00%3A00.000Z&to=2026-09-21T16%3A00%3A00.000Z',
+      deltaFromYesterday: 3,
+      section: 'today',
+    },
+    {
+      key: 'stats.refundOrders',
+      label: '退款订单数',
+      value: 2,
+      format: 'count',
+      href: '/admin/stats/orders?from=2026-09-21T16%3A00%3A00.000Z&to=2026-09-21T16%3A00%3A00.000Z',
+      deltaFromYesterday: 1,
+      section: 'today',
+      lowerIsBetter: true,
+    },
+    {
+      key: 'stats.visitors',
+      label: '访客数',
+      value: 860,
+      format: 'count',
+      href: '/admin/stats/users?from=2026-09-21T16%3A00%3A00.000Z&to=2026-09-21T16%3A00%3A00.000Z',
+      deltaFromYesterday: -40,
+      section: 'today',
+    },
+    {
+      key: 'stats.pageViews',
+      label: '浏览量',
+      value: 4210,
+      format: 'count',
+      href: '/admin/stats/users?from=2026-09-21T16%3A00%3A00.000Z&to=2026-09-21T16%3A00%3A00.000Z',
+      deltaFromYesterday: 120,
+      section: 'today',
+    },
+    {
+      key: 'stats.cartUsers',
+      label: '加购人数',
+      value: 96,
+      format: 'count',
+      href: '/admin/stats/users?from=2026-09-21T16%3A00%3A00.000Z&to=2026-09-21T16%3A00%3A00.000Z',
+      deltaFromYesterday: 0,
+      section: 'today',
     },
     {
       key: 'system.admins',

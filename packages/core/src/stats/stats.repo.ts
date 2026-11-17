@@ -421,19 +421,22 @@ export async function visitAggregate(
 }
 
 /**
- * 商品浏览量 / 商品访客数 / 加购件数.
+ * 商品浏览量 / 商品访客数 / 加购件数 / 加购人数.
  *
  * `view` rows are written by the catalog domain on every product detail read;
  * `cart` rows by the cart's add path, through `catalog.recordCartAdd` —
  * 加购件数 sums their `quantity`, so it is units added and not taps of the
- * button. Anonymous views count towards 浏览量 and never towards 访客数:
+ * button; 加购人数 counts the distinct buyers behind them (adding to the cart
+ * needs a signed-in buyer, so every `cart` row has a `user_id`). Anonymous views count towards 浏览量 and never towards 访客数:
  * `product_events` has no session identity, and inventing one would make the
  * conversion rate a fiction.
  */
 export async function productEventAggregate(
   db: DbOrTx,
   args: WindowArgs,
-): Promise<Array<Bucketed<{ views: number; viewers: number; cartQuantity: number }>>> {
+): Promise<
+  Array<Bucketed<{ views: number; viewers: number; cartQuantity: number; cartUsers: number }>>
+> {
   const bucket = grouping(productEvents.createdAt, args.bucket);
   const query = db
     .select({
@@ -441,6 +444,7 @@ export async function productEventAggregate(
       views: sql<number>`count(*) filter (where ${productEvents.kind} = 'view')::int`,
       viewers: sql<number>`count(distinct ${productEvents.userId}) filter (where ${productEvents.kind} = 'view')::int`,
       cartQuantity: sql<number>`coalesce(sum(${productEvents.quantity}) filter (where ${productEvents.kind} = 'cart'), 0)::int`,
+      cartUsers: sql<number>`count(distinct ${productEvents.userId}) filter (where ${productEvents.kind} = 'cart')::int`,
     })
     .from(productEvents)
     .where(and(gte(productEvents.createdAt, args.from), lt(productEvents.createdAt, args.to)));

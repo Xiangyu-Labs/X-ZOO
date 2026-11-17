@@ -12,6 +12,7 @@ import { registerNotificationDomain } from '../notification';
 import { catalogConfig } from './catalog.config';
 import * as repo from './catalog.repo';
 import * as service from './catalog.service';
+import { catalogDashboardContributor } from './catalog.dashboard';
 import * as reviews from './catalog.review.service';
 import { catalogStockPort } from './catalog.stock';
 import { foldProductViews, VIEW_WATERMARK_KEY } from './catalog.views';
@@ -623,6 +624,11 @@ describe('products', () => {
     expect(warnings.total).toBe(1);
     expect(warnings.items[0]!.stock).toBe(2);
     expect(warnings.items[0]!.threshold).toBe(10);
+
+    // #99: the 工作台 card is that page's total, and opens it.
+    expect(await catalogDashboardContributor.tiles(asAdmin())).toMatchObject([
+      { label: '库存预警', value: 1, href: '/admin/catalog/stock-warnings', section: 'todo' },
+    ]);
   });
 });
 

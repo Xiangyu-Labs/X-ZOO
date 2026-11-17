@@ -224,33 +224,60 @@ describe('/admin-api/stats', () => {
   });
 
   /**
-   * The home page's three statistics tiles are not a route of this domain's: they
-   * are contributed to the system domain's `/admin-api/dashboard/header` by
-   * importing `@shop/core/stats`, which happens as a module side effect through
-   * `@shop/core/domains`. That is exactly the kind of registration that disappears
-   * silently — a bundler dropping an unused namespace import is enough — so it is
-   * asserted end to end, through the real route, rather than by poking the
-   * registry.
+   * The home page's cards are not routes of these domains: they are contributed
+   * to the system domain's `/admin-api/dashboard/header` by importing
+   * `@shop/core/stats`, `@shop/core/order` and `@shop/core/catalog`, which
+   * happens as a module side effect through `@shop/core/domains`. That is
+   * exactly the kind of registration that disappears silently — a bundler
+   * dropping an unused namespace import is enough — so it is asserted end to
+   * end, through the real route, rather than by poking the registry.
    */
-  it('contributes the three home-page tiles to the dashboard header', async () => {
-    const headers = await adminCookie(['system:dashboard:read', 'stats:trade:read']);
+  it('#99 — contributes the 待办事项 and 今日数据 cards to the dashboard header', async () => {
+    const headers = await adminCookie([
+      'system:dashboard:read',
+      'stats:trade:read',
+      'stats:order:read',
+      'stats:user:read',
+      'order:order:read',
+      'catalog:product:read',
+    ]);
     const { GET } = await import('../dashboard/header/route');
     const response = await GET(get('/admin-api/dashboard/header', headers));
     expect(response.status).toBe(200);
 
     const body = await response.json();
     expect(body.degraded).toEqual([]);
-    expect(body.tiles.map((tile: { key: string }) => tile.key)).toEqual(
-      expect.arrayContaining(['stats.revenue', 'stats.paidOrders', 'stats.newUsers']),
-    );
+    const sections = (section: string) =>
+      body.tiles
+        .filter((tile: { section?: string }) => tile.section === section)
+        .map((tile: { key: string }) => tile.key);
+    expect(sections('todo')).toEqual([
+      'order.unpaid',
+      'order.unshipped',
+      'order.refunding',
+      'catalog.stockWarnings',
+    ]);
+    expect(sections('today')).toEqual([
+      'stats.revenue',
+      'stats.paidOrders',
+      'stats.refundOrders',
+      'stats.visitors',
+      'stats.pageViews',
+      'stats.cartUsers',
+    ]);
   });
 
-  it('withholds the tiles from an admin who may not open 交易统计', async () => {
-    const headers = await adminCookie(['system:dashboard:read']);
+  it('withholds each card from an admin who may not open its page', async () => {
+    const headers = await adminCookie(['system:dashboard:read', 'stats:user:read']);
     const { GET } = await import('../dashboard/header/route');
     const body = await (await GET(get('/admin-api/dashboard/header', headers))).json();
+    const keys = body.tiles.map((tile: { key: string }) => tile.key);
     // Missing, not zero: the home page must not be a way around the atom.
-    expect(body.tiles.map((tile: { key: string }) => tile.key)).not.toContain('stats.revenue');
+    expect(keys).not.toContain('stats.revenue');
+    expect(keys).not.toContain('stats.paidOrders');
+    expect(keys).not.toContain('order.unpaid');
+    expect(keys).not.toContain('catalog.stockWarnings');
+    expect(keys).toContain('stats.cartUsers');
   });
 
   it('reads leave no audit row; exports leave one each (AUTH-013)', async () => {
