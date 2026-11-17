@@ -353,7 +353,7 @@ export const catalogAdminProductRestore = defineRoute({
   params: productParams,
   body: z.object({}).default({}),
   response: adminProductDetail,
-  errors: ['CATALOG_PRODUCT_NOT_FOUND', 'CATALOG_PRODUCT_NOT_DELETED'],
+  errors: ['CATALOG_PRODUCT_NOT_FOUND', 'CATALOG_PRODUCT_NOT_DELETED', 'CATALOG_PRODUCT_SPU_TAKEN'],
   examples: [
     {
       name: 'ok',

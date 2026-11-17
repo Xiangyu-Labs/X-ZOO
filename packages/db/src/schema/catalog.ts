@@ -157,7 +157,9 @@ export const products = pgTable(
     deletedAt: deletedAt(),
   },
   (t) => [
-    uniqueIndex('products_spu_uq').on(t.spu),
+    uniqueIndex('products_spu_uq')
+      .on(t.spu)
+      .where(sql`${t.deletedAt} is null`),
     index('products_status_idx').on(t.status, t.sortOrder),
     index('products_price_idx').on(t.price),
     index('products_sales_idx').on(t.sales),
@@ -436,7 +438,11 @@ export const productLabelCategories = pgTable(
     updatedAt: updatedAt(),
     deletedAt: deletedAt(),
   },
-  (t) => [uniqueIndex('product_label_categories_name_uq').on(t.name)],
+  (t) => [
+    uniqueIndex('product_label_categories_name_uq')
+      .on(t.name)
+      .where(sql`${t.deletedAt} is null`),
+  ],
 );
 
 export type ProductLabelCategory = typeof productLabelCategories.$inferSelect;
@@ -465,7 +471,9 @@ export const productLabels = pgTable(
     deletedAt: deletedAt(),
   },
   (t) => [
-    uniqueIndex('product_labels_name_uq').on(t.name),
+    uniqueIndex('product_labels_name_uq')
+      .on(t.name)
+      .where(sql`${t.deletedAt} is null`),
     index('product_labels_category_idx').on(t.categoryId),
   ],
 );
@@ -507,7 +515,11 @@ export const productParamTemplates = pgTable(
     updatedAt: updatedAt(),
     deletedAt: deletedAt(),
   },
-  (t) => [uniqueIndex('product_param_templates_name_uq').on(t.name)],
+  (t) => [
+    uniqueIndex('product_param_templates_name_uq')
+      .on(t.name)
+      .where(sql`${t.deletedAt} is null`),
+  ],
 );
 
 export type ProductParamTemplate = typeof productParamTemplates.$inferSelect;
@@ -546,7 +558,11 @@ export const productProtections = pgTable(
     updatedAt: updatedAt(),
     deletedAt: deletedAt(),
   },
-  (t) => [uniqueIndex('product_protections_title_uq').on(t.title)],
+  (t) => [
+    uniqueIndex('product_protections_title_uq')
+      .on(t.title)
+      .where(sql`${t.deletedAt} is null`),
+  ],
 );
 
 export type ProductProtection = typeof productProtections.$inferSelect;

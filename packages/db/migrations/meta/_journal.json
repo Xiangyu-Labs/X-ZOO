@@ -218,6 +218,13 @@
       "when": 1794913289999,
       "tag": "0030_refund_hidden_by_user",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1794917200601,
+      "tag": "0031_soft_deleted_unique",
+      "breakpoints": true
     }
   ]
 }

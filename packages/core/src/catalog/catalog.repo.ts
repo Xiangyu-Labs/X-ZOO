@@ -596,7 +596,10 @@ export async function productsByIds(
   return new Map(rows.map((r) => [r.id, r]));
 }
 
-/** `products_spu_uq` is a real index; this is the friendly check that turns it into a field error. */
+/**
+ * `products_spu_uq` is a real index over live rows; this is the friendly check that turns it into
+ * a field error. A product in the recycle bin gives its SPU up until it is restored.
+ */
 export async function spuTakenBy(
   db: DbOrTx,
   args: { spu: string; exceptProductId?: number | undefined },
@@ -607,6 +610,7 @@ export async function spuTakenBy(
     .where(
       allOf(
         eq(products.spu, args.spu),
+        isNull(products.deletedAt),
         args.exceptProductId !== undefined ? ne(products.id, args.exceptProductId) : undefined,
       ),
     )
@@ -1558,6 +1562,7 @@ export async function labelNameTakenBy(
     .where(
       allOf(
         eq(productLabels.name, args.name),
+        isNull(productLabels.deletedAt),
         args.exceptId !== undefined ? ne(productLabels.id, args.exceptId) : undefined,
       ),
     )
@@ -1673,6 +1678,7 @@ export async function labelCategoryNameTakenBy(
     .where(
       allOf(
         eq(productLabelCategories.name, args.name),
+        isNull(productLabelCategories.deletedAt),
         args.exceptId !== undefined ? ne(productLabelCategories.id, args.exceptId) : undefined,
       ),
     )
@@ -1784,6 +1790,7 @@ export async function paramTemplateNameTakenBy(
     .where(
       allOf(
         eq(productParamTemplates.name, args.name),
+        isNull(productParamTemplates.deletedAt),
         args.exceptId !== undefined ? ne(productParamTemplates.id, args.exceptId) : undefined,
       ),
     )
@@ -1921,6 +1928,7 @@ export async function protectionTitleTakenBy(
     .where(
       allOf(
         eq(productProtections.title, args.title),
+        isNull(productProtections.deletedAt),
         args.exceptId !== undefined ? ne(productProtections.id, args.exceptId) : undefined,
       ),
     )

@@ -499,13 +499,21 @@ export async function adminProductDelete(ctx: Ctx, input: { id: string }): Promi
   });
 }
 
-/** Out of the recycle bin, always as `off_shelf`. */
+/**
+ * Out of the recycle bin, always as `off_shelf`. A deleted product gives its SPU up, so a live
+ * product may have taken it since; the operator renames one of them first.
+ */
 export async function adminProductRestore(
   ctx: Ctx,
   input: { id: string },
 ): Promise<AdminProductDetail> {
   const id = Number(input.id);
   return ctx.withTx(async (tx) => {
+    const deleted = await repo.findProduct(tx, id, { includeDeleted: true });
+    if (deleted?.deletedAt && deleted.spu) {
+      const taken = await repo.spuTakenBy(tx, { spu: deleted.spu, exceptProductId: id });
+      if (taken !== null) throw new DomainError('CATALOG_PRODUCT_SPU_TAKEN');
+    }
     const { won } = await repo.restoreProduct(tx, { id, now: ctx.clock.now() });
     if (!won) {
       const exists = await repo.findProduct(tx, id, { includeDeleted: true });
