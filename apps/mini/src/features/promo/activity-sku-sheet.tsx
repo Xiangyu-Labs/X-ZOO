@@ -35,6 +35,8 @@ export interface ActivitySkuSheetProps {
   confirmText: string;
   /** Return the action's promise: the button stays locked until it settles (AGENTS 17). */
   onConfirm: (sku: ActivitySku, quantity: number) => void | Promise<unknown>;
+  /** 预售: the price and the button in the 预售 box's pink (#101). Without it, the shop's colours. */
+  tone?: 'presale' | undefined;
 }
 
 /** A SKU's spec values in words: 「玫瑰 / 大号」, or 默认规格 for a product without specs. */
@@ -65,6 +67,7 @@ export function ActivitySkuSheet({
   perOrderQuantity,
   confirmText,
   onConfirm,
+  tone,
 }: ActivitySkuSheetProps) {
   const [picked, setPicked] = useState<string | null>(initialSkuId ?? null);
   const [quantity, setQuantity] = useState(1);
@@ -88,11 +91,12 @@ export function ActivitySkuSheet({
     <Sheet
       visible={visible}
       onClose={onClose}
-      className="activity-sku"
+      className={cx('activity-sku', tone && `activity-sku--${tone}`)}
       footer={
         <Button
           block
           size="lg"
+          className="activity-sku__confirm"
           disabled={!ready}
           onClick={() => (sku && ready ? onConfirm(sku, count) : undefined)}
         >
@@ -111,7 +115,11 @@ export function ActivitySkuSheet({
           />
         </View>
         <View className="activity-sku__summary">
-          <Price value={sku?.price ?? skus[0]?.price ?? '0.00'} size="lg" />
+          <Price
+            value={sku?.price ?? skus[0]?.price ?? '0.00'}
+            size="lg"
+            className="activity-sku__price"
+          />
           <Text className="activity-sku__meta">{sku ? `已选 ${skuLabel(sku)}` : '请选择规格'}</Text>
           {sku && sku.stock > 0 && sku.stock <= 10 ? (
             <Text className="activity-sku__meta">仅剩 {sku.stock} 件</Text>

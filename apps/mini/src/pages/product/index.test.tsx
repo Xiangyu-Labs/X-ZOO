@@ -674,7 +674,10 @@ describe('商品详情', () => {
       'product__buy--groupbuy',
     );
     fireEvent.click(await screen.findByRole('button', { name: '立即开团 ¥49.00' }));
-    fireEvent.click(await screen.findByRole('button', { name: '立即开团' }));
+    const confirm = await screen.findByRole('button', { name: '立即开团' });
+    // The 预售 pink is 预售's own (#101): 拼团's sheet keeps the shop's colours.
+    expect(confirm.closest('.activity-sku')?.className).not.toContain('activity-sku--presale');
+    fireEvent.click(confirm);
     await waitFor(() =>
       expect(useCheckoutDraft.getState().draft).toMatchObject({
         kind: 'groupbuy',
@@ -808,7 +811,13 @@ describe('商品详情', () => {
       'product__buy--presale',
     );
     fireEvent.click(await screen.findByRole('button', { name: '立即预订 ¥49.00' }));
-    fireEvent.click(await screen.findByRole('button', { name: '立即预订' }));
+    // The sheet's price and button in the 预售 pink (#101).
+    const confirm = await screen.findByRole('button', { name: '立即预订' });
+    const sheet = confirm.closest('.activity-sku') as HTMLElement;
+    expect(sheet.className).toContain('activity-sku--presale');
+    expect(confirm.className).toContain('activity-sku__confirm');
+    expect(sheet.querySelector('.shop-price.activity-sku__price')).not.toBeNull();
+    fireEvent.click(confirm);
     await waitFor(() =>
       expect(useCheckoutDraft.getState().draft).toMatchObject({
         kind: 'presale',
