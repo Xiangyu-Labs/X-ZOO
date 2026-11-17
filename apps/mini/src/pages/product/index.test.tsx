@@ -92,9 +92,21 @@ const presalePromotion = (patch: Record<string, unknown> = {}) => ({
   shipAfterDays: 10,
   ...patch,
 });
+/** 限时秒杀: no seats, no shipping promise, no quota of its own; 59.00 is the SKU's own price. */
+const flashSalePromotion = (patch: Record<string, unknown> = {}) => ({
+  ...groupbuyPromotion(),
+  kind: 'flashsale' as const,
+  activityId: '11',
+  seatsRequired: null,
+  shipAfterDays: null,
+  perOrderQuantity: 999,
+  ...patch,
+});
 /** The product, sold under this campaign. */
 const onPromotion = (
-  promotion: ReturnType<typeof groupbuyPromotion | typeof presalePromotion>,
+  promotion: ReturnType<
+    typeof groupbuyPromotion | typeof presalePromotion | typeof flashSalePromotion
+  >,
 ) => ({
   'GET /api/v1/catalog/products/12': () => ({ body: productDetailFixture({ promotion }) }),
 });
@@ -806,6 +818,47 @@ describe('商品详情', () => {
       }),
     );
   });
+  it('shows the 秒杀 box and tag, and 立即抢购 buys an ordinary order at the 秒杀价', async () => {
+    serve(onPromotion(flashSalePromotion()));
+    await signIn();
+    await renderPage(<ProductPage />);
+    const box = (await waitFor(() => {
+      const found = document.querySelector('.product__promotion');
+      expect(found).not.toBeNull();
+      return found;
+    })) as HTMLElement;
+    expect(box.className).toContain('product__promotion--flashsale');
+    expect(within(box).getByText('限时秒杀⚡️')).toBeTruthy();
+    expect(within(box).getByText('距结束剩')).toBeTruthy();
+    expect(within(box).getByText('已售 128')).toBeTruthy();
+    expect(document.querySelector('#product-name .product__flashsale-badge')?.textContent).toBe(
+      '秒杀中',
+    );
+    expect(document.querySelector('.product__presale-badge')).toBeNull();
+    expect(document.querySelector('.product__price-row')).toBeNull();
+    expect(screen.queryByRole('button', { name: '加入购物车' })).toBeNull();
+    const buy = screen.getByRole('button', { name: '立即抢购 ¥49.00' });
+    expect(buy.className).toContain('product__buy--flashsale');
+
+    fireEvent.click(buy);
+    const sheet = await waitFor(() => {
+      const found = document.getElementById('sku-sheet');
+      expect(found).not.toBeNull();
+      return found as HTMLElement;
+    });
+    fireEvent.click(within(sheet).getByRole('radio', { name: '白' }));
+    fireEvent.click(within(sheet).getByRole('radio', { name: 'M' }));
+    // The sheet says what checkout charges: the 秒杀价, not the SKU's own 59.00.
+    expect(sheet.textContent).toContain('49.00');
+    expect(sheet.textContent).not.toContain('59.00');
+    fireEvent.click(screen.getAllByRole('button', { name: '立即购买' }).at(-1) as HTMLElement);
+    expect(useCheckoutDraft.getState().draft).toMatchObject({
+      source: 'buy-now',
+      kind: 'normal',
+      item: { skuId: '101', quantity: 1 },
+    });
+  });
+
   it('uses the current campaign from the product response and updates both prices on a spec choice', async () => {
     const product = productDetailFixture();
     const skus = product.skus.map((sku, index) => ({
