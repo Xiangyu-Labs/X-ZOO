@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import sharp from 'sharp';
 import { admins } from '@shop/db/schema/auth';
 import { users } from '@shop/db/schema/user';
@@ -805,54 +805,21 @@ describe('cleanOrphans', () => {
     expect(remaining.every((r) => r.driver === 's3')).toBe(true);
   });
 
-  it('covers every media-named column in the database schema', async () => {
-    const IGNORED_NON_MEDIA = new Set([
-      'attachments.storage_key',
-      'attachments.url',
-      'attachments.thumbnail_url',
-      'content_security_checks.media_url',
-      'failed_jobs.payload',
-      'effects.payload',
-      'payment_callbacks.payload',
-      'sms_logs.error_message',
-      'notification_messages.content',
-      'product_virtual_cards.card_no',
-      'product_virtual_cards.card_secret',
-      'orders.buyer_remark',
-      'orders.admin_remark',
-      'orders.custom_form',
-      'orders.cancel_reason',
-      'shipments.virtual_content',
-      'shipments.remark',
-      'order_invoices.remark',
-      'order_status_logs.message',
-      'refund_logs.message',
-      'product_reviews.content',
-      'product_reviews.reply_content',
-      'product_protections.content',
-      'wechat_identities.openid',
-      'wechat_identities.unionid',
-    ]);
-    const rows = await harness.ctx.db.execute<{ table_name: string; column_name: string }>(sql`
-      select c.table_name, c.column_name
-        from information_schema.columns c
-        join information_schema.tables t
-          on t.table_schema = c.table_schema and t.table_name = c.table_name
-       where c.table_schema = current_schema()
-         and t.table_type = 'BASE TABLE'
-         and c.udt_name in ('text', 'varchar', 'bpchar', 'json', 'jsonb', '_text', '_varchar')
-    `);
-    const mediaName = /(url|image|avatar|poster|icon|logo|html|blocks|draft|content|snapshot)/i;
-    const missing: string[] = [];
-    for (const row of rows.rows) {
-      if (!mediaName.test(row.column_name)) continue;
-      const qualified = `${row.table_name}.${row.column_name}`;
-      if (IGNORED_NON_MEDIA.has(qualified)) continue;
-      const covered =
-        repo.CONTENT_MEDIA_COLUMNS[row.table_name]?.includes(row.column_name) ?? false;
-      if (!covered) missing.push(qualified);
-    }
-    expect(missing).toEqual([]);
+  // The scan reads every text column outside the log tables, so a column
+  // nobody thought of still counts: an admin's avatar is in no list anywhere.
+  it('keeps a picture only a column nobody listed still shows', async () => {
+    const ctx = as(adminActor(adminId));
+    const avatar = await attachmentUpload(ctx, {}, png(1, 1, 4));
+    const avatarKey = await storageKeyOf(avatar.attachment.id);
+    await harness.ctx.db
+      .update(admins)
+      .set({ avatar: avatar.attachment.url })
+      .where(eq(admins.id, adminId));
+    await attachmentDeleteMany(ctx, { ids: [avatar.attachment.id] });
+
+    harness.clock.set('2026-10-05T08:00:00.000Z');
+    expect(await cleanOrphanAttachments(ctx)).toMatchObject({ removed: 0, kept: 1, failed: 0 });
+    expect(await harness.ctx.storage.exists(avatarKey)).toBe(true);
   });
 });
 
