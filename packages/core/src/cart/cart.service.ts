@@ -431,28 +431,27 @@ function isPromotionBlockedError(error: unknown): boolean {
   );
 }
 
+/**
+ * The products 再次购买 must leave out because they are on presale or in a
+ * promotion conflict. `assertPurchase` locks and reads one product at a time
+ * however many it is given, so it is asked once per distinct product, in id
+ * order (the lock order it uses itself): a batched call would only add a second
+ * pass whenever one of them is blocked.
+ */
 async function blockedNormalProducts(
   ctx: Ctx,
   tx: Tx,
   productIds: readonly number[],
 ): Promise<Set<number>> {
-  const uniqueIds = [...new Set(productIds)];
-  const assertPurchase = resolveCatalogPort().assertPurchase;
-  if (uniqueIds.length === 0 || !assertPurchase) return new Set();
-  try {
-    await assertPurchase(ctx, tx, uniqueIds, 'normal');
-    return new Set();
-  } catch (error) {
-    if (!isPromotionBlockedError(error)) throw error;
-    if (uniqueIds.length === 1) return new Set(uniqueIds);
-  }
   const blocked = new Set<number>();
-  for (const productId of uniqueIds) {
+  const assertPurchase = resolveCatalogPort().assertPurchase;
+  if (!assertPurchase) return blocked;
+  for (const productId of [...new Set(productIds)].sort((a, b) => a - b)) {
     try {
       await assertPurchase(ctx, tx, [productId], 'normal');
     } catch (error) {
-      if (isPromotionBlockedError(error)) blocked.add(productId);
-      else throw error;
+      if (!isPromotionBlockedError(error)) throw error;
+      blocked.add(productId);
     }
   }
   return blocked;
