@@ -116,6 +116,7 @@ export const LINK_ROUTES = {
   },
   groupbuyList: { label: ROUTE_LINK_LABELS.groupbuyList, params: {} },
   presaleList: { label: ROUTE_LINK_LABELS.presaleList, params: {} },
+  flashSaleList: { label: ROUTE_LINK_LABELS.flashSaleList, params: {} },
   couponCenter: { label: ROUTE_LINK_LABELS.couponCenter, params: {} },
   myCoupons: {
     label: ROUTE_LINK_LABELS.myCoupons,

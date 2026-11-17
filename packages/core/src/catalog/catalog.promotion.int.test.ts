@@ -14,6 +14,7 @@ import type { AdminProductDetail, AdminProductForm } from '@shop/contracts/catal
 import type { ProductPromotionInput } from '@shop/contracts/catalog/promotion';
 import { catalogStockPort } from './catalog.stock';
 import * as service from './catalog.service';
+import { flashSaleCardsFor, flashSaleList } from './catalog.flashsale';
 import * as storefront from './catalog.storefront.service';
 import * as presale from '../presale';
 import * as groupbuy from '../groupbuy';
@@ -481,6 +482,68 @@ describe('PROMO-004 — 限时秒杀 prices ordinary checkout only inside its wi
       .from(flashSaleActivities)
       .where(eq(flashSaleActivities.id, Number(product.promotion!.activityId)));
     expect(old).toMatchObject({ status: 'ended', endAt: new Date(FLASH_END) });
+  });
+});
+
+describe('限时秒杀 list — the 秒杀 page and the DIY 限时秒杀 block (#106)', () => {
+  it('lists only live, on-shelf 秒杀, soonest-ending first, and a pick in its own order', async () => {
+    const later = flash();
+    later.settings!.endAt = '2026-06-01T06:00:00.000Z';
+    later.settings!.skus = [{ specValues: {}, price: '19.90' }];
+    const soon = await makeProduct(harness.ctx, { name: '早结束', promotion: flash() });
+    const late = await makeProduct(harness.ctx, { name: '晚结束', promotion: later });
+    const plain = await makeProduct(harness.ctx, { name: '普通商品' });
+    const shelved = await makeProduct(harness.ctx, { name: '已下架', promotion: flash() });
+    await service.adminProductSetStatus(harness.ctx, { id: shelved.id }, { status: 'off_shelf' });
+
+    // Before the window: nothing is on 秒杀, so neither the page nor the block shows it.
+    expect((await flashSaleList(harness.ctx, { page: 1, pageSize: 20 })).items).toEqual([]);
+
+    harness.clock.set(FLASH_START);
+    const live = await flashSaleList(harness.ctx, { page: 1, pageSize: 20 });
+    expect(live.total).toBe(2);
+    expect(live.items.map((card) => card.title)).toEqual(['早结束', '晚结束']);
+    expect(live.items[0]).toMatchObject({
+      activityId: soon.promotion!.activityId,
+      productId: soon.id,
+      price: '59.00',
+      originalPrice: '99.00',
+      endAt: FLASH_END,
+      canBuy: true,
+    });
+    expect(live.items[1]).toMatchObject({ productId: late.id, price: '19.90' });
+
+    // The block's pick: products, in the picked order; idle, repeated and bad ids skipped.
+    const picked = await flashSaleCardsFor(harness.ctx, [
+      plain.id,
+      late.id,
+      shelved.id,
+      soon.id,
+      late.id,
+      'x',
+    ]);
+    expect(picked.map((card) => card.productId)).toEqual([late.id, soon.id]);
+    const paged = await flashSaleList(harness.ctx, {
+      page: 2,
+      pageSize: 1,
+      productIds: [late.id, soon.id],
+    });
+    expect(paged).toMatchObject({ total: 2, items: [{ productId: soon.id }] });
+
+    // Once a window closes its card goes; the other stays until its own end.
+    harness.clock.set(FLASH_END);
+    expect(
+      (await flashSaleList(harness.ctx, { page: 1, pageSize: 20 })).items.map((c) => c.productId),
+    ).toEqual([late.id]);
+  });
+
+  it('drops a card whose 秒杀价 no longer undercuts the SKU price, as checkout would', async () => {
+    const product = await makeProduct(harness.ctx, { promotion: flash() });
+    const body = edit(product);
+    body.skus[0]!.price = '50.00';
+    await service.adminProductUpdate(harness.ctx, { id: product.id }, body);
+    harness.clock.set(FLASH_START);
+    expect((await flashSaleList(harness.ctx, { page: 1, pageSize: 20 })).items).toEqual([]);
   });
 });
 

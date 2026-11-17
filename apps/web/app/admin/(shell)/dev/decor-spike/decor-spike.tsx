@@ -21,6 +21,8 @@ import {
   fixtureNotice,
   fixtureOrderEntry,
   fixturePresaleList,
+  fixtureFlashSaleList,
+  fixtureFlashSales,
   fixturePresales,
   fixtureProductGrid,
   fixtureProductTabs,
@@ -82,6 +84,7 @@ const FIXTURE_BLOCKS: [BlockType, string, Record<string, unknown>][] = [
   ['newcomerCoupon', 'newcomer-coupon-1', fixtureNewcomerCoupon],
   ['groupbuyList', 'groupbuy-list-1', fixtureGroupbuyList],
   ['presaleList', 'presale-list-1', fixturePresaleList],
+  ['flashSaleList', 'flash-sale-list-1', fixtureFlashSaleList],
   ['articleList', 'article-list-1', fixtureArticleList],
   ['video', 'video-1', fixtureVideo],
   ['floatingContact', 'floating-contact-1', fixtureFloatingContact],
@@ -108,6 +111,8 @@ const canvasData: DecorCanvasData = {
         return fixtureGroupbuys;
       case 'presales':
         return fixturePresales;
+      case 'flashSales':
+        return fixtureFlashSales;
       case 'articles':
         return fixtureArticles;
       default:

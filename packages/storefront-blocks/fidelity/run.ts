@@ -53,6 +53,7 @@ const BLOCKS = [
   'newcomerCoupon',
   'groupbuyList',
   'presaleList',
+  'flashSaleList',
   'articleList',
   'video',
   'floatingContact',

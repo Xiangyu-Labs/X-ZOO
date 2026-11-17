@@ -17,6 +17,7 @@ import { LinkField } from './link';
 import {
   ArticleSourceField,
   CouponSourceField,
+  FlashSaleSourceField,
   GroupbuySourceField,
   PresaleSourceField,
   ProductSourceField,
@@ -43,6 +44,7 @@ export const DECOR_CUSTOM_FIELDS: CustomFieldRenderers = {
   couponSource: (props) => <CouponSourceField {...props} />,
   groupbuySource: (props) => <GroupbuySourceField {...props} />,
   presaleSource: (props) => <PresaleSourceField {...props} />,
+  flashSaleSource: (props) => <FlashSaleSourceField {...props} />,
   articleSource: (props) => <ArticleSourceField {...props} />,
   richText: (props) => <RichTextField {...props} />,
   hotspots: (props) => <HotspotField {...props} renderLink={(link) => <LinkField {...link} />} />,

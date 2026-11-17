@@ -33,6 +33,7 @@ export const SEMANTIC_FIELD_KINDS = [
   'couponSource',
   'groupbuySource',
   'presaleSource',
+  'flashSaleSource',
   'articleSource',
   'richText',
   'hotspots',

@@ -37,6 +37,8 @@ export type {
   PersonalSlot,
   PresaleListProps,
   PresaleSummary,
+  FlashSaleListProps,
+  FlashSaleSummary,
   ProductGridProps,
   ProductSummary,
   ProductTabsProps,

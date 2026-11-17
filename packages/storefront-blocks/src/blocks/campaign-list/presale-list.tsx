@@ -17,7 +17,7 @@ import styles from './campaign-list.module.scss';
  * many cards it has; none at all without a clock (the cards then show the end
  * time, not a countdown). Shown again, it reads the clock at once.
  */
-function useTicking(serverNow: (() => number) | undefined, active: boolean): number | null {
+export function useTicking(serverNow: (() => number) | undefined, active: boolean): number | null {
   const [now, setNow] = useState<number | null>(() => (serverNow ? serverNow() : null));
   useEffect(() => {
     if (!serverNow || !active) return undefined;
@@ -28,7 +28,10 @@ function useTicking(serverNow: (() => number) | undefined, active: boolean): num
   return serverNow ? now : null;
 }
 
-/** 距结束 2天 03:04:05 · 距开始 … · 已结束; or, without a clock, 05月31日 20:00 结束. */
+/**
+ * 距结束 2天 03:04:05 · 距开始 … · 已结束; or, without a clock, 05月31日 20:00 结束.
+ * The 限时秒杀 block counts down the same way.
+ */
 export function presaleCountdown(
   campaign: Pick<PresaleSummary, 'startAt' | 'endAt'>,
   now: number | null,

@@ -271,6 +271,15 @@ export const decorBlockExamples: Record<DecorBlockType, Record<string, unknown>>
     style,
     visibility,
   },
+  flashSaleList: {
+    title: '限时秒杀',
+    showMore: true,
+    source: { mode: 'auto', limit: 3 },
+    layout: 'list',
+    showCountdown: true,
+    style,
+    visibility,
+  },
   articleList: {
     title: '资讯',
     showMore: true,

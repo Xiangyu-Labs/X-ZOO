@@ -19,6 +19,7 @@ import {
   storefrontProductExample,
   storefrontProductListQuery,
 } from './schemas';
+import { flashSaleCardExample, flashSaleListQuery, pagedFlashSaleCards } from './promotion';
 
 /**
  * Storefront catalog routes: `/api/v1/catalog/*`, plus the two lists that hang
@@ -68,6 +69,36 @@ export const catalogCategoryTree = defineRoute({
         ],
         version: '1742534400-17',
       },
+    },
+  ],
+});
+
+/**
+ * 限时秒杀: the products on 秒杀 right now, soonest-ending first — the 秒杀 list
+ * page and a DIY 限时秒杀 block's 自动 mode; with `productIds`, exactly those
+ * products in that order (the block's 手动选择). Read-only: buying at the 秒杀价
+ * is ordinary checkout, which applies it while the window holds.
+ */
+export const catalogFlashSaleList = defineRoute({
+  id: 'catalog.flashSaleList',
+  method: 'GET',
+  path: '/api/v1/catalog/flash-sales',
+  auth: 'public',
+  summary: '限时秒杀列表',
+  tags: ['catalog'],
+  query: flashSaleListQuery,
+  response: pagedFlashSaleCards,
+  examples: [
+    {
+      name: 'first-page',
+      query: { page: 1, pageSize: 20 },
+      response: { items: [flashSaleCardExample], total: 1, page: 1, pageSize: 20 },
+    },
+    {
+      // A DIY 限时秒杀 block's 手动选择: product 9 is not on 秒杀 now, so it is skipped.
+      name: 'picked',
+      query: { page: 1, pageSize: 2, productIds: '12,9' },
+      response: { items: [flashSaleCardExample], total: 1, page: 1, pageSize: 2 },
     },
   ],
 });

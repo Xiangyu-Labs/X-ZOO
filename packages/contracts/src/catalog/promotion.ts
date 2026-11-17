@@ -1,5 +1,13 @@
 import { z } from 'zod';
-import { id, instant, money, requiredMoney } from '../_conventions/common';
+import {
+  id,
+  idList,
+  instant,
+  money,
+  paged,
+  pageQuery,
+  requiredMoney,
+} from '../_conventions/common';
 import { PER_ORDER_UNLIMITED } from './per-order';
 
 export const productSaleMode = z.enum(['normal', 'presale', 'groupbuy', 'flashsale']);
@@ -137,3 +145,51 @@ export const storefrontPromotion = z.object({
   ),
 });
 export type StorefrontPromotion = z.infer<typeof storefrontPromotion>;
+
+/**
+ * One 限时秒杀 as the storefront lists it (the 秒杀 list page, a DIY 限时秒杀
+ * block): a product whose current campaign is an active flash sale inside its
+ * window `[startAt, endAt)`, on the shelf. `price` is the lowest 秒杀价 that
+ * applies now (one that undercuts its SKU's own price, as checkout charges it);
+ * `originalPrice` is that SKU's own price, struck through beside it. `stock` is
+ * the product's, summed over the SKUs on 秒杀: a flash sale has no stock of its own.
+ */
+export const flashSaleCard = z.object({
+  activityId: id,
+  productId: id,
+  title: z.string(),
+  imageUrl: z.string().nullable(),
+  price: money,
+  originalPrice: money.nullable(),
+  stock: z.number().int().min(0),
+  startAt: instant,
+  endAt: instant,
+  canBuy: z.boolean(),
+});
+export type FlashSaleCard = z.infer<typeof flashSaleCard>;
+
+export const flashSaleListQuery = pageQuery.extend({
+  /**
+   * Exactly these products' flash sales, in this order — what a DIY 限时秒杀
+   * block's 手动选择 saved. Products, not campaigns: a product saved again after
+   * its window gets a new campaign row, and the pick should follow it. A product
+   * not on 秒杀 right now (no campaign, outside its window, off the shelf) is
+   * skipped, not an error.
+   */
+  productIds: idList.optional(),
+});
+export type FlashSaleListQuery = z.infer<typeof flashSaleListQuery>;
+export const pagedFlashSaleCards = paged(flashSaleCard);
+
+export const flashSaleCardExample: FlashSaleCard = {
+  activityId: '5',
+  productId: '12',
+  title: '经典白T恤',
+  imageUrl: 'https://cdn.example.com/p/12.jpg',
+  price: '59.00',
+  originalPrice: '99.00',
+  stock: 120,
+  startAt: '2026-11-17T10:00:00+08:00',
+  endAt: '2026-11-20T23:59:59+08:00',
+  canBuy: true,
+};

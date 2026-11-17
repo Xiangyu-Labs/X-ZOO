@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { id, instant, money } from '../_conventions/common';
+import { flashSaleCard } from '../catalog/promotion';
 import { claimableCoupon } from '../coupon/schemas';
 import { groupbuyCard } from '../groupbuy/schemas';
 import { presaleCard } from '../presale/schemas';
@@ -102,6 +103,20 @@ export const presaleSource = z
   .meta(ui({ label: '预售活动', field: 'presaleSource' }));
 export type PresaleSource = z.infer<typeof presaleSource>;
 
+/**
+ * 限时秒杀 on now. `manual` holds *product* ids (a flash sale is edited in the
+ * product editor, and a product saved again after its window gets a new
+ * campaign row); a picked product shows only while it is on 秒杀. `auto`: the
+ * first `limit` on 秒杀 now, soonest-ending first.
+ */
+export const flashSaleSource = z
+  .discriminatedUnion('mode', [
+    manualRecords,
+    z.object({ mode: z.literal('auto'), limit: recordLimit }),
+  ])
+  .meta(ui({ label: '秒杀商品', field: 'flashSaleSource' }));
+export type FlashSaleSource = z.infer<typeof flashSaleSource>;
+
 /** Published articles. `category`: newest first, in one category or (no id) in all. */
 export const articleSource = z
   .discriminatedUnion('mode', [
@@ -131,6 +146,7 @@ export type DataNeed =
   | { kind: 'newUserCoupons'; limit: number }
   | { kind: 'groupbuys'; source: GroupbuySource }
   | { kind: 'presales'; source: PresaleSource }
+  | { kind: 'flashSales'; source: FlashSaleSource }
   | { kind: 'articles'; source: ArticleSource };
 
 export type DataNeedKind = DataNeed['kind'];
@@ -142,6 +158,7 @@ export const need = {
   newUserCoupons: (limit: number): DataNeed => ({ kind: 'newUserCoupons', limit }),
   groupbuys: (source: GroupbuySource): DataNeed => ({ kind: 'groupbuys', source }),
   presales: (source: PresaleSource): DataNeed => ({ kind: 'presales', source }),
+  flashSales: (source: FlashSaleSource): DataNeed => ({ kind: 'flashSales', source }),
   articles: (source: ArticleSource): DataNeed => ({ kind: 'articles', source }),
 };
 
@@ -177,6 +194,9 @@ export type GroupbuySummary = z.infer<typeof groupbuySummary>;
 export const presaleSummary = presaleCard;
 export type PresaleSummary = z.infer<typeof presaleSummary>;
 
+export const flashSaleSummary = flashSaleCard;
+export type FlashSaleSummary = z.infer<typeof flashSaleSummary>;
+
 export const articleSummary = z.object({
   id,
   title: z.string(),
@@ -196,6 +216,7 @@ export interface ResolvedByKind {
   newUserCoupons: CouponSummary[];
   groupbuys: GroupbuySummary[];
   presales: PresaleSummary[];
+  flashSales: FlashSaleSummary[];
   articles: ArticleSummary[];
 }
 
@@ -206,6 +227,8 @@ export const resolvedSlot = z.union([
   z.array(groupbuySummary),
   z.array(presaleSummary),
   z.array(articleSummary),
+  // Appended, not inserted: the api-compat check matches union members by position.
+  z.array(flashSaleSummary),
 ]);
 
 // ---------------------------------------------------------------------------

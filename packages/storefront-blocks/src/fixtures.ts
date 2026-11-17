@@ -12,6 +12,7 @@ import type {
   NoticeProps,
   OrderEntryProps,
   PresaleListProps,
+  FlashSaleListProps,
   ProductGridProps,
   ProductTabsProps,
   RichTextProps,
@@ -29,6 +30,7 @@ import type {
   GroupbuySummary,
   PersonalSlot,
   PresaleSummary,
+  FlashSaleSummary,
   ProductSummary,
 } from '@shop/contracts/decor/sources';
 
@@ -535,6 +537,44 @@ export const fixturePresales: PresaleSummary[] = [
 
 export const fixturePresaleList: PresaleListProps = {
   title: '预售',
+  showMore: true,
+  source: { mode: 'auto', limit: 3 },
+  layout: 'list',
+  showCountdown: true,
+  style: frame,
+  visibility: everyone,
+};
+
+export const fixtureFlashSales: FlashSaleSummary[] = [
+  {
+    activityId: '71',
+    productId: '18',
+    title: '纯棉短袖T恤 男女同款 宽松百搭',
+    imageUrl: square(140),
+    price: '39.90',
+    originalPrice: '69.00',
+    stock: 120,
+    startAt: campaignStart,
+    // 2 days, 3 h 4 min 5 s after FIXTURE_NOW.
+    endAt: '2026-06-03T07:04:05.000Z',
+    canBuy: true,
+  },
+  {
+    activityId: '72',
+    productId: '19',
+    title: '不锈钢保温杯 500ml 长效保温',
+    imageUrl: square(320),
+    price: '59.00',
+    originalPrice: '89.00',
+    stock: 0,
+    startAt: campaignStart,
+    endAt: '2026-06-01T05:30:00.000Z',
+    canBuy: false,
+  },
+];
+
+export const fixtureFlashSaleList: FlashSaleListProps = {
+  title: '限时秒杀',
   showMore: true,
   source: { mode: 'auto', limit: 3 },
   layout: 'list',

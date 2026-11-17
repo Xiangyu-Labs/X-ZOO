@@ -153,6 +153,14 @@ export const defaultResolvers: DataResolvers = {
     return (await presale.list(ctx, { page: 1, pageSize: source.limit })).items;
   },
 
+  async flashSales(ctx, need) {
+    const source = need.source;
+    if (source.mode === 'manual') {
+      return catalog.flashSaleCardsFor(ctx, source.ids);
+    }
+    return (await catalog.flashSaleList(ctx, { page: 1, pageSize: source.limit })).items;
+  },
+
   async articles(ctx, need) {
     const source = need.source;
     if (source.mode === 'manual') {
