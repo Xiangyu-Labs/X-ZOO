@@ -2,8 +2,9 @@ import { z } from 'zod';
 import { id, instant, money, requiredMoney } from '../_conventions/common';
 import { PER_ORDER_UNLIMITED } from './per-order';
 
-export const productSaleMode = z.enum(['normal', 'presale', 'groupbuy']);
-export const productPromotionKind = z.enum(['presale', 'groupbuy']);
+export const productSaleMode = z.enum(['normal', 'presale', 'groupbuy', 'flashsale']);
+/** `flashsale` is 限时秒杀: a per-SKU price inside a window, bought through ordinary checkout. */
+export const productPromotionKind = z.enum(['presale', 'groupbuy', 'flashsale']);
 
 /** Spec values also address new editor rows which have no persisted SKU id yet. */
 export const productPromotionSkuInput = z.object({
@@ -70,6 +71,13 @@ export const productPromotionInput = z
         code: 'custom',
         path: ['settings', 'seatsRequired'],
         message: '请填写成团人数',
+      });
+    }
+    if (value.mode === 'flashsale' && !value.settings.startAt) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['settings', 'startAt'],
+        message: '请选择秒杀开始时间',
       });
     }
     if (

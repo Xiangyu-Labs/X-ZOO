@@ -13,7 +13,7 @@ import { DomainError } from '../kernel/errors';
 import { comboKey } from './catalog.rules';
 import * as repo from './catalog.promotion.repo';
 
-type Kind = 'presale' | 'groupbuy';
+type Kind = 'presale' | 'groupbuy' | 'flashsale';
 export interface ProductPromotionPort {
   candidates(
     ctx: Ctx,
@@ -35,6 +35,14 @@ const ports = new Map<Kind, ProductPromotionPort>();
 export function registerProductPromotionPort(kind: Kind, port: ProductPromotionPort): void {
   ports.set(kind, port);
 }
+/**
+ * The atoms the product editor's sale mode checks for every registered kind: read to see a
+ * campaign's settings, write to change or end it. No route names them (the product routes
+ * carry `catalog:product:*`), so the `permissions` guard counts them as used through here.
+ */
+export function productPromotionAtoms(): string[] {
+  return [...ports.keys()].flatMap((kind) => [`${kind}:activity:read`, `${kind}:activity:write`]);
+}
 function portOf(kind: Kind): ProductPromotionPort {
   const port = ports.get(kind);
   if (!port) throw new DomainError('CATALOG_PROMOTION_INVALID');
@@ -49,6 +57,8 @@ function linkSelection(link: repo.PromotionLink | null): { kind: Kind; activityI
     return { kind: 'presale', activityId: String(link.presaleActivityId) };
   if (link?.groupbuyActivityId)
     return { kind: 'groupbuy', activityId: String(link.groupbuyActivityId) };
+  if (link?.flashSaleActivityId)
+    return { kind: 'flashsale', activityId: String(link.flashSaleActivityId) };
   return null;
 }
 function openCandidate(candidate: ProductPromotionCandidate, now: Date): boolean {

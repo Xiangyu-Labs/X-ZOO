@@ -10,7 +10,7 @@
  *
  * Only reads (and 素材 upload, which is how an editor puts a picture in) are
  * listed, and none of them requires anything in turn, so one pass is the whole
- * closure. Migrations 0013, 0015, 0018 and 0021 applied this table to the roles that
+ * closure. Migrations 0013, 0015, 0018, 0021 and 0029 applied this table to the roles that
  * existed then; a change here is a change to the next migration too, and the
  * test that reads them back says so.
  */
@@ -44,6 +44,8 @@ export const PERMISSION_REQUIREMENTS: Readonly<Record<string, readonly string[]>
     'catalog:product:read',
     ...STORAGE_FOR_EDITORS,
   ],
+  // 限时秒杀 is set in 商品编辑, which reads the product; it uploads nothing of its own.
+  'flashsale:activity:write': ['flashsale:activity:read', 'catalog:product:read'],
   // 新建/编辑管理员 picks the admin's 身份.
   'system:admin:write': ['system:role:read'],
   // 编辑用户 sets 分组 and 标签.

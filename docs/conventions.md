@@ -195,7 +195,8 @@ tools enforce there:
 
 ## Out of scope
 
-The product deliberately does not include: bargain, seckill, lottery, live streaming,
+The product deliberately does not include: bargain, a stand-alone seckill module (限时秒杀 exists
+only as a product sale mode, `flashsale`, PROMO-004), lottery, live streaming,
 distribution/agent/brokerage, points and sign-in, paid membership and levels, balance and recharge,
 payment methods other than WeChat Pay v3, store pickup and write-off, same-city delivery, a
 self-built chat, a native app, upgrade or licence phone-home, a CRUD code generator, an online file

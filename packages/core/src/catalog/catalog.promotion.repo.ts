@@ -17,7 +17,7 @@ export async function setPromotionLink(
   tx: Tx,
   input: {
     productId: number;
-    kind: 'presale' | 'groupbuy' | 'normal';
+    kind: 'presale' | 'groupbuy' | 'flashsale' | 'normal';
     activityId: number | null;
     now: Date;
   },
@@ -25,6 +25,7 @@ export async function setPromotionLink(
   const values = {
     presaleActivityId: input.kind === 'presale' ? input.activityId : null,
     groupbuyActivityId: input.kind === 'groupbuy' ? input.activityId : null,
+    flashSaleActivityId: input.kind === 'flashsale' ? input.activityId : null,
     updatedAt: input.now,
   };
   await tx
@@ -38,12 +39,16 @@ export async function setPromotionLink(
 export async function touchPromotionLink(
   tx: Tx,
   productId: number,
-  kind: 'presale' | 'groupbuy',
+  kind: 'presale' | 'groupbuy' | 'flashsale',
   activityId: number,
   now: Date,
 ): Promise<void> {
   const column =
-    kind === 'presale' ? productPromotions.presaleActivityId : productPromotions.groupbuyActivityId;
+    kind === 'presale'
+      ? productPromotions.presaleActivityId
+      : kind === 'groupbuy'
+        ? productPromotions.groupbuyActivityId
+        : productPromotions.flashSaleActivityId;
   await tx
     .update(productPromotions)
     .set({ version: sql`${productPromotions.version} + 1`, updatedAt: now })

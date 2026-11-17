@@ -19,6 +19,8 @@ export const catalogErrors = defineErrors({
   CATALOG_PROMOTION_CHANGED: { status: 409, message: '活动设置已被修改，请刷新商品后重试' },
   CATALOG_PROMOTION_INVALID: { status: 422, message: '活动设置不完整或规格不匹配，请检查后重试' },
   CATALOG_PRESALE_REQUIRED: { status: 409, message: '该商品正在预售，请从商品详情按预售方式购买' },
+  /** The form checks this per spec; core repeats it for a caller that skipped the form. */
+  CATALOG_FLASH_SALE_PRICE_TOO_HIGH: { status: 422, message: '秒杀价必须低于单独购买价' },
 
   // -- categories ----------------------------------------------------------
   CATALOG_CATEGORY_NOT_FOUND: { status: 404, message: '商品分类不存在' },
