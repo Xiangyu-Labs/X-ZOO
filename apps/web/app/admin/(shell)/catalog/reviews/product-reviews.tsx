@@ -32,7 +32,7 @@ import { BOOL_OPTIONS, REVIEW_RATING_OPTIONS, REVIEW_STATUS, reviewFields } from
 
 /**
  * Who wrote it, for staff. A shopper's review carries no copy of the profile (and an imported
- * one loses it on 注销), so it is named by the account; a 虚拟评价 by the name it was given.
+ * one loses it on 注销), so it is named by the account; a 同步评价 by the name it was given.
  */
 function reviewAuthor(row: AdminProductReview): string {
   if (row.authorNickname) return row.authorNickname;
@@ -68,7 +68,7 @@ export function ProductReviewsPage() {
   });
 
   return (
-    <PageContainer subTitle="买家评价与虚拟评价；隐藏只是不展示，删除不可恢复">
+    <PageContainer subTitle="买家评价与同步评价；隐藏只是不展示，删除不可恢复">
       <CrudTable
         route={catalogAdminReviewList}
         scrollX={1500}
@@ -92,7 +92,7 @@ export function ProductReviewsPage() {
         toolbar={
           <Can permission="catalog:review:write">
             <Button type="primary" onClick={() => seed.show()}>
-              添加虚拟评价
+              同步评价
             </Button>
           </Can>
         }
@@ -242,13 +242,13 @@ export function ProductReviewsPage() {
 
       <ModalForm
         {...seed.props}
-        title="添加虚拟评价"
+        title="同步评价"
         columns={2}
         schema={adminReviewForm}
         fields={reviewFields}
         route={catalogAdminReviewCreate}
         invalidate={[catalogAdminReviewList]}
-        successMessage="已添加"
+        successMessage="已同步"
       />
 
       <ReplyModal review={replying} onClose={() => setReplying(null)} />
