@@ -23,6 +23,7 @@ import type { Ctx } from '../kernel/context';
 import { DomainError } from '../kernel/errors';
 import { resolveActivityStocks } from '../kernel/stock-edit';
 import { toId, toIdOrNull } from '../kernel/ids';
+import { assertLiveTemplate } from '../shipping';
 import * as repo from './presale.repo';
 import { assertFullPayment, canBuy } from './presale.rules';
 
@@ -74,6 +75,9 @@ export async function adminActivityCreate(
   return ctx.withTx(async (tx) => {
     await guardProductPromotionWrite(ctx, tx, Number(body.productId), 'presale');
     assertFullPayment(body);
+    if (body.shippingTemplateId !== undefined) {
+      await assertLiveTemplate(tx, Number(body.shippingTemplateId));
+    }
     await assertSkusBelongToProduct(tx, body);
     const now = ctx.clock.now();
     const row = await repo.insertActivity(tx, {
@@ -115,6 +119,9 @@ export async function adminActivityUpdate(
     // `ended` is terminal (see `adminActivitySetStatus`): the form cannot re-open it either.
     if (locked.status === 'ended' && body.status !== 'ended') {
       throw new DomainError('PRESALE_ACTIVITY_ENDED');
+    }
+    if (body.shippingTemplateId !== undefined) {
+      await assertLiveTemplate(tx, Number(body.shippingTemplateId));
     }
     await assertSkusBelongToProduct(tx, body);
     const skus = skuValues(body);
@@ -272,6 +279,7 @@ export async function list(ctx: Ctx, query: PresaleListQuery): Promise<Paged<Pre
   const now = ctx.clock.now();
   const { rows, total } = await repo.listActivities(ctx.db, {
     visibleAt: now,
+    sellableProductOnly: true,
     productId: query.productId === undefined ? undefined : Number(query.productId),
     sortBy: 'sortOrder',
     sortOrder: 'desc',
@@ -302,6 +310,7 @@ export async function cardsFor(
   const now = ctx.clock.now();
   const { rows } = await repo.listActivities(ctx.db, {
     visibleAt: now,
+    sellableProductOnly: true,
     ids: wanted,
     productId: options.productId === undefined ? undefined : Number(options.productId),
     limit: wanted.length,
@@ -324,7 +333,7 @@ const STOREFRONT_READABLE: ReadonlySet<repo.ActivityRow['status']> = new Set([
 export async function detail(ctx: Ctx, input: { id: string }): Promise<PresaleDetail> {
   const id = Number(input.id);
   const now = ctx.clock.now();
-  const activity = await repo.findActivity(ctx.db, id);
+  const activity = await repo.findActivity(ctx.db, id, { sellableProductOnly: true });
   // A draft is not on the storefront, not even by id: ids are sequential, and
   // the form promises 「草稿不会出现在前台」. `paused` and `ended` stay
   // readable — orders link to the page — and `canBuy` says no.

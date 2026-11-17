@@ -624,8 +624,8 @@ export async function submitReturnShipment(
 export async function hide(ctx: Ctx, input: { id: string }): Promise<{ deleted: boolean }> {
   const userId = requireUserId(ctx);
   const id = Number(input.id);
-  const row = await repo.findRefund(ctx.db, id);
-  if (!row || row.userId !== userId) throw new DomainError('REFUND_NOT_FOUND');
+  const row = await repo.findMyRefund(ctx.db, id, userId);
+  if (!row) throw new DomainError('REFUND_NOT_FOUND');
   const { won } = await repo.hideRefund(ctx.db, id, userId, ctx.clock.now());
   if (!won) throw new DomainError('REFUND_NOT_ACTIONABLE', { details: { status: row.status } });
   return { deleted: true };
@@ -656,8 +656,8 @@ export async function myList(
 
 export async function myDetail(ctx: Ctx, input: { id: string }): Promise<RefundDetail> {
   const userId = requireUserId(ctx);
-  const row = await repo.findRefund(ctx.db, Number(input.id));
-  if (!row || row.userId !== userId) throw new DomainError('REFUND_NOT_FOUND');
+  const row = await repo.findMyRefund(ctx.db, Number(input.id), userId);
+  if (!row) throw new DomainError('REFUND_NOT_FOUND');
   return detail(ctx, row.id);
 }
 
@@ -1339,6 +1339,7 @@ async function applyRefundNotification(
       refundNo: args.outRefundNo,
       status: args.status,
       gatewayRefundId: args.gatewayRefundId,
+      refundFen: args.refundFen,
     });
     return handled ?? `ignored: unknown refund ${args.outRefundNo}`;
   }

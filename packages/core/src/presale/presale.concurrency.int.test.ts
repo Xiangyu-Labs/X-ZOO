@@ -128,6 +128,7 @@ async function makeActivity(
     .values({
       name: `明前龙井${sequence}`,
       imageUrl: 'https://example.test/p.png',
+      status: 'on_shelf',
       freightMode: 'free',
       price: '88.00',
       stock: warehouse,

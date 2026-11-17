@@ -211,6 +211,13 @@
       "when": 1794904663009,
       "tag": "0029_flash_sale",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1794913289999,
+      "tag": "0030_refund_hidden_by_user",
+      "breakpoints": true
     }
   ]
 }

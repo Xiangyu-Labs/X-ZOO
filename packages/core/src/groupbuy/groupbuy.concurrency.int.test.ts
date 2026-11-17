@@ -12,6 +12,7 @@ import { orderItems, orders } from '@shop/db/schema/order';
 import { users } from '@shop/db/schema/user';
 import { createTestCtx, forkTestCtx, runConcurrently, type TestCtx } from '@shop/testing';
 import type { Actor, Ctx } from '../kernel/context';
+import { DomainError } from '../kernel/errors';
 import { Money } from '../kernel/money';
 import { withTx } from '../kernel/tx';
 import { onOrderPaid, onOrderRefunded, resetOrderPorts } from '../order/ports';
@@ -126,6 +127,7 @@ async function makeActivity(
     .values({
       name: `坚果礼盒${sequence}`,
       imageUrl: 'https://example.test/p.png',
+      status: 'on_shelf',
       freightMode: 'free',
       price: '88.00',
       stock: 1_000,
@@ -824,15 +826,84 @@ describe('one shopper, two clicks', () => {
     const report = await runConcurrently(4, async () => {
       try {
         await placeOrder(racer(eager!), { userId: eager!, fixture, groupId: opened.groupId });
-        return true;
-      } catch {
-        return false;
+        return 'ok';
+      } catch (error) {
+        return error instanceof DomainError ? error.code : 'UNKNOWN';
       }
     });
 
-    expect(report.winners).toBe(1);
+    expect(report.fulfilled.filter((r) => r === 'ok')).toHaveLength(1);
+    expect(report.fulfilled.filter((r) => r === 'GROUPBUY_ALREADY_IN_GROUP')).toHaveLength(3);
     const rows = await members(opened.groupId);
     expect(rows.filter((row) => row.userId === eager)).toHaveLength(1);
+  });
+
+  it('turns direct concurrent addMember unique-index collisions into 409 GROUPBUY_ALREADY_IN_GROUP, not 500', async () => {
+    const fixture = await makeActivity({ seatsRequired: 4, stock: 20 });
+    const [leader, eager] = await makeUsers(2);
+    const opened = await placeOrder(racer(leader!), { userId: leader!, fixture });
+
+    const [orderRow1, orderRow2] = await Promise.all([
+      harness.ctx.db
+        .insert(orders)
+        .values({
+          orderNo: `ORD-GB-RACE-1`,
+          userId: eager!,
+          platform: 'wechat_mini',
+          status: 'pending_payment',
+          totalQuantity: 1,
+          itemsAmount: '59.00',
+          payableAmount: '59.00',
+          payExpiresAt: new Date(Date.now() + 60_000),
+          receiverName: '测试',
+          receiverPhone: '13800000000',
+          receiverProvince: '浙江省',
+          receiverCity: '杭州市',
+          receiverDetail: '西湖区 1 号',
+        })
+        .returning({ id: orders.id }),
+      harness.ctx.db
+        .insert(orders)
+        .values({
+          orderNo: `ORD-GB-RACE-2`,
+          userId: eager!,
+          platform: 'wechat_mini',
+          status: 'pending_payment',
+          totalQuantity: 1,
+          itemsAmount: '59.00',
+          payableAmount: '59.00',
+          payExpiresAt: new Date(Date.now() + 60_000),
+          receiverName: '测试',
+          receiverPhone: '13800000000',
+          receiverProvince: '浙江省',
+          receiverCity: '杭州市',
+          receiverDetail: '西湖区 1 号',
+        })
+        .returning({ id: orders.id }),
+    ]);
+
+    const orderIds = [orderRow1[0]!.id, orderRow2[0]!.id];
+    const results = await runConcurrently(2, async (index) => {
+      try {
+        await withTx(racer(eager!).db, (tx) =>
+          groupbuyKindHandler.afterCreate(racer(eager!), tx, orderIds[index]!, {
+            activityId: fixture.activityId,
+            groupId: opened.groupId,
+            userId: eager!,
+            quantity: 1,
+            lines: [{ skuId: fixture.skuId, quantity: 1 }],
+            seatsRequired: fixture.seatsRequired,
+            groupTtlSeconds: 86400,
+            expectedGoodsTotal: '59.00',
+          }),
+        );
+        return 'ok';
+      } catch (error) {
+        return error instanceof DomainError ? error.code : 'UNKNOWN';
+      }
+    });
+
+    expect(results.fulfilled.sort()).toEqual(['GROUPBUY_ALREADY_IN_GROUP', 'ok']);
   });
 
   /**

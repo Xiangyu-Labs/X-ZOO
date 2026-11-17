@@ -48,6 +48,8 @@ export const catalogErrors = defineErrors({
 
   // -- SKUs and stock ------------------------------------------------------
   CATALOG_SKU_NOT_FOUND: { status: 404, message: '所选规格不存在' },
+  /** `product_skus_code_uq`. An operator pasting or repeating a SKU code gets a 409. */
+  CATALOG_SKU_CODE_TAKEN: { status: 409, message: '该规格编码已被其他规格使用' },
   /** Reserved for the buyer: not enough left, or none at all. */
   CATALOG_SKU_OUT_OF_STOCK: { status: 409, message: '库存不足' },
   /**

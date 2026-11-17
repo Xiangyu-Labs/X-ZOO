@@ -6,7 +6,7 @@ import {
   productGiftCoupons,
   userCoupons,
 } from '@shop/db/schema/coupon';
-import { productCategoriesMap } from '@shop/db/schema/catalog';
+import { productCategories, productCategoriesMap, products } from '@shop/db/schema/catalog';
 import { users } from '@shop/db/schema/user';
 import {
   and,
@@ -559,6 +559,19 @@ export async function disableClosedTemplates(
 export type NewUserCouponValues = typeof userCoupons.$inferInsert;
 
 /**
+ * Serialises concurrent issuance for the same `(templateId, userId)` pair so
+ * distinct orders or concurrent admin grants with `perUserLimit > 1` (or null)
+ * compute disjoint `claim_slot` values instead of colliding on `nextSlot`.
+ */
+export async function lockIssueSlot(
+  tx: Tx,
+  args: { templateId: number; userId: number },
+): Promise<void> {
+  const key = `coupon:issue:${args.templateId}:${args.userId}`;
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`);
+}
+
+/**
  * Where this user stands with this template: the `claim_slot` their next
  * coupon would take, and how many they hold that count against the per-user
  * limit.
@@ -568,11 +581,10 @@ export type NewUserCouponValues = typeof userCoupons.$inferInsert;
  * what makes revoking the inverse of issuing — but keeps its slot, so the next
  * one takes the slot after the highest ever used.
  *
- * Two concurrent issues read the same `nextSlot` — deliberately. The insert
- * that follows is guarded by `user_coupons_slot_uq (template_id, user_id,
- * claim_slot)`, so exactly one of them lands and the loser gets nothing back
- * from `insertUserCoupon`. That is the whole per-user-limit mechanism; there is
- * no lock and no read-then-write window to lose. See SCHEMA.md §3.2.
+ * Callers issuing a coupon hold `lockIssueSlot(tx, { templateId, userId })`
+ * first so two concurrent issues do not pick the same `nextSlot` when
+ * `perUserLimit > 1` or unlimited. `user_coupons_order_gift_uq` still guards
+ * idempotent order-gift retries. See SCHEMA.md §3.2.
  */
 export async function claimState(
   db: DbOrTx,
@@ -986,5 +998,44 @@ export async function existingUserIds(
     .select({ id: users.id })
     .from(users)
     .where(and(inArray(users.id, [...userIds]), isNull(users.deletedAt)));
+  return new Set(rows.map((r) => r.id));
+}
+
+/** Which of these coupon template ids exist (not soft-deleted). */
+export async function existingLiveTemplateIds(
+  db: DbOrTx,
+  templateIds: readonly number[],
+): Promise<Set<number>> {
+  if (templateIds.length === 0) return new Set();
+  const rows = await db
+    .select({ id: couponTemplates.id })
+    .from(couponTemplates)
+    .where(and(inArray(couponTemplates.id, [...templateIds]), isNull(couponTemplates.deletedAt)));
+  return new Set(rows.map((r) => r.id));
+}
+
+/** Which of these product ids exist (not soft-deleted). */
+export async function existingLiveProductIds(
+  db: DbOrTx,
+  productIds: readonly number[],
+): Promise<Set<number>> {
+  if (productIds.length === 0) return new Set();
+  const rows = await db
+    .select({ id: products.id })
+    .from(products)
+    .where(and(inArray(products.id, [...productIds]), isNull(products.deletedAt)));
+  return new Set(rows.map((r) => r.id));
+}
+
+/** Which of these category ids exist. */
+export async function existingLiveCategoryIds(
+  db: DbOrTx,
+  categoryIds: readonly number[],
+): Promise<Set<number>> {
+  if (categoryIds.length === 0) return new Set();
+  const rows = await db
+    .select({ id: productCategories.id })
+    .from(productCategories)
+    .where(inArray(productCategories.id, [...categoryIds]));
   return new Set(rows.map((r) => r.id));
 }

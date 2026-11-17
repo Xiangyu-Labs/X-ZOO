@@ -530,7 +530,11 @@ export async function insertStatusLog(tx: Tx, values: StatusLogValues): Promise<
 
 export async function countStatusLogs(
   db: DbOrTx,
-  args: { orderId: number; changeType: StatusLogValues['changeType'] },
+  args: {
+    orderId: number;
+    changeType: StatusLogValues['changeType'];
+    operatorKind?: StatusLogValues['operatorKind'];
+  },
 ): Promise<number> {
   const rows = await db
     .select({ n: sql<number>`count(*)::int` })
@@ -539,6 +543,9 @@ export async function countStatusLogs(
       and(
         eq(orderStatusLogs.orderId, args.orderId),
         eq(orderStatusLogs.changeType, args.changeType),
+        args.operatorKind === undefined
+          ? undefined
+          : eq(orderStatusLogs.operatorKind, args.operatorKind),
       ),
     );
   return Number(rows[0]?.n ?? 0);

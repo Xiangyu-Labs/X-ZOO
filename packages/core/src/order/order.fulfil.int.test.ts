@@ -2,6 +2,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { cartItems } from '@shop/db/schema/cart';
 import { productSkus, productVirtualCards, products } from '@shop/db/schema/catalog';
+import { couponTemplates, userCoupons } from '@shop/db/schema/coupon';
+import { refunds } from '@shop/db/schema/refund';
 import {
   orderItems,
   orderStatusLogs,
@@ -987,6 +989,86 @@ describe('the paid hook and virtual delivery', () => {
 
     expect(await autoDeliver(harness.ctx, placed.orderId)).toMatchObject({ delivered: false });
     expect(await harness.ctx.db.select().from(shipments)).toHaveLength(0);
+  });
+
+  it('still grants order gift coupons when an operator ships before autoDeliver runs', async () => {
+    await harness.ctx.db.insert(couponTemplates).values({
+      name: '满额赠券',
+      scope: 'all_products',
+      claimMode: 'order_gift',
+      status: 'active',
+      discountAmount: '5.00',
+      minSpend: '10.00',
+      validityMode: 'days_after_claim',
+      validDays: 7,
+      isUnlimitedSupply: true,
+      giftMinOrderAmount: '10.00',
+    });
+    const physical = await makeProduct();
+    const company = await makeExpressCompany();
+    const placed = await paidOrder([physical]);
+    const adminId = await makeAdmin();
+
+    // Operator clicks ship right after payment, before worker runs autoDeliver.
+    await order.adminShip(asAdmin(adminId), { id: String(placed.orderId) }, expressBody(company));
+    expect((await orderRow(placed.orderId)).status).toBe('shipped');
+
+    const outcome = await autoDeliver(harness.ctx, placed.orderId);
+    expect(outcome.delivered).toBe(false);
+    const gifts = await harness.ctx.db
+      .select()
+      .from(userCoupons)
+      .where(eq(userCoupons.sourceOrderId, placed.orderId));
+    expect(gifts).toHaveLength(1);
+  });
+
+  it('does not treat a manual virtual shipment log as system auto-delivery idempotency', async () => {
+    const manual = await makeProduct('virtual_manual');
+    const card = await makeProduct('virtual_card');
+    await makeCards(card, 1);
+    const placed = await paidOrder([manual, card]);
+    const adminId = await makeAdmin();
+
+    await order.adminShip(
+      asAdmin(adminId),
+      { id: String(placed.orderId) },
+      {
+        deliveryMode: 'virtual',
+        virtualContent: '手动开通账号',
+        lines: [{ orderItemId: String(placed.itemIds[0]!), quantity: 1 }],
+      },
+    );
+    expect((await orderRow(placed.orderId)).status).toBe('paid');
+
+    const outcome = await autoDeliver(harness.ctx, placed.orderId);
+    expect(outcome.delivered).toBe(true);
+    expect(outcome.fulfilled).toBe(true);
+    expect((await orderRow(placed.orderId)).status).toBe('shipped');
+  });
+
+  it('counts buyer-hidden succeeded refunds in rangeTotals', async () => {
+    const physical = await makeProduct();
+    const placed = await paidOrder([physical]);
+    await harness.ctx.db.insert(refunds).values({
+      refundNo: 'RF-HIDDEN-001',
+      outRefundNo: 'OUT-RF-HIDDEN-001',
+      orderId: placed.orderId,
+      userId: placed.userId,
+      kind: 'refund_only',
+      quantity: 1,
+      reason: '不想要了',
+      amount: '60.00',
+      refundedAmount: '60.00',
+      status: 'succeeded',
+      succeededAt: new Date(NOW),
+      hiddenByUserAt: new Date(NOW),
+    });
+
+    const totals = await fulfilRepo.rangeTotals(harness.ctx.db, {
+      from: new Date('2026-05-31T00:00:00.000Z'),
+      to: new Date('2026-06-02T00:00:00.000Z'),
+    });
+    expect(totals.refundedAmount).toBe('60.00');
   });
 });
 

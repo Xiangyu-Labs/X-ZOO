@@ -10,11 +10,13 @@ import { Money } from '../kernel/money';
 import { orderConfig } from '../order';
 import {
   computeFreight,
+  continuationCount,
   firstAndContinuation,
   regionFor,
   unitsOf,
   type ChargeMode,
   type FreightInputLine,
+  type FreightRegion,
   type FreightTemplateRules,
 } from './shipping.freight.rules';
 import * as cityRepo from './shipping.repo';
@@ -154,12 +156,7 @@ function explainFreeRules(
 }
 
 function arithmetic(
-  region: {
-    firstUnit: number;
-    firstPriceFen: number;
-    additionalUnit: number;
-    additionalPriceFen: number;
-  },
+  region: FreightRegion,
   units: number,
   unit: string,
   fee: number,
@@ -172,7 +169,7 @@ function arithmetic(
   if (region.additionalUnit <= 0) {
     return `${first}；续费单位为 0，超出部分不再加收，运费 ${yuan(fee)}`;
   }
-  const times = Math.ceil((units - region.firstUnit) / region.additionalUnit);
+  const times = continuationCount(region, units);
   return `${first} + 续 ${times} 次（每 ${region.additionalUnit} ${unit} ${yuan(region.additionalPriceFen)}）= ${yuan(fee)}`;
 }
 
@@ -182,8 +179,8 @@ function trialLine(mode: ChargeMode, units: number, amountFen: number): FreightI
     index: 0,
     skuId: 0,
     quantity: mode === 'quantity' ? units : 1,
-    weight: mode === 'weight' ? units * 1000 : 0,
-    volume: mode === 'volume' ? units * 1_000_000 : 0,
+    weight: mode === 'weight' ? Math.round(units * 1000) : 0,
+    volume: mode === 'volume' ? Math.round(units * 1_000_000) : 0,
     amountFen,
     mode: 'template',
     fixedFreightFen: 0,

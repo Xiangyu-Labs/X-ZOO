@@ -350,4 +350,66 @@ describe('computeFreight', () => {
   it('ships a line whose template has gone missing rather than crashing checkout', () => {
     expect(quote([line({ templateId: 999 })], [template()]).totalFen).toBe(0);
   });
+
+  it('avoids IEEE-754 float boundary doubling on fractional weight and volume units', () => {
+    // Classic JS float trap: `(1.1 - 1) / 0.1 === 1.0000000000000009` -> Math.ceil === 2.
+    const byWeight = template({
+      chargeMode: 'weight',
+      regions: [
+        region({ firstUnit: 1, firstPriceFen: 1000, additionalUnit: 0.1, additionalPriceFen: 500 }),
+      ],
+    });
+    expect(quote([line({ weight: 1100 })], [byWeight]).totalFen).toBe(1500);
+
+    // Classic JS float trap: `0.1 + 0.2 === 0.30000000000000004 > 0.3` triggers continuation.
+    const exactThreshold = template({
+      chargeMode: 'weight',
+      regions: [
+        region({
+          firstUnit: 0.3,
+          firstPriceFen: 1000,
+          additionalUnit: 0.1,
+          additionalPriceFen: 500,
+        }),
+      ],
+    });
+    expect(
+      quote(
+        [line({ index: 0, skuId: 1, weight: 100 }), line({ index: 1, skuId: 2, weight: 200 })],
+        [exactThreshold],
+      ).totalFen,
+    ).toBe(1000);
+
+    // Same trap for volume (`0.1 + 0.2 = 0.3` m^3 and `1.1` m^3).
+    const byVolume = template({
+      chargeMode: 'volume',
+      regions: [
+        region({ firstUnit: 1, firstPriceFen: 1000, additionalUnit: 0.1, additionalPriceFen: 500 }),
+      ],
+    });
+    expect(quote([line({ volume: 1_100_000 })], [byVolume]).totalFen).toBe(1500);
+
+    const exactVolThreshold = template({
+      chargeMode: 'volume',
+      hasFreeRules: true,
+      freeRules: [{ cityIds: new Set([330000]), minUnits: 0.3, minAmountFen: null }],
+      regions: [
+        region({
+          firstUnit: 0.3,
+          firstPriceFen: 1000,
+          additionalUnit: 0.1,
+          additionalPriceFen: 500,
+        }),
+      ],
+    });
+    expect(
+      quote(
+        [
+          line({ index: 0, skuId: 1, volume: 100_000, amountFen: 100 }),
+          line({ index: 1, skuId: 2, volume: 200_000, amountFen: 100 }),
+        ],
+        [exactVolThreshold],
+      ).totalFen,
+    ).toBe(0);
+  });
 });

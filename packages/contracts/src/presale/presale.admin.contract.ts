@@ -83,6 +83,7 @@ export const presaleAdminActivityCreate = defineRoute({
     'CATALOG_PROMOTION_INVALID',
     'PRESALE_SKU_NOT_IN_ACTIVITY',
     'PRESALE_DEPOSIT_NOT_SUPPORTED',
+    'SHIPPING_TEMPLATE_NOT_FOUND',
   ],
   examples: [
     {
@@ -131,6 +132,7 @@ export const presaleAdminActivityUpdate = defineRoute({
     'PRESALE_STOCK_CHANGED',
     'PRESALE_ACTIVITY_ENDED',
     'PRESALE_ACTIVITY_SKU_IN_USE',
+    'SHIPPING_TEMPLATE_NOT_FOUND',
   ],
   examples: [
     {

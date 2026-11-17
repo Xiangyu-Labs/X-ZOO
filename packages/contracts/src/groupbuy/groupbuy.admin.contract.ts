@@ -97,6 +97,7 @@ export const groupbuyAdminActivityCreate = defineRoute({
     'CATALOG_PROMOTION_CONFLICT',
     'CATALOG_PROMOTION_INVALID',
     'GROUPBUY_SKU_NOT_IN_ACTIVITY',
+    'SHIPPING_TEMPLATE_NOT_FOUND',
   ],
   examples: [
     {
@@ -145,6 +146,7 @@ export const groupbuyAdminActivityUpdate = defineRoute({
     'GROUPBUY_STOCK_CHANGED',
     'GROUPBUY_ACTIVITY_ENDED',
     'GROUPBUY_ACTIVITY_SKU_IN_USE',
+    'SHIPPING_TEMPLATE_NOT_FOUND',
   ],
   examples: [
     {

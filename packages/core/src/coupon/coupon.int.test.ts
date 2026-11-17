@@ -5,7 +5,11 @@ import { couponTemplates, productGiftCoupons, userCoupons } from '@shop/db/schem
 import { orders } from '@shop/db/schema/order';
 import { userLabels, userLabelsMap, users } from '@shop/db/schema/user';
 import { createTestCtx, type TestCtx } from '@shop/testing';
-import { MAX_GRANT_AUDIENCE, type CouponTemplateForm } from '@shop/contracts/coupon/schemas';
+import {
+  couponTemplateForm,
+  MAX_GRANT_AUDIENCE,
+  type CouponTemplateForm,
+} from '@shop/contracts/coupon/schemas';
 import { DomainError } from '../kernel/errors';
 import { Money } from '../kernel/money';
 import type { Actor, Ctx } from '../kernel/context';
@@ -234,6 +238,40 @@ describe('admin templates', () => {
     expect((await service.adminDetail(harness.ctx, { id: created.id })).productIds).toEqual([
       String(b),
     ]);
+  });
+
+  it('rejects discountAmount 0.00 in contract and missing or soft-deleted scope links in service', async () => {
+    expect(couponTemplateForm.safeParse(form({ discountAmount: '0.00' })).success).toBe(false);
+
+    const live = await makeProduct();
+    const deletedProduct = await makeProduct();
+    await harness.ctx.db
+      .update(products)
+      .set({ deletedAt: harness.clock.now() })
+      .where(eq(products.id, deletedProduct));
+
+    await expect(
+      service.adminCreate(
+        harness.ctx,
+        form({ scope: 'products', productIds: [String(deletedProduct)] }),
+      ),
+    ).rejects.toMatchObject({ code: 'CATALOG_PRODUCT_NOT_FOUND' });
+
+    await expect(
+      service.adminCreate(harness.ctx, form({ scope: 'categories', categoryIds: ['999999'] })),
+    ).rejects.toMatchObject({ code: 'CATALOG_CATEGORY_NOT_FOUND' });
+
+    const created = await service.adminCreate(
+      harness.ctx,
+      form({ scope: 'products', productIds: [String(live)] }),
+    );
+    await expect(
+      service.adminUpdate(
+        harness.ctx,
+        { id: created.id },
+        form({ scope: 'categories', categoryIds: ['999999'] }),
+      ),
+    ).rejects.toMatchObject({ code: 'CATALOG_CATEGORY_NOT_FOUND' });
   });
 
   it('applies the TOTAL DELTA to the remaining supply, instead of resetting it', async () => {

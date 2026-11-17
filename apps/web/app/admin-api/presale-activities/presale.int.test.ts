@@ -133,6 +133,7 @@ async function seedProduct(): Promise<{ productId: string; skuId: string }> {
     .values({
       name: '明前龙井',
       imageUrl: 'https://example.test/p.png',
+      status: 'on_shelf',
       freightMode: 'free',
       price: '88.00',
       stock: 1_000,

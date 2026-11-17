@@ -35,6 +35,7 @@ import { refundAftersalePolicy, refundConfig } from './refund.config';
 import * as repo from './refund.repo';
 import * as admin from './refund.admin';
 import * as service from './refund.service';
+import * as systemService from './refund.system.service';
 
 /**
  * After-sales, one caller at a time.
@@ -586,6 +587,53 @@ describe('a refund that goes the way it should', () => {
     expect(items.items).toHaveLength(1);
     expect(items.items[0]!.refundableQuantity).toBe(2);
     expect(items.items[0]!.blockedReason).toBeNull();
+  });
+
+  it('buyer hide sets hiddenByUserAt without hiding the refund from admin or idempotency', async () => {
+    const order = await paidOrder();
+    const id = await approvedRefund(order, 2);
+    gateway.behaviour.refundStatus = 'SUCCESS';
+    await service.executeRefund(racer(), id);
+
+    await service.hide(racer(userActor(order.userId)), { id: String(id) });
+
+    const row = await refundRow(id);
+    expect(row.hiddenByUserAt).not.toBeNull();
+    expect(row.deletedAt).toBeNull();
+
+    // Buyer no longer sees it in their list or detail.
+    const buyerList = await service.myList(racer(userActor(order.userId)), {
+      state: 'succeeded',
+      page: 1,
+      pageSize: 20,
+    });
+    expect(buyerList.items).toEqual([]);
+    await expect(
+      service.myDetail(racer(userActor(order.userId)), { id: String(id) }),
+    ).rejects.toMatchObject({ code: 'REFUND_NOT_FOUND' });
+
+    // Admin list, detail and remark still see and edit the record.
+    const adminCtx = racer({
+      kind: 'admin',
+      id: order.adminId,
+      permissions: [],
+      isSuper: true,
+    });
+    const adminView = await admin.adminDetail(adminCtx, { id: String(id) });
+    expect(adminView.id).toBe(String(id));
+    await expect(
+      admin.adminRemark(adminCtx, { id: String(id), adminRemark: '买家已隐藏但后台可备注' }),
+    ).resolves.toMatchObject({ adminRemark: '买家已隐藏但后台可备注' });
+
+    // System refund idempotency replay finds the hidden succeeded refund instead of failing REFUND_AMOUNT_ZERO.
+    await expect(
+      harness.ctx.withTx((tx) =>
+        systemService.refundSystemInitiated(tx, harness.ctx, {
+          orderId: order.orderId,
+          reason: 'groupbuy_failed',
+        }),
+      ),
+    ).resolves.toMatchObject({ refundId: id, created: false });
   });
 });
 

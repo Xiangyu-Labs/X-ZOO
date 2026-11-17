@@ -98,7 +98,7 @@ export const groupbuyKindHandler: OrderKindHandler = {
     const groupId = readSelection(draft, 'groupId');
     const now = ctx.clock.now();
 
-    const activity = await repo.findActivity(tx, activityId);
+    const activity = await repo.findActivity(tx, activityId, { sellableProductOnly: true });
     if (!activity) throw new DomainError('GROUPBUY_ACTIVITY_NOT_FOUND');
     assertActivityOpen(activity, now);
 

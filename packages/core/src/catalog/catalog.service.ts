@@ -25,8 +25,11 @@ import type { DbOrTx, Tx } from '@shop/db';
 import { randomBytes } from 'node:crypto';
 
 import { hasPermission } from '../auth/rbac';
+import { existingLiveTemplateIds } from '../coupon';
 import { DomainError } from '../kernel/errors';
+import { foreignKeyViolationOf, isUniqueViolation } from '../kernel/pg-errors';
 import { shopDay } from '../kernel/shop-time';
+import { assertLiveTemplate } from '../shipping';
 import { descriptionBlocksOf, descriptionHtmlOf, descriptionOut } from './catalog.description';
 import { requireAdminId, type Ctx } from '../kernel/context';
 import { catalogConfig } from './catalog.config';
@@ -405,7 +408,7 @@ export async function adminProductUpdate(
     const existing = await lockPromotionProduct(tx, id);
     if (!existing || existing.deletedAt) throw new DomainError('CATALOG_PRODUCT_NOT_FOUND');
 
-    await assertLinksExist(tx, body);
+    await assertLinksExist(tx, body, id);
     if (body.spu) {
       const taken = await repo.spuTakenBy(tx, { spu: body.spu, exceptProductId: id });
       if (taken !== null) throw new DomainError('CATALOG_PRODUCT_SPU_TAKEN');
@@ -767,17 +770,17 @@ export async function adminVirtualCardVoid(
     if (!product) throw new DomainError('CATALOG_PRODUCT_NOT_FOUND');
 
     const cardIds = body.cardIds.map(Number);
-    const voided = await repo.voidVirtualCards(tx, { productId, cardIds, now: ctx.clock.now() });
-
-    const cards = await repo.listVirtualCards(tx, {
+    const voidedSkuIds = await repo.voidVirtualCards(tx, {
       productId,
-      offset: 0,
-      limit: 1,
+      cardIds,
+      now: ctx.clock.now(),
     });
-    const skuId = cards.rows[0]?.skuId;
-    const stock = skuId === undefined ? 0 : await repo.syncCardStock(tx, skuId);
+    for (const skuId of new Set(voidedSkuIds)) {
+      await repo.syncCardStock(tx, skuId);
+    }
     await repo.rollupProduct(tx, productId);
-    return { voided, stock };
+    const updated = await repo.findProduct(tx, productId);
+    return { voided: voidedSkuIds.length, stock: updated?.stock ?? 0 };
   });
 }
 
@@ -1021,7 +1024,7 @@ function toStoredFormField(field: ProductCustomFormField): {
 }
 
 /** Every referenced row must exist, or the whole save is a 404 rather than a half-saved product. */
-async function assertLinksExist(tx: Tx, body: AdminProductForm): Promise<void> {
+async function assertLinksExist(tx: Tx, body: AdminProductForm, productId?: number): Promise<void> {
   const categoryIds = body.categoryIds.map(Number);
   const found = await repo.existingCategoryIds(tx, categoryIds);
   if (found.size !== new Set(categoryIds).size) {
@@ -1039,6 +1042,37 @@ async function assertLinksExist(tx: Tx, body: AdminProductForm): Promise<void> {
     const protections = await repo.existingProtectionIds(tx, protectionIds);
     if (protections.size !== new Set(protectionIds).size) {
       throw new DomainError('CATALOG_PROTECTION_NOT_FOUND');
+    }
+  }
+
+  if (body.shippingTemplateId !== undefined) {
+    await assertLiveTemplate(tx, Number(body.shippingTemplateId));
+  }
+
+  const recommendedIds = body.recommendedProductIds.map(Number).filter((id) => id !== productId);
+  if (recommendedIds.length > 0) {
+    const products = await repo.existingProductIds(tx, recommendedIds);
+    if (products.size !== new Set(recommendedIds).size) {
+      throw new DomainError('CATALOG_PRODUCT_NOT_FOUND');
+    }
+  }
+
+  const giftCouponIds = body.giftCouponIds.map(Number);
+  if (giftCouponIds.length > 0) {
+    const templates = await existingLiveTemplateIds(tx, giftCouponIds);
+    if (templates.size !== new Set(giftCouponIds).size) {
+      throw new DomainError('COUPON_TEMPLATE_NOT_FOUND');
+    }
+  }
+
+  const paramTemplateIds = body.params
+    .map((p) => p.templateId)
+    .filter((id): id is string => id !== null && id !== undefined)
+    .map(Number);
+  if (paramTemplateIds.length > 0) {
+    const paramTemplates = await repo.existingParamTemplateIds(tx, paramTemplateIds);
+    if (paramTemplates.size !== new Set(paramTemplateIds).size) {
+      throw new DomainError('CATALOG_PARAM_TEMPLATE_NOT_FOUND');
     }
   }
 }
@@ -1098,6 +1132,15 @@ async function reconcileSkus(
   body: AdminProductForm,
   now: Date,
 ): Promise<void> {
+  const seenSkuCodes = new Set<string>();
+  for (const input of body.skus) {
+    if (!input.skuCode) continue;
+    if (seenSkuCodes.has(input.skuCode)) {
+      throw new DomainError('CATALOG_SKU_CODE_TAKEN');
+    }
+    seenSkuCodes.add(input.skuCode);
+  }
+
   const axisOrder = body.specs.map((s) => s.name);
   const existing = await repo.listSkus(tx, productId);
   const byCombo = new Map(existing.map((sku) => [comboKey(sku.specValues), sku]));
@@ -1154,15 +1197,22 @@ async function reconcileSkus(
         }
       }
     } else {
-      const inserted = await repo.insertSku(tx, {
-        ...shared,
-        productId,
-        skuCode: input.skuCode ?? (await uniqueSkuCode(tx)),
-        stock: body.kind === 'virtual_card' ? 0 : input.stock,
-        sales: 0,
-        createdAt: now,
-      });
-      keptIds.add(inserted.id);
+      try {
+        const inserted = await repo.insertSku(tx, {
+          ...shared,
+          productId,
+          skuCode: input.skuCode ?? (await uniqueSkuCode(tx)),
+          stock: body.kind === 'virtual_card' ? 0 : input.stock,
+          sales: 0,
+          createdAt: now,
+        });
+        keptIds.add(inserted.id);
+      } catch (error) {
+        if (isUniqueViolation(error, 'product_skus_code_uq')) {
+          throw new DomainError('CATALOG_SKU_CODE_TAKEN');
+        }
+        throw error;
+      }
     }
   }
 
@@ -1182,19 +1232,13 @@ async function reconcileSkus(
   } catch (error) {
     // `order_items`, group-buy and presale SKUs all RESTRICT: a combination
     // somebody bought stays, and the operator is told to hide it instead.
-    if (isForeignKeyViolation(error)) {
+    if (foreignKeyViolationOf(error)?.kind === 'referenced') {
       throw new DomainError('CATALOG_SKU_IN_USE', {
         details: { specTexts: dropped.map((sku) => sku.specText) },
       });
     }
     throw error;
   }
-}
-
-function isForeignKeyViolation(error: unknown): boolean {
-  const code = (error as { code?: unknown } | null)?.code;
-  const causeCode = (error as { cause?: { code?: unknown } } | null)?.cause?.code;
-  return code === '23503' || causeCode === '23503';
 }
 
 /**

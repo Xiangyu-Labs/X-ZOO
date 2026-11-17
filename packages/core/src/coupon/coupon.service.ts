@@ -22,7 +22,7 @@ import type {
 } from '@shop/contracts/coupon/schemas';
 import { MAX_GRANT_AUDIENCE } from '@shop/contracts/coupon/schemas';
 import type { PageQuery } from '@shop/contracts/conventions';
-import type { Tx } from '@shop/db';
+import type { DbOrTx, Tx } from '@shop/db';
 import { DomainError } from '../kernel/errors';
 import { Money } from '../kernel/money';
 import { requireUserId, type Ctx } from '../kernel/context';
@@ -98,13 +98,15 @@ export async function adminCreate(
   body: CouponTemplateForm,
 ): Promise<CouponTemplateDetail> {
   return ctx.withTx(async (tx) => {
+    const links = scopeLinksOf(body);
+    await assertScopeLinksExist(tx, links);
     const now = ctx.clock.now();
     const row = await repo.insertTemplate(tx, {
       ...templateValues(body),
       createdAt: now,
       updatedAt: now,
     });
-    await repo.replaceScopeLinks(tx, row.id, scopeLinksOf(body));
+    await repo.replaceScopeLinks(tx, row.id, links);
     return toDetail(row, 0, { productIds: body.productIds, categoryIds: body.categoryIds });
   });
 }
@@ -142,9 +144,12 @@ export async function adminUpdate(
     }
     values.updatedAt = ctx.clock.now();
 
+    const links = scopeLinksOf(body);
+    await assertScopeLinksExist(tx, links);
+
     const { won } = await repo.updateTemplate(tx, id, values);
     if (!won) throw new DomainError('COUPON_TEMPLATE_NOT_FOUND');
-    await repo.replaceScopeLinks(tx, id, scopeLinksOf(body));
+    await repo.replaceScopeLinks(tx, id, links);
 
     const row = (await repo.findTemplate(tx, id))!;
     const issued = await repo.issuedCounts(tx, [id]);
@@ -270,7 +275,7 @@ async function grantInTx(
 ): Promise<CouponGrantResult> {
   const skippedUserIds: string[] = [];
   let granted = 0;
-  for (const userId of [...new Set(userIds)]) {
+  for (const userId of [...new Set(userIds)].sort((a, b) => a - b)) {
     const outcome = await issueOne(tx, ctx, {
       template,
       userId,
@@ -773,7 +778,8 @@ export async function grantOrderGifts(
   }
 
   let granted = 0;
-  for (const template of candidates.values()) {
+  const ordered = [...candidates.values()].sort((a, b) => a.id - b.id);
+  for (const template of ordered) {
     const outcome = await issueOne(tx, ctx, {
       template,
       userId: input.userId,
@@ -828,6 +834,8 @@ async function issueOne(
   const { template, userId } = input;
   const now = ctx.clock.now();
 
+  await repo.lockIssueSlot(tx, { templateId: template.id, userId });
+
   const { nextSlot: slot, held } = await repo.claimState(tx, {
     templateId: template.id,
     userId,
@@ -874,6 +882,34 @@ async function issueOne(
 // ---------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------
+
+/** Validate referenced product and category ids before replacing coupon scope links. */
+async function assertScopeLinksExist(
+  tx: Tx,
+  links: { productIds: readonly number[]; categoryIds: readonly number[] },
+): Promise<void> {
+  const uniqueProductIds = [...new Set(links.productIds)];
+  if (uniqueProductIds.length > 0) {
+    const foundProducts = await repo.existingLiveProductIds(tx, uniqueProductIds);
+    if (foundProducts.size !== uniqueProductIds.length) {
+      throw new DomainError('CATALOG_PRODUCT_NOT_FOUND');
+    }
+  }
+  const uniqueCategoryIds = [...new Set(links.categoryIds)];
+  if (uniqueCategoryIds.length > 0) {
+    const foundCategories = await repo.existingLiveCategoryIds(tx, uniqueCategoryIds);
+    if (foundCategories.size !== uniqueCategoryIds.length) {
+      throw new DomainError('CATALOG_CATEGORY_NOT_FOUND');
+    }
+  }
+}
+
+export async function existingLiveTemplateIds(
+  db: DbOrTx,
+  templateIds: readonly number[],
+): Promise<Set<number>> {
+  return repo.existingLiveTemplateIds(db, templateIds);
+}
 
 /** The form carries ids as decimal strings; the columns are bigints. */
 function scopeLinksOf(body: CouponTemplateForm): { productIds: number[]; categoryIds: number[] } {

@@ -43,6 +43,7 @@ export {
   listMine,
   listNewUser,
   // the domain API other domains call
+  existingLiveTemplateIds,
   grantNewUser,
   grantOrderGifts,
   listOrderGifts,

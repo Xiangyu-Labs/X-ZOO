@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { foreignKeyViolationOf, pgErrorOf } from './pg-errors';
+import { foreignKeyViolationOf, isUniqueViolation, pgErrorOf } from './pg-errors';
 
 /** node-postgres' DatabaseError, as drizzle wraps it. */
 const wrapped = (pg: Record<string, string>): Error =>
@@ -52,5 +52,17 @@ describe('foreignKeyViolationOf', () => {
 
   it('is null for any other code', () => {
     expect(foreignKeyViolationOf(wrapped({ code: '23505' }))).toBeNull();
+  });
+});
+
+describe('isUniqueViolation', () => {
+  it('matches wrapped 23505 errors and optional constraint names', () => {
+    const err = new Error('tx failed', {
+      cause: wrapped({ code: '23505', constraint: 'groupbuy_members_group_user_uq' }),
+    });
+    expect(isUniqueViolation(err)).toBe(true);
+    expect(isUniqueViolation(err, 'groupbuy_members_group_user_uq')).toBe(true);
+    expect(isUniqueViolation(err, 'other_uq')).toBe(false);
+    expect(isUniqueViolation(wrapped({ code: '23503' }))).toBe(false);
   });
 });

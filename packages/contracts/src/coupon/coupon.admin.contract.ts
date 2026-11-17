@@ -84,6 +84,7 @@ export const couponAdminCreate = defineRoute({
   body: couponTemplateForm,
   response: couponTemplateDetail,
   status: 201,
+  errors: ['CATALOG_PRODUCT_NOT_FOUND', 'CATALOG_CATEGORY_NOT_FOUND'],
   examples: [
     {
       name: 'fixed-window',
@@ -154,7 +155,7 @@ export const couponAdminUpdate = defineRoute({
   params: templateParams,
   body: couponTemplateForm,
   response: couponTemplateDetail,
-  errors: ['COUPON_TEMPLATE_NOT_FOUND'],
+  errors: ['COUPON_TEMPLATE_NOT_FOUND', 'CATALOG_PRODUCT_NOT_FOUND', 'CATALOG_CATEGORY_NOT_FOUND'],
   examples: [
     {
       name: 'rename',
