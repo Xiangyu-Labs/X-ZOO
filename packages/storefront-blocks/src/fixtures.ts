@@ -571,12 +571,26 @@ export const fixtureFlashSales: FlashSaleSummary[] = [
     endAt: '2026-06-01T05:30:00.000Z',
     canBuy: false,
   },
+  {
+    // Not started: 1 h 30 min after FIXTURE_NOW.
+    activityId: '73',
+    productId: '20',
+    title: '真无线蓝牙耳机 降噪长续航',
+    imageUrl: square(200),
+    price: '99.00',
+    originalPrice: '159.00',
+    stock: 40,
+    startAt: '2026-06-01T05:30:00.000Z',
+    endAt: '2026-06-01T07:30:00.000Z',
+    canBuy: true,
+  },
 ];
 
 export const fixtureFlashSaleList: FlashSaleListProps = {
   title: '限时秒杀',
   showMore: true,
   source: { mode: 'auto', limit: 3 },
+  showUpcoming: true,
   layout: 'list',
   showCountdown: true,
   style: frame,

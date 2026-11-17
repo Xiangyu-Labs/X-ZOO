@@ -537,6 +537,53 @@ describe('限时秒杀 list — the 秒杀 page and the DIY 限时秒杀 block (
     ).toEqual([late.id]);
   });
 
+  it('with upcoming, lists the 秒杀 not started yet after the live ones, soonest-starting first', async () => {
+    const tomorrow = (hour: string, price: string): ProductPromotionInput => ({
+      mode: 'flashsale',
+      expectedVersion: 0,
+      settings: {
+        startAt: `2026-06-02T${hour}:00:00.000Z`,
+        endAt: '2026-06-02T12:00:00.000Z',
+        skus: [{ specValues: {}, price }],
+      },
+    });
+    const live = await makeProduct(harness.ctx, { name: '进行中', promotion: flash() });
+    const later = await makeProduct(harness.ctx, {
+      name: '明天十点',
+      promotion: tomorrow('10', '29.00'),
+    });
+    const sooner = await makeProduct(harness.ctx, {
+      name: '明天八点',
+      promotion: tomorrow('08', '39.00'),
+    });
+    harness.clock.set(FLASH_START);
+
+    expect(
+      (await flashSaleList(harness.ctx, { page: 1, pageSize: 20 })).items.map((c) => c.title),
+    ).toEqual(['进行中']);
+    const all = await flashSaleList(harness.ctx, { page: 1, pageSize: 20, upcoming: true });
+    expect(all.total).toBe(3);
+    expect(all.items.map((card) => card.title)).toEqual(['进行中', '明天八点', '明天十点']);
+    // The 秒杀价 it will charge at the start, beside the own price.
+    expect(all.items[1]).toMatchObject({
+      productId: sooner.id,
+      price: '39.00',
+      originalPrice: '99.00',
+      startAt: '2026-06-02T08:00:00.000Z',
+    });
+    expect(
+      (await flashSaleList(harness.ctx, { page: 2, pageSize: 2, upcoming: true })).items.map(
+        (card) => card.productId,
+      ),
+    ).toEqual([later.id]);
+
+    const picked = await flashSaleCardsFor(harness.ctx, [later.id, live.id], { upcoming: true });
+    expect(picked.map((card) => card.productId)).toEqual([later.id, live.id]);
+    expect(
+      (await flashSaleCardsFor(harness.ctx, [later.id, live.id])).map((c) => c.productId),
+    ).toEqual([live.id]);
+  });
+
   it('drops a card whose 秒杀价 no longer undercuts the SKU price, as checkout would', async () => {
     const product = await makeProduct(harness.ctx, { promotion: flash() });
     const body = edit(product);

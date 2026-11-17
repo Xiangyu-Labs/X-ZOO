@@ -300,13 +300,14 @@ const AUTO_HINTS: Record<AutoSourceKind, string> = {
   coupon: '自动取当前可领取的优惠券，顺序同领券中心。',
   groupbuy: '自动取正在进行的拼团活动，顺序同拼团列表。',
   presale: '自动取未结束的预售活动，顺序同预售列表。',
-  flashSale: '自动取正在秒杀的商品，快结束的排在前面。',
+  flashSale:
+    '自动取正在秒杀的商品，快结束的排在前面；打开「显示即将开始的秒杀」时，未开始的排在后面。',
 };
 
 /** A hint under the hand-picked list, when picking needs one. */
 const MANUAL_HINTS: Partial<Record<AutoSourceKind, string>> = {
   flashSale:
-    '选商品即可：商品在「商品编辑 → 限时秒杀」设置的活动进行中时显示，未开始或已结束时不显示。',
+    '选商品即可：商品在「商品编辑 → 限时秒杀」设置的活动进行中时显示；打开「显示即将开始的秒杀」时，未开始的也显示；已结束的不显示。',
 };
 
 /** What a hand-picked list holds: 限时秒杀 is set on the product, so its pick is products. */

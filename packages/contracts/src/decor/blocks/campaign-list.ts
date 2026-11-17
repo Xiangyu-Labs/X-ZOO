@@ -75,6 +75,10 @@ export const flashSaleListProps = blockProps({
   source: flashSaleSource
     .default({ mode: 'auto', limit: 3 })
     .meta(ui({ label: '秒杀商品', field: 'flashSaleSource', group: '内容' })),
+  showUpcoming: z
+    .boolean()
+    .default(true)
+    .meta(ui({ label: '显示即将开始的秒杀', group: '内容' })),
   layout: campaignLayout,
   showCountdown: z
     .boolean()
@@ -88,5 +92,7 @@ export const flashSaleListBlock = defineBlock({
   v: 1,
   props: flashSaleListProps,
   meta: { label: '限时秒杀', pages: ['home', 'custom'] },
-  data: (props) => ({ campaigns: need.flashSales(props.source) }),
+  data: (props) => ({
+    campaigns: need.flashSales(props.source, { upcoming: props.showUpcoming }),
+  }),
 });

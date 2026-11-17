@@ -23,6 +23,8 @@ export interface CampaignCard {
   /** An extra line (the 预售 countdown). */
   extra?: ReactNode;
   action: string;
+  /** The button greyed: 即将开始, not yet on sale. */
+  actionMuted?: boolean | undefined;
   onTap?: (() => void) | undefined;
 }
 
@@ -77,7 +79,9 @@ export function CampaignCards({
             </View>
             <View className={styles.foot}>
               <Text className={styles.note}>{card.note}</Text>
-              <View className={styles.button}>{card.action}</View>
+              <View className={cx(styles.button, card.actionMuted && styles.buttonMuted)}>
+                {card.action}
+              </View>
             </View>
           </View>
         </View>

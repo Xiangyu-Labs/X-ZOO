@@ -100,6 +100,27 @@ export const catalogFlashSaleList = defineRoute({
       query: { page: 1, pageSize: 2, productIds: '12,9' },
       response: { items: [flashSaleCardExample], total: 1, page: 1, pageSize: 2 },
     },
+    {
+      // The 秒杀 page: live first, then the ones that have not started yet.
+      name: 'with-upcoming',
+      query: { page: 1, pageSize: 20, upcoming: 'true' },
+      response: {
+        items: [
+          flashSaleCardExample,
+          {
+            ...flashSaleCardExample,
+            activityId: '6',
+            productId: '15',
+            title: '保温杯',
+            startAt: '2026-11-21T10:00:00+08:00',
+            endAt: '2026-11-21T12:00:00+08:00',
+          },
+        ],
+        total: 2,
+        page: 1,
+        pageSize: 20,
+      },
+    },
   ],
 });
 

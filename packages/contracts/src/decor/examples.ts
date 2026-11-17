@@ -275,6 +275,7 @@ export const decorBlockExamples: Record<DecorBlockType, Record<string, unknown>>
     title: '限时秒杀',
     showMore: true,
     source: { mode: 'auto', limit: 3 },
+    showUpcoming: true,
     layout: 'list',
     showCountdown: true,
     style,

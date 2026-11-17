@@ -155,10 +155,11 @@ export const defaultResolvers: DataResolvers = {
 
   async flashSales(ctx, need) {
     const source = need.source;
+    const upcoming = need.upcoming;
     if (source.mode === 'manual') {
-      return catalog.flashSaleCardsFor(ctx, source.ids);
+      return catalog.flashSaleCardsFor(ctx, source.ids, { upcoming });
     }
-    return (await catalog.flashSaleList(ctx, { page: 1, pageSize: source.limit })).items;
+    return (await catalog.flashSaleList(ctx, { page: 1, pageSize: source.limit, upcoming })).items;
   },
 
   async articles(ctx, need) {

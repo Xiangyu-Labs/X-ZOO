@@ -212,18 +212,25 @@ async function previewCampaigns<Card>(
   return page.items as Card[];
 }
 
-/** Products on 秒杀 now: the picked products in their order, or the soonest-ending `limit`. */
-export async function previewFlashSales(source: FlashSaleSource): Promise<FlashSaleSummary[]> {
+/**
+ * Products on 秒杀 now (and, with `upcoming`, those about to start): the picked
+ * products in their order, or the list's first `limit`.
+ */
+export async function previewFlashSales(
+  source: FlashSaleSource,
+  upcoming: boolean,
+): Promise<FlashSaleSummary[]> {
+  const flag = upcoming ? { upcoming: 'true' as const } : {};
   if (source.mode === 'manual') {
     const ids = validIds(source.ids);
     if (ids.length === 0) return [];
     const page = await callRoute(catalogFlashSaleList, {
-      query: { page: 1, pageSize: ids.length, productIds: ids.join(',') },
+      query: { page: 1, pageSize: ids.length, productIds: ids.join(','), ...flag },
     });
     return page.items;
   }
   const page = await callRoute(catalogFlashSaleList, {
-    query: { page: 1, pageSize: source.limit },
+    query: { page: 1, pageSize: source.limit, ...flag },
   });
   return page.items;
 }
@@ -268,7 +275,7 @@ export function createAdminCanvasData(): DecorCanvasData {
         case 'presales':
           return previewCampaigns<PresaleSummary>(presaleList, need.source);
         case 'flashSales':
-          return previewFlashSales(need.source);
+          return previewFlashSales(need.source, need.upcoming);
         case 'articles':
           return previewArticles(need.source);
         default:

@@ -146,7 +146,7 @@ export type DataNeed =
   | { kind: 'newUserCoupons'; limit: number }
   | { kind: 'groupbuys'; source: GroupbuySource }
   | { kind: 'presales'; source: PresaleSource }
-  | { kind: 'flashSales'; source: FlashSaleSource }
+  | { kind: 'flashSales'; source: FlashSaleSource; upcoming: boolean }
   | { kind: 'articles'; source: ArticleSource };
 
 export type DataNeedKind = DataNeed['kind'];
@@ -158,7 +158,11 @@ export const need = {
   newUserCoupons: (limit: number): DataNeed => ({ kind: 'newUserCoupons', limit }),
   groupbuys: (source: GroupbuySource): DataNeed => ({ kind: 'groupbuys', source }),
   presales: (source: PresaleSource): DataNeed => ({ kind: 'presales', source }),
-  flashSales: (source: FlashSaleSource): DataNeed => ({ kind: 'flashSales', source }),
+  flashSales: (source: FlashSaleSource, options: { upcoming: boolean }): DataNeed => ({
+    kind: 'flashSales',
+    source,
+    upcoming: options.upcoming,
+  }),
   articles: (source: ArticleSource): DataNeed => ({ kind: 'articles', source }),
 };
 

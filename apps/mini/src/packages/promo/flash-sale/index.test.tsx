@@ -24,9 +24,11 @@ const card = (patch: Partial<Card> = {}): Card => ({
 
 function serve(items: Card[]) {
   return serveApi({
-    'GET /api/v1/catalog/flash-sales': () => ({
-      body: { items, total: items.length, page: 1, pageSize: 20 },
-    }),
+    'GET /api/v1/catalog/flash-sales': (_body, { query }) => {
+      // The page asks for the ones not started yet too.
+      expect(query.upcoming).toBe('true');
+      return { body: { items, total: items.length, page: 1, pageSize: 20 } };
+    },
   });
 }
 
@@ -41,6 +43,23 @@ describe('限时秒杀 list', () => {
     });
     // Asia/Shanghai, not UTC.
     expect(screen.getByText('2099.01.01 23:59 结束')).toBeTruthy();
+  });
+
+  it('shows a 秒杀 not started yet as 即将开始, with when it starts', async () => {
+    serve([
+      card(),
+      card({
+        activityId: '6',
+        productId: '15',
+        title: '保温杯',
+        startAt: '2098-12-31T02:00:00Z',
+        endAt: '2099-01-01T15:59:00Z',
+      }),
+    ]);
+    await renderPage(<FlashSaleListPage />);
+    expect(await screen.findByText('即将开始')).toBeTruthy();
+    expect(screen.getByText('秒杀')).toBeTruthy();
+    expect(screen.getByText('2098.12.31 10:00 开始')).toBeTruthy();
   });
 
   it('answers the share menu with the list', async () => {
