@@ -1238,6 +1238,22 @@ export async function promoteMember(
   });
 }
 
+/** Whether the team still has a leader in it (`groupbuy_members_leader_uq`'s slot is taken). */
+export async function hasJoinedLeader(db: DbOrTx, groupId: number): Promise<boolean> {
+  const rows = await db
+    .select({ id: groupbuyMembers.id })
+    .from(groupbuyMembers)
+    .where(
+      and(
+        eq(groupbuyMembers.groupId, groupId),
+        eq(groupbuyMembers.status, 'joined'),
+        eq(groupbuyMembers.role, 'leader'),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
 export async function countJoinedMembers(db: DbOrTx, groupId: number): Promise<number> {
   const [row] = await db
     .select({ value: count() })
