@@ -107,6 +107,12 @@ const CHECKERS: Record<ReferenceKind, { label: string; unavailable: string; visi
     visible: async (ctx, ids) =>
       new Set((await presale.cardsFor(ctx, ids)).map((item) => item.activityId)),
   },
+  flashSale: {
+    label: '秒杀商品',
+    unavailable: '当前不在秒杀中或不存在',
+    visible: async (ctx, ids) =>
+      new Set((await catalog.flashSaleCardsFor(ctx, ids)).map((item) => item.productId)),
+  },
   page: {
     label: '微页面',
     unavailable: '不存在或尚未发布',

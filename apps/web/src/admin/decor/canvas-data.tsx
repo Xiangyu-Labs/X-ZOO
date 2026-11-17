@@ -1,6 +1,7 @@
 'use client';
 
 import { catalogAdminProductList } from '@shop/contracts/catalog/catalog.product.admin.contract';
+import { catalogFlashSaleList } from '@shop/contracts/catalog/catalog.storefront.contract';
 import type { AdminProductListItem } from '@shop/contracts/catalog/schemas';
 import { articleListPublic } from '@shop/contracts/cms/cms.storefront.contract';
 import type { ArticleListItem } from '@shop/contracts/cms/schemas';
@@ -15,6 +16,8 @@ import type {
   CouponSource,
   CouponSummary,
   DataNeed,
+  FlashSaleSource,
+  FlashSaleSummary,
   GroupbuySource,
   GroupbuySummary,
   PresaleSource,
@@ -40,7 +43,7 @@ import { callRoute } from '../api';
  * `resolve` returns what the storefront resolver would put in the slot, or
  * `null` for a need the canvas does not preview (the block then draws its
  * empty state). The admin implementation (`createAdminCanvasData`) previews
- * products through the admin catalogue, and coupons, 新人券, 拼团, 预售 and
+ * products through the admin catalogue, and coupons, 新人券, 拼团, 预售, 限时秒杀 and
  * 资讯 through the storefront's own public lists — the same filters the page
  * resolver applies (DECOR-013), as a signed-out shopper sees them. Per-shopper
  * state (领取状态, held 新人券) is never previewed.
@@ -209,6 +212,22 @@ async function previewCampaigns<Card>(
   return page.items as Card[];
 }
 
+/** Products on 秒杀 now: the picked products in their order, or the soonest-ending `limit`. */
+export async function previewFlashSales(source: FlashSaleSource): Promise<FlashSaleSummary[]> {
+  if (source.mode === 'manual') {
+    const ids = validIds(source.ids);
+    if (ids.length === 0) return [];
+    const page = await callRoute(catalogFlashSaleList, {
+      query: { page: 1, pageSize: ids.length, productIds: ids.join(',') },
+    });
+    return page.items;
+  }
+  const page = await callRoute(catalogFlashSaleList, {
+    query: { page: 1, pageSize: source.limit },
+  });
+  return page.items;
+}
+
 /** Published articles: the picked ones in their order, or a category's first `limit`. */
 export async function previewArticles(source: ArticleSource): Promise<ArticleSummary[]> {
   if (source.mode === 'manual') {
@@ -248,6 +267,8 @@ export function createAdminCanvasData(): DecorCanvasData {
           return previewCampaigns<GroupbuySummary>(groupbuyList, need.source);
         case 'presales':
           return previewCampaigns<PresaleSummary>(presaleList, need.source);
+        case 'flashSales':
+          return previewFlashSales(need.source);
         case 'articles':
           return previewArticles(need.source);
         default:

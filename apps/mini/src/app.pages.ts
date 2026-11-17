@@ -55,6 +55,7 @@ export const SUB_PACKAGES: readonly SubPackage[] = [
       'groupbuy/index',
       'groupbuy-team/index',
       'presale/index',
+      'flash-sale/index',
       'coupons/index',
       'my-coupons/index',
       'my-groupbuys/index',

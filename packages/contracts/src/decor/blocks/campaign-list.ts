@@ -4,7 +4,7 @@ import { blockProps } from '../base';
 import { CAMPAIGN_LIST_LAYOUTS, type CampaignListLayout } from '../constants';
 import { ui } from '../meta';
 import { defineBlock } from '../registry';
-import { groupbuySource, need, presaleSource } from '../sources';
+import { flashSaleSource, groupbuySource, need, presaleSource } from '../sources';
 import { listHeading } from './list-heading';
 
 const campaignLayout = z
@@ -61,4 +61,32 @@ export const presaleListBlock = defineBlock({
   props: presaleListProps,
   meta: { label: '预售', pages: ['home', 'custom'] },
   data: (props) => ({ campaigns: need.presales(props.source) }),
+});
+
+/**
+ * 限时秒杀: products on 秒杀 now (an active flash sale inside its window, on
+ * the shelf), picked by product or the soonest-ending `limit`. Each card shows
+ * the 秒杀价 with the struck own price and, when `showCountdown`, the time left
+ * on the server's clock (`serverNow`). A tap opens the product, which shows
+ * the 秒杀 and sells at its price; 「更多」 opens the 秒杀 list page.
+ */
+export const flashSaleListProps = blockProps({
+  ...listHeading('限时秒杀'),
+  source: flashSaleSource
+    .default({ mode: 'auto', limit: 3 })
+    .meta(ui({ label: '秒杀商品', field: 'flashSaleSource', group: '内容' })),
+  layout: campaignLayout,
+  showCountdown: z
+    .boolean()
+    .default(true)
+    .meta(ui({ label: '显示倒计时', group: '展示' })),
+});
+export type FlashSaleListProps = z.infer<typeof flashSaleListProps>;
+
+export const flashSaleListBlock = defineBlock({
+  type: 'flashSaleList',
+  v: 1,
+  props: flashSaleListProps,
+  meta: { label: '限时秒杀', pages: ['home', 'custom'] },
+  data: (props) => ({ campaigns: need.flashSales(props.source) }),
 });

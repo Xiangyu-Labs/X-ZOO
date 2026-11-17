@@ -320,6 +320,7 @@ export type ReferenceKind =
   | 'articleCategory'
   | 'page'
   | 'coupon'
+  | 'flashSale'
   | 'groupbuy'
   | 'presale';
 
@@ -335,6 +336,7 @@ const REFERENCE_FIELDS: readonly EditorFieldKind[] = [
   'couponSource',
   'groupbuySource',
   'presaleSource',
+  'flashSaleSource',
   'articleSource',
 ];
 
@@ -364,6 +366,8 @@ function referencesOf(field: CollectedField): Reference[] {
     couponSource: 'coupon',
     groupbuySource: 'groupbuy',
     presaleSource: 'presale',
+    // A 限时秒杀 pick is a product id: it shows while that product is on 秒杀.
+    flashSaleSource: 'flashSale',
     articleSource: 'article',
   };
   const kind = record[field.kind];

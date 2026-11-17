@@ -8,6 +8,8 @@ import {
   fixtureArticles,
   fixtureCouponList,
   fixtureCoupons,
+  fixtureFlashSaleList,
+  fixtureFlashSales,
   fixtureFloatingContact,
   fixtureFollowOfficialAccount,
   fixtureGroupbuyList,
@@ -27,6 +29,7 @@ import {
   CouponList,
   couponAction,
   couponValidity,
+  FlashSaleList,
   FloatingContact,
   FollowOfficialAccount,
   GroupbuyList,
@@ -327,6 +330,48 @@ describe('PresaleList', () => {
       />,
     );
     expect(container.querySelector('[data-countdown]')).toBeNull();
+  });
+});
+
+describe('FlashSaleList', () => {
+  it('shows 秒杀 cards with the 秒杀价, the struck price and 去抢购, and opens the product page', () => {
+    const onLink = vi.fn();
+    const { container } = render(
+      <FlashSaleList
+        props={fixtureFlashSaleList}
+        data={{ campaigns: fixtureFlashSales }}
+        onLink={onLink}
+        host={{ serverNow: fixtureServerNow }}
+      />,
+    );
+    expect(screen.getByText('限时秒杀')).toBeTruthy();
+    expect(screen.getAllByText('秒杀')).toHaveLength(2);
+    expect(screen.getAllByText('秒杀价')).toHaveLength(2);
+    expect(screen.getAllByText('去抢购')).toHaveLength(2);
+    expect(screen.getByText('¥69.00')).toBeTruthy();
+    expect(screen.getByText('已抢光')).toBeTruthy();
+    expect(screen.queryByText('预售')).toBeNull();
+    expect(container.querySelector('[data-countdown="71"]')?.textContent).toBe(
+      '距结束 2天 03:04:05',
+    );
+    fireEvent.click(screen.getByText('纯棉短袖T恤 男女同款 宽松百搭'));
+    expect(onLink).toHaveBeenCalledWith(route('product', { id: '18' }));
+    fireEvent.click(screen.getByText('更多'));
+    expect(onLink).toHaveBeenCalledWith(route('flashSaleList'));
+  });
+
+  it('draws nothing on the storefront with no 秒杀 on, and says so on the canvas', () => {
+    const empty = render(<FlashSaleList props={fixtureFlashSaleList} data={{ campaigns: [] }} />);
+    expect(empty.container.innerHTML).toBe('');
+    cleanup();
+    render(
+      <FlashSaleList
+        props={fixtureFlashSaleList}
+        data={{ campaigns: [] }}
+        host={{ canvas: true }}
+      />,
+    );
+    expect(screen.getByText('暂无进行中的秒杀，商城中不显示此组件')).toBeTruthy();
   });
 });
 

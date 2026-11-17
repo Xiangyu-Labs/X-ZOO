@@ -3,6 +3,7 @@ import type { ComponentType, ReactNode } from 'react';
 import type { LinkTarget } from '@shop/contracts/decor/link';
 import type { BlockType } from '../schema';
 import { ArticleList } from './article-list/article-list';
+import { FlashSaleList } from './campaign-list/flash-sale-list';
 import { GroupbuyList } from './campaign-list/groupbuy-list';
 import { PresaleList } from './campaign-list/presale-list';
 import { Carousel } from './carousel/carousel';
@@ -29,6 +30,7 @@ import { Video } from './video/video';
 
 export { ArticleList, type ArticleListData } from './article-list/article-list';
 export { CampaignCards, type CampaignCard } from './campaign-list/campaign-cards';
+export { FlashSaleList } from './campaign-list/flash-sale-list';
 export { GroupbuyList, type CampaignListData } from './campaign-list/groupbuy-list';
 export { PresaleList, presaleCountdown } from './campaign-list/presale-list';
 export { Carousel } from './carousel/carousel';
@@ -91,6 +93,7 @@ export const BLOCK_COMPONENTS: Record<BlockType, ComponentType<BlockProps<any, a
   newcomerCoupon: NewcomerCoupon,
   groupbuyList: GroupbuyList,
   presaleList: PresaleList,
+  flashSaleList: FlashSaleList,
   articleList: ArticleList,
   video: Video,
   floatingContact: FloatingContact,

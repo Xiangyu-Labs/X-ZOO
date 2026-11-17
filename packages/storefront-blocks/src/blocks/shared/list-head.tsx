@@ -11,7 +11,7 @@ export interface ListHeadProps {
   onLink?: ((target: LinkTarget) => void) | undefined;
 }
 
-/** The heading row of a marketing list (优惠券, 拼团, 预售, 资讯). Nothing when there is no title and no 「更多」. */
+/** The heading row of a marketing list (优惠券, 拼团, 预售, 限时秒杀, 资讯). Nothing when there is no title and no 「更多」. */
 export function ListHead({ title, more, onLink }: ListHeadProps) {
   if (!title && !more) return null;
   return (
@@ -29,7 +29,7 @@ export function ListHead({ title, more, onLink }: ListHeadProps) {
 
 /** A `route` link with no params: the list pages 「更多」 opens. */
 export function routeLink(
-  route: 'couponCenter' | 'groupbuyList' | 'presaleList' | 'myCoupons',
+  route: 'couponCenter' | 'groupbuyList' | 'presaleList' | 'flashSaleList' | 'myCoupons',
 ): LinkTarget {
   return { kind: 'route', to: { route, params: {} } };
 }

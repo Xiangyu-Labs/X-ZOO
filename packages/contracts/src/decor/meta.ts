@@ -78,6 +78,7 @@ export type EditorFieldKind =
   | 'couponSource'
   | 'groupbuySource'
   | 'presaleSource'
+  | 'flashSaleSource'
   | 'articleSource';
 
 /** The semantic kinds that name a data source; the resolver keys its work on them. */
@@ -86,6 +87,7 @@ export const SOURCE_FIELD_KINDS = [
   'couponSource',
   'groupbuySource',
   'presaleSource',
+  'flashSaleSource',
   'articleSource',
 ] as const satisfies readonly EditorFieldKind[];
 export type SourceFieldKind = (typeof SOURCE_FIELD_KINDS)[number];

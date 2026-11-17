@@ -10,6 +10,7 @@ import { DECOR_LIMITS, PRODUCT_SORT, type ProductSort } from '@shop/contracts/de
 import type {
   ArticleSource,
   CouponSource,
+  FlashSaleSource,
   GroupbuySource,
   PresaleSource,
   ProductSource,
@@ -28,7 +29,7 @@ import { FieldShell, type DecorFieldProps } from './shell';
 
 /**
  * The data-source controls (`productSource`, `couponSource`, `groupbuySource`,
- * `presaleSource`, `articleSource`): a mode switch, then either a hand-picked,
+ * `presaleSource`, `flashSaleSource`, `articleSource`): a mode switch, then either a hand-picked,
  * ordered list of records or the rule's settings.
  */
 
@@ -289,17 +290,34 @@ export function ProductSourceField({
   );
 }
 
-// ─── coupons, group-buys, presales ───────────────────────────────────────────
+// ─── coupons, group-buys, presales, flash sales ───────────────────────────────────────────
 
-type AutoSource = CouponSource | GroupbuySource | PresaleSource;
+type AutoSource = CouponSource | GroupbuySource | PresaleSource | FlashSaleSource;
 
-const AUTO_HINTS: Record<'coupon' | 'groupbuy' | 'presale', string> = {
+type AutoSourceKind = 'coupon' | 'groupbuy' | 'presale' | 'flashSale';
+
+const AUTO_HINTS: Record<AutoSourceKind, string> = {
   coupon: '自动取当前可领取的优惠券，顺序同领券中心。',
   groupbuy: '自动取正在进行的拼团活动，顺序同拼团列表。',
   presale: '自动取未结束的预售活动，顺序同预售列表。',
+  flashSale: '自动取正在秒杀的商品，快结束的排在前面。',
 };
 
-function autoSourceField(kind: 'coupon' | 'groupbuy' | 'presale') {
+/** A hint under the hand-picked list, when picking needs one. */
+const MANUAL_HINTS: Partial<Record<AutoSourceKind, string>> = {
+  flashSale:
+    '选商品即可：商品在「商品编辑 → 限时秒杀」设置的活动进行中时显示，未开始或已结束时不显示。',
+};
+
+/** What a hand-picked list holds: 限时秒杀 is set on the product, so its pick is products. */
+const PICKED_RECORDS: Record<AutoSourceKind, DecorRecordKind> = {
+  coupon: 'coupon',
+  groupbuy: 'groupbuy',
+  presale: 'presale',
+  flashSale: 'product',
+};
+
+function autoSourceField(kind: AutoSourceKind) {
   return function AutoSourceField({
     field,
     name,
@@ -320,13 +338,20 @@ function autoSourceField(kind: 'coupon' | 'groupbuy' | 'presale') {
             }
           />
           {current.mode === 'manual' ? (
-            <ManualRecords
-              kind={kind}
-              ids={current.ids}
-              max={DECOR_LIMITS.records}
-              readOnly={readOnly}
-              onChange={(ids) => onChange({ mode: 'manual', ids })}
-            />
+            <>
+              <ManualRecords
+                kind={PICKED_RECORDS[kind]}
+                ids={current.ids}
+                max={DECOR_LIMITS.records}
+                readOnly={readOnly}
+                onChange={(ids) => onChange({ mode: 'manual', ids })}
+              />
+              {MANUAL_HINTS[kind] ? (
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  {MANUAL_HINTS[kind]}
+                </Typography.Text>
+              ) : null}
+            </>
           ) : (
             <>
               <LimitInput
@@ -349,6 +374,7 @@ function autoSourceField(kind: 'coupon' | 'groupbuy' | 'presale') {
 export const CouponSourceField = autoSourceField('coupon');
 export const GroupbuySourceField = autoSourceField('groupbuy');
 export const PresaleSourceField = autoSourceField('presale');
+export const FlashSaleSourceField = autoSourceField('flashSale');
 
 // ─── articles ────────────────────────────────────────────────────────────────
 

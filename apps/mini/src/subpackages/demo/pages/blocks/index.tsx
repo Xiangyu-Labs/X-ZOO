@@ -25,6 +25,8 @@ import {
   fixtureOrderEntry,
   fixturePersonalG2,
   fixturePresaleList,
+  fixtureFlashSaleList,
+  fixtureFlashSales,
   fixturePresales,
   fixtureProductGrid,
   fixtureProductTabs,
@@ -79,6 +81,7 @@ const BLOCKS: RenderedBlock[] = [
   { id: 'newcomer-coupon-1', type: 'newcomerCoupon', props: fixtureNewcomerCoupon },
   { id: 'groupbuy-list-1', type: 'groupbuyList', props: fixtureGroupbuyList },
   { id: 'presale-list-1', type: 'presaleList', props: fixturePresaleList },
+  { id: 'flash-sale-list-1', type: 'flashSaleList', props: fixtureFlashSaleList },
   { id: 'article-list-1', type: 'articleList', props: fixtureArticleList },
   { id: 'video-1', type: 'video', props: fixtureVideo },
   { id: 'floating-contact-1', type: 'floatingContact', props: fixtureFloatingContact },
@@ -96,6 +99,7 @@ const DATA = {
   'newcomer-coupon-1': { coupons: fixtureNewUserCoupons },
   'groupbuy-list-1': { campaigns: fixtureGroupbuys },
   'presale-list-1': { campaigns: fixturePresales },
+  'flash-sale-list-1': { campaigns: fixtureFlashSales },
   'article-list-1': { articles: fixtureArticles },
 };
 

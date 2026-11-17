@@ -2,7 +2,7 @@ import type { z } from 'zod';
 
 import { createBlockRegistry, type AnyBlockDefinition } from './registry';
 import { articleListBlock } from './blocks/article-list';
-import { groupbuyListBlock, presaleListBlock } from './blocks/campaign-list';
+import { flashSaleListBlock, groupbuyListBlock, presaleListBlock } from './blocks/campaign-list';
 import { carouselBlock } from './blocks/carousel';
 import { couponListBlock } from './blocks/coupon-list';
 import { floatingContactBlock } from './blocks/floating-contact';
@@ -60,6 +60,7 @@ export const DECOR_BLOCK_DEFINITIONS = [
   newcomerCouponBlock,
   groupbuyListBlock,
   presaleListBlock,
+  flashSaleListBlock,
   articleListBlock,
   richTextBlock,
   videoBlock,

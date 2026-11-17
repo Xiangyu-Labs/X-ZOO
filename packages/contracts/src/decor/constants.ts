@@ -96,6 +96,7 @@ export const ROUTE_LINK_LABELS = {
   refundList: '售后/退款',
   groupbuyList: '拼团列表',
   presaleList: '预售列表',
+  flashSaleList: '限时秒杀',
   couponCenter: '领券中心',
   myCoupons: '我的优惠券',
   profile: '个人资料',

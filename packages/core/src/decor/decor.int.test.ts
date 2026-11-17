@@ -23,6 +23,7 @@ import { presaleActivities } from '@shop/db/schema/presale';
 import { refunds } from '@shop/db/schema/refund';
 import { users } from '@shop/db/schema/user';
 import { createTestCtx, forkTestCtx, type TestCtx } from '@shop/testing';
+import * as catalog from '../catalog';
 import * as coupon from '../coupon';
 import { anonymousActor, type Actor, type Ctx } from '../kernel/context';
 import { withTx } from '../kernel/tx';
@@ -1432,6 +1433,90 @@ describe('the batch-2 blocks (G2)', () => {
     expect(page.blocks[2]!.data.campaigns).toEqual([
       expect.objectContaining({ price: '49.00', originalPrice: '60.00', shipAfterDays: 7 }),
       expect.anything(),
+    ]);
+  });
+
+  /** A product on 限时秒杀 from 02:00 to 04:00 on NOW's day, at `price` (its own price 60.00). */
+  async function flashProduct(name: string, price = '49.00') {
+    const created = await catalog.adminProductCreate(ctx, {
+      name,
+      sliderImages: [],
+      kind: 'physical',
+      status: 'on_shelf',
+      imageUrl: 'https://cdn.example.com/p.jpg',
+      displaySalesBoost: 0,
+      specMode: false,
+      specs: [],
+      skus: [
+        {
+          specValues: {},
+          price: '60.00',
+          stock: 10,
+          isDefault: true,
+          isVisible: true,
+          sortOrder: 0,
+        },
+      ],
+      freightMode: 'free',
+      purchaseLimitMode: 'none',
+      minPurchaseQuantity: 1,
+      isHot: false,
+      isNew: false,
+      isBest: false,
+      isBenefit: false,
+      isRecommended: false,
+      sortOrder: 0,
+      descriptionHtml: '',
+      categoryIds: [String(await productCategory('秒杀'))],
+      labelIds: [],
+      protectionIds: [],
+      params: [],
+      recommendedProductIds: [],
+      giftCouponIds: [],
+      promotion: {
+        mode: 'flashsale',
+        expectedVersion: 0,
+        settings: {
+          startAt: '2026-06-01T02:00:00.000Z',
+          endAt: '2026-06-01T04:00:00.000Z',
+          skus: [{ specValues: {}, price }],
+        },
+      },
+    });
+    return created.id;
+  }
+
+  it('DECOR-013: 限时秒杀 shows picked products only while they are on 秒杀, and warns on the rest', async () => {
+    const plain = await product();
+    const soon = await flashProduct('秒杀甲', '39.90');
+    const other = await flashProduct('秒杀乙');
+    const blocks = [
+      block('f', 'flashSaleList', { source: { mode: 'manual', ids: [plain, other, soon] } }),
+      block('fa', 'flashSaleList', { source: { mode: 'auto', limit: 1 } }),
+    ];
+
+    // Before the window: nothing on 秒杀 yet — empty slots, and every pick is a warning.
+    const before = await previewOf(blocks);
+    expect(before.blocks[0]!.data).toEqual({ campaigns: [] });
+    const { id } = await drafted('custom', blocks);
+    expect((await decor.getDocument(ctx, { id })).warnings.map((w) => w.message)).toEqual([
+      `秒杀商品 ${plain} 当前不在秒杀中或不存在，商城中不会显示`,
+      `秒杀商品 ${other} 当前不在秒杀中或不存在，商城中不会显示`,
+      `秒杀商品 ${soon} 当前不在秒杀中或不存在，商城中不会显示`,
+    ]);
+
+    harness.clock.set('2026-06-01T02:00:00.000Z');
+    const page = await previewOf(blocks);
+    const productIds = (index: number) =>
+      (page.blocks[index]!.data.campaigns as { productId: string }[]).map((c) => c.productId);
+    expect(productIds(0)).toEqual([other, soon]);
+    expect(productIds(1)).toHaveLength(1);
+    expect(page.blocks[0]!.data.campaigns).toEqual([
+      expect.objectContaining({ title: '秒杀乙', price: '49.00', originalPrice: '60.00' }),
+      expect.objectContaining({ price: '39.90', endAt: '2026-06-01T04:00:00.000Z' }),
+    ]);
+    expect((await decor.getDocument(ctx, { id })).warnings.map((w) => w.message)).toEqual([
+      `秒杀商品 ${plain} 当前不在秒杀中或不存在，商城中不会显示`,
     ]);
   });
 

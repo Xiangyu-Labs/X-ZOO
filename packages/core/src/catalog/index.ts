@@ -181,6 +181,8 @@ export {
  * `release(tx, orderId, lines, { committed: true, refundId })`; there is no
  * separate release for sold units.
  */
+// 限时秒杀 on now: the 秒杀 list and a DIY 限时秒杀 block (decor).
+export { flashSaleCardsFor, flashSaleList } from './catalog.flashsale';
 export { catalogStockPort } from './catalog.stock';
 
 /** The batch cart read, also reachable as `resolveCatalogPort()`. */

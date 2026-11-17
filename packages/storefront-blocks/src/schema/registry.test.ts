@@ -24,6 +24,7 @@ const BLOCK_FIXTURES: Record<string, unknown> = {
   newcomerCoupon: fixtures.fixtureNewcomerCoupon,
   groupbuyList: fixtures.fixtureGroupbuyList,
   presaleList: fixtures.fixturePresaleList,
+  flashSaleList: fixtures.fixtureFlashSaleList,
   articleList: fixtures.fixtureArticleList,
   video: fixtures.fixtureVideo,
   floatingContact: fixtures.fixtureFloatingContact,

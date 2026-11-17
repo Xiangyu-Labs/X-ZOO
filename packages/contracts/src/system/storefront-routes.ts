@@ -237,6 +237,13 @@ export const storefrontRoutes = defineRoutes({
     share: 'friend',
     linkable: true,
   },
+  /** 限时秒杀: the products on 秒杀 now; a card opens the product. */
+  flashSaleList: {
+    path: 'packages/promo/flash-sale/index',
+    params: none,
+    share: 'friend',
+    linkable: true,
+  },
   couponCenter: {
     path: 'packages/promo/coupons/index',
     params: none,
