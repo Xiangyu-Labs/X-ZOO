@@ -377,9 +377,17 @@ export async function singletonTaken(
 
 export async function listMedia(
   db: DbOrTx,
-  filter: { kind?: 'image' | 'voice' | 'video' | 'thumb' | 'news'; offset: number; limit: number },
+  filter: {
+    kind?: 'image' | 'voice' | 'video' | 'thumb' | 'news';
+    keyword?: string | undefined;
+    offset: number;
+    limit: number;
+  },
 ): Promise<{ rows: WechatMedium[]; total: number }> {
-  const where = allOf(filter.kind === undefined ? undefined : eq(wechatMedia.kind, filter.kind));
+  const where = allOf(
+    filter.kind === undefined ? undefined : eq(wechatMedia.kind, filter.kind),
+    filter.keyword ? ilike(wechatMedia.mediaId, containsPattern(filter.keyword)) : undefined,
+  );
   const rows = await db
     .select()
     .from(wechatMedia)

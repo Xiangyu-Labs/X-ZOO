@@ -57,11 +57,12 @@ export function useUrlDetailId(key = 'detail'): [string | null, (id: string | nu
   const [id, setId] = useState<string | null>(fromUrl);
 
   // A second link followed while the page is open changes only the URL, so
-  // follow it (adjusted during render, not in an effect).
+  // follow it (adjusted during render, not in an effect). A URL that drops the
+  // parameter closes the drawer too — the back button is a close.
   const [seenUrl, setSeenUrl] = useState(fromUrl);
   if (fromUrl !== seenUrl) {
     setSeenUrl(fromUrl);
-    if (fromUrl) setId(fromUrl);
+    setId(fromUrl);
   }
 
   const set = useCallback(

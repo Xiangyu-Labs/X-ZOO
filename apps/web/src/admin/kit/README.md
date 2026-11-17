@@ -192,8 +192,9 @@ scrollX / size / expandable / emptyText / title / bordered / onData
 - 标签不超过 6 个字（单号、用户、下单时间），更长的说明写进 `placeholder`（「售后单号或订单号」）。
 - 宽控件（带时间的日期范围）用 `span: 2` 占两格；不要传像素宽度。
 - 选项超过 8 个的 `select` 自动可搜索；`dateRange` 自带「今天 / 近 7 天 / 本月…」快捷选项（上海时间）。
+- 选项来自服务端、可能超过一页时用 `remoteSelect`：输入即按 `keyword` 请求，选中的值在换一次搜索后仍显示名字（`knownOptions` 补上当前记录里的名字）。不要把 `pageSize: 100` 的列表塞进普通 `select` —— 第 101 条将无法选择。
 
-筛选类型：`text` `number` `money` `select`（`multiple` `showSearch`） `dateRange`（`names: [开始键, 结束键]` `showTime`） `custom`（`render(value, onChange)`）。每种都可加 `span: 1 | 2`。
+筛选类型：`text` `number` `money` `select`（`multiple` `showSearch`） `remoteSelect`（`loadOptions` `cacheKey`） `dateRange`（`names: [开始键, 结束键]` `showTime`） `custom`（`render(value, onChange)`）。每种都可加 `span: 1 | 2`。
 
 测试里给 `urlState={useMemoryUrlState()}` 就不需要 Next 路由。
 
@@ -219,25 +220,26 @@ scrollX / size / expandable / emptyText / title / bordered / onData
 
 字段类型（`FieldSpec`）：
 
-| kind                 | 值的形状              | 备注                                                             |
-| -------------------- | --------------------- | ---------------------------------------------------------------- |
-| `text` / `password`  | `string`              | `placeholder` `maxLength` `prefix` `addonAfter`                  |
-| `textarea`           | `string`              | `rows` `maxLength` `showCount`（有长度上限时默认显示）           |
-| `number`             | `number`              | `min` `max` `step` `precision`                                   |
-| `money`              | `string` `"12.00"`    | `MoneyInput`，字符串进出，永不浮点                               |
-| `switch`             | `boolean`             | `checkedText` `uncheckedText`                                    |
-| `select`             | `string \| string[]`  | `options` `mode: 'multiple'\|'tags'`，超过 8 项默认可搜索        |
-| `radio` / `checkbox` | `string` / `string[]` | `options`，radio 支持 `optionType: 'button'`                     |
-| `date`               | ISO instant           | `showTime`                                                       |
-| `dateRange`          | `[ISO, ISO]`          | `wholeDays`（默认把两端对齐到当天起止）                          |
-| `treeSelect`         | `string \| string[]`  | `treeData` 或 `loadOptions` + `cacheKey`，`leafOnly`             |
-| `cascader`           | `string[]`            | 省市区等，`options` 或 `loadOptions` + `cacheKey`                |
-| `richText`           | HTML `string`         | Tiptap，懒加载；插图走 `AssetPicker`                             |
-| `asset`              | `string` / `string[]` | `multiple` `max` `valueType: 'url'\|'id'\|'asset'`（默认 `url`） |
-| `link`               | `{type,label,url}`    | `LinkPicker`                                                     |
-| `sortableList`       | `T[]`                 | dnd-kit 拖拽排序，`newItem` `renderItem` `max` `min`             |
-| `custom`             | 任意                  | `render({ value, onChange, disabled })`                          |
-| `hidden`             | 任意                  | 只在值里，不渲染                                                 |
+| kind                 | 值的形状              | 备注                                                                         |
+| -------------------- | --------------------- | ---------------------------------------------------------------------------- |
+| `text` / `password`  | `string`              | `placeholder` `maxLength` `prefix` `addonAfter`                              |
+| `textarea`           | `string`              | `rows` `maxLength` `showCount`（有长度上限时默认显示）                       |
+| `number`             | `number`              | `min` `max` `step` `precision`                                               |
+| `money`              | `string` `"12.00"`    | `MoneyInput`，字符串进出，永不浮点                                           |
+| `switch`             | `boolean`             | `checkedText` `uncheckedText`                                                |
+| `select`             | `string \| string[]`  | `options` `mode: 'multiple'\|'tags'`，超过 8 项默认可搜索                    |
+| `remoteSelect`       | `string \| string[]`  | `loadOptions(keyword)` + `cacheKey`，服务端搜索；`knownOptions` 给已选值名字 |
+| `radio` / `checkbox` | `string` / `string[]` | `options`，radio 支持 `optionType: 'button'`                                 |
+| `date`               | ISO instant           | `showTime`                                                                   |
+| `dateRange`          | `[ISO, ISO]`          | `wholeDays`（默认把两端对齐到当天起止）                                      |
+| `treeSelect`         | `string \| string[]`  | `treeData` 或 `loadOptions` + `cacheKey`，`leafOnly`                         |
+| `cascader`           | `string[]`            | 省市区等，`options` 或 `loadOptions` + `cacheKey`                            |
+| `richText`           | HTML `string`         | Tiptap，懒加载；插图走 `AssetPicker`                                         |
+| `asset`              | `string` / `string[]` | `multiple` `max` `valueType: 'url'\|'id'\|'asset'`（默认 `url`）             |
+| `link`               | `{type,label,url}`    | `LinkPicker`                                                                 |
+| `sortableList`       | `T[]`                 | dnd-kit 拖拽排序，`newItem` `renderItem` `max` `min`                         |
+| `custom`             | 任意                  | `render({ value, onChange, disabled })`                                      |
+| `hidden`             | 任意                  | 只在值里，不渲染                                                             |
 
 公共 props：`name` `label` `help` `tooltip` `required` `disabled` `span`（24 栅格） `visibleWhen(values)` `rules`（额外 antd 规则） `section`（见下）。
 

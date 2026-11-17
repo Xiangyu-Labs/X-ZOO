@@ -15,8 +15,10 @@ import {
   Typography,
   message,
 } from 'antd';
-import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState, useDeferredValue } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { catalogAdminSkuMatrix } from '@shop/contracts/catalog/catalog.product.admin.contract';
+import { catalogAdminParamTemplateList } from '@shop/contracts/catalog/catalog.taxonomy.admin.contract';
 import type {
   ProductKind,
   ProductParam,
@@ -25,6 +27,7 @@ import type {
 } from '@shop/contracts/catalog/schemas';
 
 import { useRouteMutation } from '@/admin/api/hooks';
+import { callRoute } from '@/admin/api/call-route';
 import { useAssetPicker } from '@/admin/kit/asset/asset-picker';
 import { MoneyInput } from '@/admin/kit/form/money-input';
 import { isMoney, moneyToFen } from '@/admin/kit/money';
@@ -806,6 +809,26 @@ export interface ParamEditorProps {
  */
 export function ParamEditor({ value, onChange, templates, disabled = false }: ParamEditorProps) {
   const rows = value ?? [];
+  // A template picker over a list that may exceed one page: typing searches the
+  // route, and the first page stays for browsing until then.
+  const [keyword, setKeyword] = useState('');
+  const term = useDeferredValue(keyword);
+  const search = useQuery({
+    queryKey: ['catalog.paramTemplates.picker', term],
+    queryFn: () =>
+      callRoute(catalogAdminParamTemplateList, {
+        query: {
+          page: 1,
+          pageSize: 50,
+          isEnabled: 'true',
+          ...(term === '' ? {} : { keyword: term }),
+        },
+      }),
+    enabled: term !== '',
+    staleTime: 30_000,
+  });
+  const matches = search.data?.items ?? [];
+  const pickable = term === '' ? templates : matches;
 
   const patch = (index: number, changes: Partial<ProductParam>): void => {
     onChange?.(rows.map((row, i) => (i === index ? { ...row, ...changes } : row)));
@@ -877,13 +900,20 @@ export function ParamEditor({ value, onChange, templates, disabled = false }: Pa
           添加参数
         </Button>
         <Select
-          style={{ width: 220 }}
-          disabled={disabled || templates.length === 0}
+          style={{ width: 260 }}
+          disabled={disabled || (templates.length === 0 && pickable.length === 0)}
           value={null}
+          showSearch
+          filterOption={false}
+          onSearch={setKeyword}
+          onOpenChange={(open) => {
+            if (!open) setKeyword('');
+          }}
           placeholder="从参数模板添加"
-          options={templates.map((item) => ({ label: item.name, value: item.id }))}
+          notFoundContent={search.isFetching ? null : '没有匹配的参数模板'}
+          options={pickable.map((item) => ({ label: item.name, value: item.id }))}
           onChange={(templateId: string) => {
-            const template = templates.find((item) => item.id === templateId);
+            const template = pickable.find((item) => item.id === templateId);
             if (!template) return;
             onChange?.([
               ...rows,

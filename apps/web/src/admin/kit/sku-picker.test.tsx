@@ -14,7 +14,7 @@ import {
 } from '@shop/contracts/catalog/schemas';
 
 import { resetApiConfig } from '@/admin/api/config';
-import { on, stubRoutes, type StubCall } from '@/test/api';
+import { on, respondWithError, stubRoutes, type StubCall } from '@/test/api';
 import { renderAdmin, zhName } from '@/test/render';
 
 import { SkuPicker, type PickedSku } from './sku-picker';
@@ -142,5 +142,23 @@ describe('SkuPicker', () => {
     await waitFor(() => expect(screen.getByText('已选 1 条')).toBeInTheDocument());
     await waitFor(() => expect(screen.getByRole('checkbox', { name: /浅烘/ })).toBeChecked());
     expect(screen.getByRole('checkbox', { name: /深烘/ })).not.toBeChecked();
+  });
+
+  it('says the specs failed to load instead of claiming the product has none', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    stubRoutes([
+      on(catalogAdminProductDetail, () =>
+        respondWithError(500, { code: 'INTERNAL', message: '规格接口开小差了' }),
+      ),
+      on(catalogAdminProductList, { items: [product], total: 1, page: 1, pageSize: 10 }),
+    ]);
+    renderAdmin(<SkuPicker open onClose={() => {}} onSelect={() => {}} />);
+
+    await waitFor(() => expect(screen.getByText('手冲挂耳咖啡')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /Expand row|展开行/ }));
+
+    expect(await screen.findByText('规格接口开小差了')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: zhName('重试') })).toBeInTheDocument();
+    expect(screen.queryByText('该商品没有规格')).toBeNull();
   });
 });

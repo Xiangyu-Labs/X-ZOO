@@ -15,7 +15,13 @@ import {
 import { on, respondWithError, stubRoutes } from '@/test/api';
 
 import { resetApiConfig } from '../api';
-import { listLabels, listProducts, productCategoryTree, resolveProducts } from './catalog-records';
+import {
+  listLabels,
+  listProducts,
+  productCategoryTree,
+  resolveLabels,
+  resolveProducts,
+} from './catalog-records';
 
 /**
  * The catalog's picker kinds, over the catalog contracts.
@@ -127,6 +133,35 @@ describe('the catalog picker kinds', () => {
       ),
     ]);
     await expect(resolveProducts(['7'])).rejects.toMatchObject({ status: 500 });
+  });
+
+  it('pages past the first 100 to name a stored label id', async () => {
+    const firstPage = Array.from({ length: 100 }, (_, index) => ({
+      ...label,
+      id: String(index + 1),
+      name: `标签${index + 1}`,
+    }));
+    const calls = stubRoutes([
+      on(catalogAdminLabelList, (call) => {
+        const page = Number(call.query.get('page'));
+        return page === 2
+          ? {
+              items: [{ ...label, id: '101', name: '最后一个' }],
+              total: 101,
+              page,
+              pageSize: 100,
+            }
+          : { items: firstPage, total: 101, page, pageSize: 100 };
+      }),
+    ]);
+
+    const rows = await resolveLabels(['101', '3']);
+
+    expect(calls).toHaveLength(2);
+    expect(rows).toEqual([
+      { id: '101', name: '最后一个' },
+      { id: '3', name: '标签3' },
+    ]);
   });
 
   it('flattens the category tree into the picker tree, keeping the nesting', async () => {

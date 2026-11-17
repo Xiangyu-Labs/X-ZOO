@@ -1,8 +1,9 @@
 'use client';
 
-import { Avatar, Button, Modal, Space, Tag, Tooltip, Typography, message } from 'antd';
+import { Avatar, Button, Input, Modal, Space, Tag, Tooltip, Typography, message } from 'antd';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useDeferredValue, useState, type ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   userAdminBatchSetGroups,
   userAdminBatchSetLabels,
@@ -27,9 +28,11 @@ import {
 } from '@shop/contracts/user/schemas';
 
 import { useRouteMutation, useRouteQuery } from '@/admin/api/hooks';
+import { callRoute } from '@/admin/api/call-route';
 import { DescriptionsCard } from '@/admin/kit/descriptions-card';
 import { DetailDrawer } from '@/admin/kit/detail-drawer';
 import { ModalForm, useFormModal } from '@/admin/kit/form/modal-form';
+import type { RemoteSelectOption } from '@/admin/kit/form/remote-select';
 import { InstantText } from '@/admin/kit/instant-text';
 import { PageContainer } from '@/admin/kit/page-container';
 import { StatusTag, statusOptions } from '@/admin/kit/status-tag';
@@ -47,6 +50,26 @@ import { useCan } from '@/admin/session/session-provider';
 
 import { REGISTER_SOURCE, USER_STATUS } from '../user-enums';
 import { GrantCouponModal, type GrantTarget } from './grant-coupon-modal';
+
+/** A picker searches these by name; the first page is enough to browse. */
+const PICKER_PAGE_SIZE = 50;
+
+async function loadGroupOptions(keyword: string): Promise<RemoteSelectOption[]> {
+  const page = await callRoute(userGroupList, {
+    query: { page: 1, pageSize: PICKER_PAGE_SIZE, ...(keyword === '' ? {} : { keyword }) },
+  });
+  return page.items.map((group) => ({ value: group.id, label: group.name }));
+}
+
+async function loadLabelOptions(keyword: string): Promise<RemoteSelectOption[]> {
+  const page = await callRoute(userLabelList, {
+    query: { page: 1, pageSize: PICKER_PAGE_SIZE, ...(keyword === '' ? {} : { keyword }) },
+  });
+  return page.items.map((label) => ({
+    value: label.id,
+    label: label.categoryName ? `${label.categoryName} / ${label.name}` : label.name,
+  }));
+}
 
 /**
  * 用户列表.
@@ -95,21 +118,25 @@ export function CustomersPage() {
     { enabled: can('user:label:read') },
   );
 
-  const groupOptions = (groups.data?.items ?? []).map((group) => ({
+  const groupOptions: RemoteSelectOption[] = (groups.data?.items ?? []).map((group) => ({
     value: group.id,
     label: group.name,
   }));
-  const labelOptions = (labels.data?.items ?? []).map((label) => ({
+  const labelOptions: RemoteSelectOption[] = (labels.data?.items ?? []).map((label) => ({
     value: label.id,
     label: label.categoryName ? `${label.categoryName} / ${label.name}` : label.name,
   }));
 
   const setStatus = useRouteMutation(userAdminSetStatus, {
-    invalidate: [userAdminList],
+    invalidate: [userAdminList, userAdminDetail],
     successMessage: '已更新状态',
   });
-  const setGroups = useRouteMutation(userAdminBatchSetGroups, { invalidate: [userAdminList] });
-  const setLabels = useRouteMutation(userAdminBatchSetLabels, { invalidate: [userAdminList] });
+  const setGroups = useRouteMutation(userAdminBatchSetGroups, {
+    invalidate: [userAdminList, userAdminDetail],
+  });
+  const setLabels = useRouteMutation(userAdminBatchSetLabels, {
+    invalidate: [userAdminList, userAdminDetail],
+  });
 
   return (
     <PageContainer subTitle="商城注册与后台录入的用户；列表里的手机号是打码的，完整号码在详情里">
@@ -143,8 +170,24 @@ export function CustomersPage() {
             label: '注册来源',
             options: statusOptions(REGISTER_SOURCE),
           },
-          { kind: 'select', name: 'groupId', label: '分组', options: groupOptions },
-          { kind: 'select', name: 'labelId', label: '标签', options: labelOptions },
+          {
+            kind: 'remoteSelect',
+            name: 'groupId',
+            label: '分组',
+            loadOptions: loadGroupOptions,
+            cacheKey: 'user.groups',
+            knownOptions: groupOptions,
+            active: can('user:group:read'),
+          },
+          {
+            kind: 'remoteSelect',
+            name: 'labelId',
+            label: '标签',
+            loadOptions: loadLabelOptions,
+            cacheKey: 'user.labels',
+            knownOptions: labelOptions,
+            active: can('user:label:read'),
+          },
           {
             kind: 'select',
             name: 'hasWechat',
@@ -174,6 +217,7 @@ export function CustomersPage() {
                     label="设置分组"
                     noun="分组"
                     options={groupOptions}
+                    loadOptions={loadGroupOptions}
                     count={userIds.length}
                     pending={setGroups.isPending}
                     onSubmit={async (selected) => {
@@ -188,6 +232,7 @@ export function CustomersPage() {
                     label="设置标签"
                     noun="标签"
                     options={labelOptions}
+                    loadOptions={loadLabelOptions}
                     count={userIds.length}
                     pending={setLabels.isPending}
                     onSubmit={async (selected) => {
@@ -312,24 +357,42 @@ export function CustomersPage() {
           { kind: 'text', name: 'realName', label: '真实姓名' },
           { kind: 'date', name: 'birthday', label: '生日' },
           {
-            kind: 'select',
+            kind: 'remoteSelect',
             name: 'groupIds',
             label: '分组',
             mode: 'multiple',
-            options: groupOptions,
+            loadOptions: loadGroupOptions,
+            cacheKey: 'user.groups',
+            active: can('user:group:read'),
+            knownOptions: [
+              ...groupOptions,
+              ...(edit.record?.groups ?? []).map((group) => ({
+                value: group.id,
+                label: group.name,
+              })),
+            ],
           },
           {
-            kind: 'select',
+            kind: 'remoteSelect',
             name: 'labelIds',
             label: '标签',
             mode: 'multiple',
-            options: labelOptions,
+            loadOptions: loadLabelOptions,
+            cacheKey: 'user.labels',
+            active: can('user:label:read'),
+            knownOptions: [
+              ...labelOptions,
+              ...(edit.record?.labels ?? []).map((label) => ({
+                value: label.id,
+                label: label.name,
+              })),
+            ],
           },
           { kind: 'textarea', name: 'adminRemark', label: '管理员备注', span: 24, rows: 2 },
         ]}
         route={userAdminUpdate}
         toInput={(values) => ({ params: { id: edit.record?.id ?? '' }, body: values })}
-        invalidate={[userAdminList]}
+        invalidate={[userAdminList, userAdminDetail]}
         successMessage="已保存"
       />
 
@@ -357,18 +420,24 @@ export function CustomersPage() {
           { kind: 'text', name: 'realName', label: '真实姓名' },
           { kind: 'date', name: 'birthday', label: '生日' },
           {
-            kind: 'select',
+            kind: 'remoteSelect',
             name: 'groupIds',
             label: '分组',
             mode: 'multiple',
-            options: groupOptions,
+            loadOptions: loadGroupOptions,
+            cacheKey: 'user.groups',
+            active: can('user:group:read'),
+            knownOptions: groupOptions,
           },
           {
-            kind: 'select',
+            kind: 'remoteSelect',
             name: 'labelIds',
             label: '标签',
             mode: 'multiple',
-            options: labelOptions,
+            loadOptions: loadLabelOptions,
+            cacheKey: 'user.labels',
+            active: can('user:label:read'),
+            knownOptions: labelOptions,
           },
           { kind: 'textarea', name: 'adminRemark', label: '管理员备注', span: 24, rows: 2 },
         ]}
@@ -605,19 +674,40 @@ function BatchPicker({
   label,
   noun,
   options,
+  loadOptions,
   count,
   pending,
   onSubmit,
 }: {
   label: string;
   noun: string;
-  options: Array<{ value: string; label: string }>;
+  options: Array<{ value: string; label: ReactNode }>;
+  /** Searches names past the first page; the list is already loaded for those. */
+  loadOptions: (keyword: string) => Promise<readonly RemoteSelectOption[]>;
   count: number;
   pending: boolean;
   onSubmit: (selected: string[]) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
+  const [keyword, setKeyword] = useState('');
+  const term = useDeferredValue(keyword);
+  const search = useQuery({
+    queryKey: ['user.taxonomy.picker', noun, term],
+    queryFn: () => loadOptions(term),
+    enabled: open && term !== '',
+    staleTime: 30_000,
+  });
+  const visible = new Map(options.map((option) => [option.value, option]));
+  for (const option of search.data ?? []) visible.set(option.value, option);
+
+  const close = () => {
+    // 取消 throws away what was ticked in the dialog, and the search with it.
+    // The rows stay selected: cancelling this dialog is not cancelling the batch.
+    setSelected([]);
+    setKeyword('');
+    setOpen(false);
+  };
 
   return (
     <>
@@ -630,13 +720,10 @@ function BatchPicker({
         okText="覆盖设置"
         confirmLoading={pending}
         destroyOnHidden
-        onCancel={() => setOpen(false)}
+        onCancel={close}
         onOk={() => {
           onSubmit(selected).then(
-            () => {
-              setSelected([]);
-              setOpen(false);
-            },
+            () => close(),
             () => {
               /* the global presenter already showed the failure */
             },
@@ -646,8 +733,15 @@ function BatchPicker({
         <Typography.Paragraph type="secondary">
           覆盖设置：所选用户的{noun}将被替换为下面勾选的内容，全部不选即清空。
         </Typography.Paragraph>
+        <Input
+          allowClear
+          value={keyword}
+          placeholder={`搜索${noun}`}
+          style={{ maxWidth: 280, marginBottom: 8 }}
+          onChange={(event) => setKeyword(event.target.value)}
+        />
         <Space size={[8, 8]} wrap>
-          {options.map((option) => (
+          {[...visible.values()].map((option) => (
             <Tag.CheckableTag
               key={option.value}
               checked={selected.includes(option.value)}
@@ -662,8 +756,10 @@ function BatchPicker({
               {option.label}
             </Tag.CheckableTag>
           ))}
-          {options.length === 0 ? (
-            <Typography.Text type="secondary">暂无可选项</Typography.Text>
+          {visible.size === 0 ? (
+            <Typography.Text type="secondary">
+              {search.isFetching ? '搜索中…' : '暂无可选项'}
+            </Typography.Text>
           ) : null}
         </Space>
       </Modal>

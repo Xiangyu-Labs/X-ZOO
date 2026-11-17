@@ -1,10 +1,13 @@
 import path from 'node:path';
-import { allRoutes, routeSources } from '@shop/contracts/routes';
+import { allRoutes, routeExports, routeSources } from '@shop/contracts/routes';
 import { defineCheck, fail, note, result, type Finding } from '../framework';
 import { stripComments, walk } from '../lib/files';
 import { rel, webApp } from '../lib/paths';
 import {
+  boundContractsByMethod,
+  ctxRouteIds,
   exportedMethods,
+  methodBodies,
   paramsOf,
   shapeOf,
   urlOfRouteFile,
@@ -21,7 +24,10 @@ import {
  *   - every exported method of every `route.ts` is described by a contract;
  *   - the folder's parameter name is the contract's parameter name, because
  *     `handle()` feeds `params` straight into the contract's zod schema — a
- *     `[couponId]` folder under a `:id` contract is a 422 on every request.
+ *     `[couponId]` folder under a `:id` contract is a 422 on every request;
+ *   - the symbol each handler binds is *that* contract. A route file copied
+ *     from another resource still sits at the right path and exports the right
+ *     verb; only the binding says it validates against the wrong schema.
  */
 
 /**
@@ -101,6 +107,13 @@ export const contractsAndRoutes = defineCheck(
     }
 
     const served = new Set<string>();
+    const idsByShape = new Map<string, Set<string>>();
+    for (const route of allRoutes) {
+      const shape = shapeOf(route.path);
+      const ids = idsByShape.get(shape) ?? new Set<string>();
+      ids.add(route.id);
+      idsByShape.set(shape, ids);
+    }
     for (const route of allRoutes) {
       const shape = shapeOf(route.path);
       const file = byShape.get(shape);
@@ -121,6 +134,38 @@ export const contractsAndRoutes = defineCheck(
       }
       served.add(`${route.method} ${shape}`);
 
+      const expectedExport = routeExports[route.id];
+      if (expectedExport === undefined) {
+        findings.push(
+          fail(
+            routeSources[route.id] ?? route.id,
+            `${route.id} is missing from the generated routeExports — run pnpm gen`,
+          ),
+        );
+      } else {
+        const bound = boundContractsByMethod(file.text)[route.method as Method];
+        if (bound !== undefined && bound !== expectedExport) {
+          findings.push(
+            fail(
+              file.relative,
+              `${route.method} binds ${bound}, but ${route.id} is exported as ${expectedExport} — this handler validates against a different contract`,
+            ),
+          );
+        } else if (bound === undefined) {
+          // The two WeChat webhooks answer in WeChat's own format and build
+          // their context by hand; they must at least name this contract.
+          const body = methodBodies(file.text)[route.method as Method] ?? '';
+          if (!ctxRouteIds(body).includes(route.id)) {
+            findings.push(
+              fail(
+                file.relative,
+                `${route.method} does not bind ${route.id}: expected handle(${expectedExport}, …), or ctxFor(request, '${route.id}') for a bare handler`,
+              ),
+            );
+          }
+        }
+      }
+
       const contractParams = paramsOf(route.path);
       const fileParams = paramsOf(file.url);
       for (const [i, name] of contractParams.entries()) {
@@ -132,6 +177,21 @@ export const contractsAndRoutes = defineCheck(
             ),
           );
         }
+      }
+    }
+
+    // A bare handler can name any contract in `ctxFor`; it must name one of
+    // the contracts this URL actually serves.
+    for (const file of files) {
+      const expected = idsByShape.get(shapeOf(file.url));
+      for (const id of ctxRouteIds(file.text)) {
+        if (expected?.has(id)) continue;
+        findings.push(
+          fail(
+            file.relative,
+            `names ctxFor(request, '${id}'), which is not a contract served by ${file.url}`,
+          ),
+        );
       }
     }
 

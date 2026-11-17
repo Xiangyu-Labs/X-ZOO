@@ -1061,6 +1061,31 @@ describe('groups and labels', () => {
     expect(list.items[0]?.memberCount).toBe(1);
   });
 
+  it('searches groups and label categories by name, paging what matched', async () => {
+    await admin.groupCreate(asAdmin(), { name: '高价值客户', sortOrder: 0 });
+    await admin.groupCreate(asAdmin(), { name: '沉睡客户', sortOrder: 1 });
+    const groups = await admin.groupList(asAdmin(), {
+      page: 1,
+      pageSize: 20,
+      keyword: '沉睡',
+    });
+    expect(groups.items.map((group) => group.name)).toEqual(['沉睡客户']);
+    expect(groups.total).toBe(1);
+
+    const preferences = await admin.labelCategoryCreate(asAdmin(), {
+      name: '消费偏好',
+      sortOrder: 0,
+    });
+    await admin.labelCategoryCreate(asAdmin(), { name: '生命周期', sortOrder: 1 });
+    const categories = await admin.labelCategoryList(asAdmin(), {
+      page: 1,
+      pageSize: 20,
+      keyword: '消费',
+    });
+    expect(categories.items.map((category) => category.id)).toEqual([preferences.id]);
+    expect(categories.total).toBe(1);
+  });
+
   it('takes the memberships with the group and leaves the customers', async () => {
     const user = await makeUser();
     const group = await admin.groupCreate(asAdmin(), { name: 'VIP', sortOrder: 0 });

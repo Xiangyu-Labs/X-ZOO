@@ -260,6 +260,8 @@ export type WechatMedium = z.infer<typeof wechatMedium>;
 
 export const wechatMediaListQuery = pageQuery.extend({
   kind: wechatMediaKind.optional(),
+  /** The picker's search; matches the media id the reply carries. */
+  keyword: z.string().trim().max(64).optional(),
 });
 export type WechatMediaListQuery = z.infer<typeof wechatMediaListQuery>;
 
@@ -318,6 +320,12 @@ export const wechatQrcodeCategory = z.object({
   createdAt: instant,
 });
 export type WechatQrcodeCategory = z.infer<typeof wechatQrcodeCategory>;
+
+/** A picker searches by name; the table pages the whole list. */
+export const wechatQrcodeCategoryListQuery = pageQuery.extend({
+  keyword: z.string().trim().max(64).optional(),
+});
+export type WechatQrcodeCategoryListQuery = z.infer<typeof wechatQrcodeCategoryListQuery>;
 
 export const wechatQrcodeCategoryForm = z.object({
   name: z.string().min(1).max(64),

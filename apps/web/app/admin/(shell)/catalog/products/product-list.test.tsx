@@ -138,6 +138,23 @@ describe('商品列表', () => {
     expect(new URLSearchParams(href.searchParams.get('list')!).get('tab')).toBe('on_shelf');
   });
 
+  it('follows the URL back to 全部 when the menu link drops the tab', async () => {
+    search = new URLSearchParams('tab=on_shelf');
+    const calls = stubApi();
+    const view = renderAdmin(<ProductListPage />, { identity: allPermissions });
+    await screen.findByText('简约白 T 恤');
+    expect(screen.getByRole('tab', { selected: true })).toHaveTextContent(zhName('出售中'));
+
+    // The sidebar's /admin/catalog/products carries no query string.
+    search = new URLSearchParams();
+    view.rerender(<ProductListPage />);
+
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { selected: true })).toHaveTextContent(zhName('全部')),
+    );
+    await waitFor(() => expect(calls.some((call) => call.url.includes('tab=all'))).toBe(true));
+  });
+
   it('separates the real sales count from the number the storefront shows', async () => {
     stubApi();
     renderAdmin(<ProductListPage />, { identity: allPermissions });

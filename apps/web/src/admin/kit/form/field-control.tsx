@@ -9,6 +9,7 @@ import { isEndOfWindow } from '../instant';
 import { DateField, DateRangeField } from './date-fields';
 import { LinkField } from './link-field';
 import { MoneyInput } from './money-input';
+import { RemoteSelect } from './remote-select';
 import { RichTextField } from './rich-text-field';
 import { CascaderField, TreeSelectField } from './select-fields';
 import { SortableListField } from './sortable-list-field';
@@ -125,6 +126,20 @@ export function renderControl(
           showSearch={spec.showSearch ?? spec.options.length > SEARCHABLE_OPTIONS}
           optionFilterProp="label"
           disabled={off}
+        />
+      );
+
+    case 'remoteSelect':
+      return (
+        <RemoteSelect
+          loadOptions={spec.loadOptions}
+          cacheKey={spec.cacheKey}
+          knownOptions={spec.knownOptions}
+          multiple={spec.mode === 'multiple'}
+          allowClear={spec.allowClear ?? true}
+          placeholder={spec.placeholder ?? prompt(spec, '请选择') ?? '请选择'}
+          disabled={off}
+          active={!off && (spec.active ?? true)}
         />
       );
 

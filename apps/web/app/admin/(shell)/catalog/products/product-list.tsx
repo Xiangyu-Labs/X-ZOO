@@ -90,8 +90,15 @@ export function ProductListPage() {
         },
       ]
     : [];
-  const initial = urlState.read('tab');
-  const [tab, setTab] = useState<AdminProductTab>(isTab(initial) ? initial : 'all');
+  const urlTab = urlState.read('tab');
+  const [tab, setTab] = useState<AdminProductTab>(isTab(urlTab) ? urlTab : 'all');
+  // The sidebar's /admin/catalog/products carries no query string; follow the
+  // URL so leaving a non-default tab there shows 全部 again.
+  const [seenUrlTab, setSeenUrlTab] = useState(urlTab);
+  if (urlTab !== seenUrlTab) {
+    setSeenUrlTab(urlTab);
+    setTab(isTab(urlTab) ? urlTab : 'all');
+  }
 
   const changeTab = (next: AdminProductTab): void => {
     setTab(next);

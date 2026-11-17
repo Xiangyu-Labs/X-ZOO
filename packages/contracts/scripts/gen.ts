@@ -64,6 +64,15 @@ async function genRoutes(): Promise<number> {
   );
   lines.push(`);`);
   lines.push('');
+  lines.push(`/** The exported symbol name of each route id, for the route-binding guard. */`);
+  lines.push(`export const routeExports: Readonly<Record<string, string>> = Object.fromEntries(`);
+  lines.push(`  Object.entries(modules).flatMap(([, mod]) =>`);
+  lines.push(
+    `    Object.entries(mod).flatMap(([name, value]) => (isRoute(value) ? [[value.id, name] as const] : [])),`,
+  );
+  lines.push(`  ),`);
+  lines.push(`);`);
+  lines.push('');
   await writeFile(path.join(srcDir, 'routes.gen.ts'), lines.join('\n'), 'utf8');
   return files.length;
 }

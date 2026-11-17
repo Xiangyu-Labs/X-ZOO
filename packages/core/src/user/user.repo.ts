@@ -948,7 +948,7 @@ export interface GroupRow {
 
 export async function listGroups(
   db: DbOrTx,
-  args: { limit: number; offset: number; orderBy: SQL },
+  args: { limit: number; offset: number; orderBy: SQL; keyword?: string | undefined },
 ): Promise<GroupRow[]> {
   return db
     .select({
@@ -959,14 +959,25 @@ export async function listGroups(
       memberCount: sql<number>`(select count(*)::int from ${userGroupsMap} where ${userGroupsMap.groupId} = ${userGroups.id})`,
     })
     .from(userGroups)
+    .where(groupWhere(args))
     .orderBy(args.orderBy)
     .limit(args.limit)
     .offset(args.offset);
 }
 
-export async function countGroups(db: DbOrTx): Promise<number> {
-  const rows = await db.select({ n: sql<number>`count(*)::int` }).from(userGroups);
+export async function countGroups(
+  db: DbOrTx,
+  args: { keyword?: string | undefined } = {},
+): Promise<number> {
+  const rows = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(userGroups)
+    .where(groupWhere(args));
   return rows[0]?.n ?? 0;
+}
+
+function groupWhere(args: { keyword?: string | undefined }): SQL | undefined {
+  return args.keyword ? ilike(userGroups.name, containsPattern(args.keyword)) : undefined;
 }
 
 export async function findGroup(db: DbOrTx, id: number): Promise<GroupRow | null> {
@@ -1025,7 +1036,7 @@ export interface LabelCategoryRow {
 
 export async function listLabelCategories(
   db: DbOrTx,
-  args: { limit: number; offset: number; orderBy: SQL },
+  args: { limit: number; offset: number; orderBy: SQL; keyword?: string | undefined },
 ): Promise<LabelCategoryRow[]> {
   return db
     .select({
@@ -1035,14 +1046,25 @@ export async function listLabelCategories(
       createdAt: userLabelCategories.createdAt,
     })
     .from(userLabelCategories)
+    .where(labelCategoryWhere(args))
     .orderBy(args.orderBy)
     .limit(args.limit)
     .offset(args.offset);
 }
 
-export async function countLabelCategories(db: DbOrTx): Promise<number> {
-  const rows = await db.select({ n: sql<number>`count(*)::int` }).from(userLabelCategories);
+export async function countLabelCategories(
+  db: DbOrTx,
+  args: { keyword?: string | undefined } = {},
+): Promise<number> {
+  const rows = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(userLabelCategories)
+    .where(labelCategoryWhere(args));
   return rows[0]?.n ?? 0;
+}
+
+function labelCategoryWhere(args: { keyword?: string | undefined }): SQL | undefined {
+  return args.keyword ? ilike(userLabelCategories.name, containsPattern(args.keyword)) : undefined;
 }
 
 export async function findLabelCategory(db: DbOrTx, id: number): Promise<LabelCategoryRow | null> {

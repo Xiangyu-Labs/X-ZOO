@@ -7,9 +7,11 @@ import {
   declaresForceDynamic,
   exportedMethods,
   isMutating,
+  methodBodies,
   namesAuditTarget,
   shapeOf,
   urlOfRouteFile,
+  type Method,
 } from '../lib/route-files';
 
 /**
@@ -77,6 +79,18 @@ const AUDIT_EXEMPT: readonly Exemption[] = [
   },
 ];
 
+/**
+ * Which of these exported write methods do not call `ctx.audit` themselves.
+ *
+ * The audit call belongs to the handler, not the file: a `route.ts` that
+ * exports `PUT` and `DELETE` could have one of them audited and the other
+ * silently not, which a whole-file search cannot see.
+ */
+export function methodsMissingAudit(source: string, methods: readonly string[]): string[] {
+  const bodies = methodBodies(source);
+  return methods.filter((method) => !namesAuditTarget(bodies[method as Method] ?? ''));
+}
+
 export const routeHygiene = defineCheck(
   'route-hygiene',
   'force-dynamic on every route, an audit target on every write',
@@ -113,27 +127,26 @@ export const routeHygiene = defineCheck(
       if (writes.length === 0) continue;
 
       const covered: string[] = [];
+      const missingAudit = new Set(methodsMissingAudit(file.text, writes));
       for (const method of writes) {
         const exemption = AUDIT_EXEMPT.find((e) => shapeOf(e.url) === shape && e.method === method);
         if (!exemption) continue;
         covered.push(method);
         exemptionsHit.add(`${method} ${shape}`);
+        // An exempt method that has grown an audit call no longer needs the
+        // exemption — judged on its own body, not on a sibling's.
+        if (!missingAudit.has(method)) {
+          findings.push(
+            fail(
+              where,
+              `${method} is on the audit exemption list but this handler now calls ctx.audit(target) — delete the entry`,
+            ),
+          );
+        }
       }
-      const needed = writes.filter((m) => !covered.includes(m));
-      if (needed.length > 0 && !namesAuditTarget(file.text)) {
+      const needed = writes.filter((m) => !covered.includes(m) && missingAudit.has(m));
+      if (needed.length > 0) {
         findings.push(fail(where, `${needed.join('/')} writes but never calls ctx.audit(target)`));
-      }
-      // Every write in the file is exempt, and yet the file names a target:
-      // the exemption has stopped being true and must go. (A file whose other
-      // methods audit cannot be judged this way, since the call is per file;
-      // none of the exempt routes shares its file with an audited write.)
-      if (needed.length === 0 && covered.length > 0 && namesAuditTarget(file.text)) {
-        findings.push(
-          fail(
-            where,
-            `${covered.join('/')} is on the audit exemption list but the file now calls ctx.audit(target) — delete the entry`,
-          ),
-        );
       }
     }
 

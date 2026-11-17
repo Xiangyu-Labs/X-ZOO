@@ -164,7 +164,7 @@ export function RolesPage() {
                     input={(next) => ({ params: { id: row.id }, body: { enabled: next } })}
                     confirmTitle={`停用身份「${row.name}」？`}
                     confirmDescription="停用后，持有这个身份的管理员会失去它的权限。"
-                    invalidate={[systemRoleList]}
+                    invalidate={[systemRoleList, systemRoleDetail]}
                   />
                 </Can>
                 <ConfirmButton
@@ -202,7 +202,7 @@ export function RolesPage() {
         toInput={(values) =>
           editing ? { params: { id: editing.id }, body: values } : { body: values }
         }
-        invalidate={[systemRoleList]}
+        invalidate={[systemRoleList, systemRoleDetail]}
         onSuccess={() => {
           void message.success(editing ? '已保存，持有该身份的管理员需要重新登录' : '已创建');
         }}

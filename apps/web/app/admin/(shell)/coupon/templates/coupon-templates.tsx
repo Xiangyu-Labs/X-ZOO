@@ -162,7 +162,7 @@ export function CouponTemplatesPage() {
                     })}
                     confirmTitle={`停用优惠券「${row.name}」？`}
                     confirmDescription="停用后买家不能再领取；已领到的券不受影响。"
-                    invalidate={[couponAdminList]}
+                    invalidate={[couponAdminList, couponAdminDetail]}
                   />
                 </Can>
                 <Can permission="coupon:grant:write">
@@ -199,7 +199,7 @@ export function CouponTemplatesPage() {
         toInput={(values) =>
           modal.record ? { params: { id: modal.record.id }, body: values } : { body: values }
         }
-        invalidate={[couponAdminList]}
+        invalidate={[couponAdminList, couponAdminDetail]}
         successMessage="已保存"
       />
 

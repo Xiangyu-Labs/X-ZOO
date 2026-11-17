@@ -167,6 +167,32 @@ describe('用户列表', () => {
     await waitFor(() => expect(avatars()).toEqual([avatarUrl, avatarUrl]));
   });
 
+  it('clears a batch dialog’s ticks on 取消, and keeps the rows selected', async () => {
+    stubApi();
+    renderAdmin(<CustomersPage />, { identity: allPermissions });
+    await screen.findByText('小明');
+
+    await userEvent.click(screen.getAllByRole('checkbox')[1]!);
+    await screen.findByText(/已选择 1 项/);
+
+    await userEvent.click(screen.getByRole('button', { name: '设置分组' }));
+    let dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByText('高价值客户'));
+    expect(within(dialog).getByText('高价值客户').closest('.ant-tag-checkable')).toHaveClass(
+      'ant-tag-checkable-checked',
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: zhName('取消') }));
+
+    // The batch is still selected — cancelling the dialog is not cancelling it.
+    expect(await screen.findByText(/已选择 1 项/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: '设置分组' }));
+    dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('高价值客户').closest('.ant-tag-checkable')).not.toHaveClass(
+      'ant-tag-checkable-checked',
+    );
+  });
+
   it('keeps 禁用 and 重置密码 behind their own permissions', async () => {
     stubApi();
     renderAdmin(<CustomersPage />, {

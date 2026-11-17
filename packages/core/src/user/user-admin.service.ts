@@ -572,14 +572,19 @@ async function afterReview(ctx: Ctx, id: number): Promise<CancellationRequest> {
 
 export async function groupList(
   ctx: Ctx,
-  query: PageQuery & { sortBy?: string | undefined; sortOrder?: 'asc' | 'desc' | undefined },
+  query: PageQuery & {
+    keyword?: string | undefined;
+    sortBy?: string | undefined;
+    sortOrder?: 'asc' | 'desc' | undefined;
+  },
 ): Promise<Paged<UserGroup>> {
   const [rows, total] = await Promise.all([
     repo.listGroups(ctx.db, {
       ...pageBounds(query),
+      keyword: query.keyword,
       orderBy: pickOrder(repo.orderBy.groups, query.sortBy, query.sortOrder, 'sortOrder') as SQL,
     }),
-    repo.countGroups(ctx.db),
+    repo.countGroups(ctx.db, { keyword: query.keyword }),
   ]);
   return { items: rows.map(toGroup), total, page: query.page, pageSize: query.pageSize };
 }
@@ -656,11 +661,16 @@ function toGroup(row: repo.GroupRow): UserGroup {
 
 export async function labelCategoryList(
   ctx: Ctx,
-  query: PageQuery & { sortBy?: string | undefined; sortOrder?: 'asc' | 'desc' | undefined },
+  query: PageQuery & {
+    keyword?: string | undefined;
+    sortBy?: string | undefined;
+    sortOrder?: 'asc' | 'desc' | undefined;
+  },
 ): Promise<Paged<UserLabelCategory>> {
   const [rows, total] = await Promise.all([
     repo.listLabelCategories(ctx.db, {
       ...pageBounds(query),
+      keyword: query.keyword,
       orderBy: pickOrder(
         repo.orderBy.labelCategories,
         query.sortBy,
@@ -668,7 +678,7 @@ export async function labelCategoryList(
         'sortOrder',
       ) as SQL,
     }),
-    repo.countLabelCategories(ctx.db),
+    repo.countLabelCategories(ctx.db, { keyword: query.keyword }),
   ]);
   return { items: rows.map(toLabelCategory), total, page: query.page, pageSize: query.pageSize };
 }

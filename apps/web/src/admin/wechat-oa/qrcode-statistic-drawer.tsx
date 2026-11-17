@@ -16,6 +16,7 @@ import { DescriptionsCard } from '@/admin/kit/descriptions-card';
 import { formatInstant } from '@/admin/kit/instant';
 import { idColumn, instantColumn, textColumn } from '@/admin/kit/table/columns';
 import { CrudTable } from '@/admin/kit/table/crud-table';
+import { useMemoryUrlState } from '@/admin/kit/table/url-state';
 
 export interface QrcodeStatisticDrawerProps {
   qrcode: WechatQrcode | null;
@@ -40,7 +41,7 @@ export function QrcodeStatisticDrawer({ qrcode, onClose }: QrcodeStatisticDrawer
       destroyOnHidden
       title={qrcode ? `扫码统计：${qrcode.name}` : '扫码统计'}
     >
-      {qrcode ? <Body qrcode={qrcode} /> : null}
+      {qrcode ? <Body key={qrcode.id} qrcode={qrcode} /> : null}
     </Drawer>
   );
 }
@@ -48,6 +49,9 @@ export function QrcodeStatisticDrawer({ qrcode, onClose }: QrcodeStatisticDrawer
 function Body({ qrcode }: { qrcode: WechatQrcode }) {
   const statistic = useRouteQuery(wechatOaQrcodeStatistic, { params: { id: qrcode.id } });
   const data = statistic.data;
+  // The scan table's paging belongs to this one code. In the page URL it leaked
+  // into the next code opened from the list.
+  const urlState = useMemoryUrlState();
 
   return (
     <Space direction="vertical" style={{ width: '100%' }} size={16}>
@@ -95,7 +99,7 @@ function Body({ qrcode }: { qrcode: WechatQrcode }) {
       <CrudTable
         route={wechatOaQrcodeScans}
         params={{ id: qrcode.id }}
-        urlPrefix="scan"
+        urlState={urlState}
         size="small"
         title="扫码明细"
         columns={[

@@ -129,7 +129,7 @@ export function ArticlesPage() {
                     labels={['发布', '隐藏']}
                     confirmTitle={`隐藏文章「${row.title}」？`}
                     confirmDescription="隐藏后商城不再显示这篇文章。"
-                    invalidate={[cmsArticleList]}
+                    invalidate={[cmsArticleList, cmsArticleDetail]}
                   />
                 </Can>
                 <ConfirmButton
@@ -255,7 +255,7 @@ export function ArticlesPage() {
         toInput={(values) =>
           editing ? { params: { id: editing.id }, body: values } : { body: values }
         }
-        invalidate={[cmsArticleList]}
+        invalidate={[cmsArticleList, cmsArticleDetail]}
         successMessage="已保存"
       />
     </PageContainer>

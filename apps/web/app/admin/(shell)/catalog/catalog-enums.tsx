@@ -21,6 +21,7 @@ import { Button, Form, Input, Space, Typography } from 'antd';
 import { useState } from 'react';
 
 import { callRoute } from '@/admin/api/call-route';
+import type { RemoteSelectOption } from '@/admin/kit/form/remote-select';
 import { SkuPicker, type PickedSku } from '@/admin/kit/sku-picker';
 import type { FieldSpec, SelectOption } from '@/admin/kit/form/types';
 import type { TreeOption } from '@/admin/kit/form/select-fields';
@@ -191,16 +192,19 @@ export const labelCategoryFields: FieldSpec<Extract<keyof ProductLabelCategoryFo
  * `var(--brand)` alike.
  */
 export function labelFields(
-  categoryOptions: readonly SelectOption[],
+  categoryOptions: readonly RemoteSelectOption[],
+  loadCategoryOptions: (keyword: string) => Promise<readonly RemoteSelectOption[]>,
 ): FieldSpec<Extract<keyof ProductLabelForm, string>>[] {
   return [
     { kind: 'text', name: 'name', label: '标签名称', span: 12, maxLength: 64 },
     {
-      kind: 'select',
+      kind: 'remoteSelect',
       name: 'categoryId',
       label: '标签分类',
       span: 12,
-      options: categoryOptions,
+      loadOptions: loadCategoryOptions,
+      cacheKey: 'catalog.labelCategories',
+      knownOptions: categoryOptions,
       allowClear: true,
       placeholder: '未分类',
     },

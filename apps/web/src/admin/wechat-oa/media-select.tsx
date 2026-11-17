@@ -1,6 +1,7 @@
 'use client';
 
 import { Select, Space, Typography } from 'antd';
+import { useDeferredValue, useState } from 'react';
 import { wechatOaMediaList } from '@shop/contracts/wechat-oa/wechat-oa.media.contract';
 import type { WechatMediaKind } from '@shop/contracts/wechat-oa/schemas';
 
@@ -22,40 +23,72 @@ export interface MediaSelectProps {
  * behind 微信素材, so anything uploaded there is immediately selectable here,
  * and a reply can only ever name material we have actually pushed to WeChat.
  *
- * One page of 100 is deliberately the whole widget: a shop with more permanent
- * assets than that has an organisation problem the picker cannot fix, and a
- * searchable select over 100 rows beats a paged modal for a field that is
- * filled in once.
+ * The list is searched on the server rather than fetched as one page of 100: a
+ * shop that has uploaded more than that could not pick the 101st asset, and
+ * would also be told a perfectly good handle was "not in the library". The
+ * chosen handle is looked up by its own id, so that warning only appears when
+ * the asset really is gone (a temporary one WeChat expired).
  */
 export function MediaSelect({ kind, value, onChange, disabled = false }: MediaSelectProps) {
-  const { data, isPending } = useRouteQuery(wechatOaMediaList, {
-    query: { page: 1, pageSize: 100, kind },
-  });
+  const [keyword, setKeyword] = useState('');
+  const term = useDeferredValue(keyword);
 
-  const items = data?.items ?? [];
-  const selected = items.find((item) => item.mediaId === value);
+  const list = useRouteQuery(wechatOaMediaList, {
+    query: {
+      page: 1,
+      pageSize: 50,
+      kind,
+      ...(term === '' ? {} : { keyword: term }),
+    },
+  });
+  const items = list.data?.items ?? [];
+
+  // Where the current value's name and preview come from, even when it is not
+  // in the page the search is showing.
+  const selectedLookup = useRouteQuery(
+    wechatOaMediaList,
+    { query: { page: 1, pageSize: 10, kind, keyword: value ?? '' } },
+    { enabled: value !== undefined, presentError: false },
+  );
+  const selected =
+    value === undefined
+      ? undefined
+      : selectedLookup.data?.items.find((item) => item.mediaId === value);
+  const missing =
+    value !== undefined && selectedLookup.data !== undefined && selected === undefined;
+
+  const visible =
+    selected !== undefined && !items.some((item) => item.mediaId === value)
+      ? [selected, ...items]
+      : items;
 
   return (
     <Space direction="vertical" style={{ width: '100%' }} size={4}>
       <Select
         value={value}
         onChange={(next: string | undefined) => onChange?.(next)}
-        loading={isPending}
+        loading={list.isPending}
         disabled={disabled}
         allowClear
         showSearch
-        optionFilterProp="label"
-        placeholder="选择已上传到微信的素材"
+        filterOption={false}
+        onSearch={setKeyword}
+        onOpenChange={(open) => {
+          if (!open) setKeyword('');
+        }}
+        notFoundContent={
+          list.isPending ? null : list.isError ? '素材加载失败，请重新输入以重试' : '没有匹配的素材'
+        }
+        placeholder="搜索并选择已上传到微信的素材"
         style={{ width: '100%' }}
-        options={items.map((item) => ({
+        options={visible.map((item) => ({
           value: item.mediaId,
           label: `${item.mediaId}${item.isPermanent ? '' : '（临时）'}`,
         }))}
-        notFoundContent={isPending ? null : '还没有这种类型的素材，请先在「微信素材」里上传'}
       />
       {/* An unknown handle is worth saying out loud: it is usually a temporary
           asset WeChat has already expired, and the reply would fail silently. */}
-      {value !== undefined && selected === undefined && !isPending ? (
+      {missing ? (
         <Typography.Text type="warning">
           素材 {value} 不在当前素材库里，可能已过期，建议重新选择。
         </Typography.Text>

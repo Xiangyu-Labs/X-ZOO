@@ -321,7 +321,7 @@ export function ShippingTemplatesPage() {
         toInput={(values) =>
           editing ? { params: { id: editing.id }, body: values } : { body: values }
         }
-        invalidate={[shippingTemplateList]}
+        invalidate={[shippingTemplateList, shippingTemplateDetailRoute]}
         successMessage="已保存"
         footerExtra={(form) => <FreightTrialButton form={form} />}
       />

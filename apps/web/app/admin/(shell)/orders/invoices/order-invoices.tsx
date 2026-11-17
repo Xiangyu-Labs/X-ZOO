@@ -8,7 +8,11 @@ import {
   invoiceAdminReject,
   invoiceAdminVoid,
 } from '@shop/contracts/order/order.invoice.contract';
-import { orderAdminDetail, orderAdminTimeline } from '@shop/contracts/order/order.admin.contract';
+import {
+  orderAdminDetail,
+  orderAdminStatistics,
+  orderAdminTimeline,
+} from '@shop/contracts/order/order.admin.contract';
 import {
   invoiceIssueBody,
   invoiceRejectBody,
@@ -123,7 +127,12 @@ export function OrderInvoicesPage() {
                   title={`作废发票 ${row.invoiceNumber ?? ''}？`}
                   description="请先在税务系统完成冲红。作废后买家可以重新申请开票。"
                   okText="作废"
-                  invalidate={[invoiceAdminList, orderAdminDetail, orderAdminTimeline]}
+                  invalidate={[
+                    invoiceAdminList,
+                    orderAdminDetail,
+                    orderAdminTimeline,
+                    orderAdminStatistics,
+                  ]}
                   successMessage="已作废"
                   permission="order:invoice:write"
                   buttonProps={{ type: 'link', size: 'small', danger: true }}
@@ -158,7 +167,7 @@ export function OrderInvoicesPage() {
         ]}
         route={invoiceAdminIssue}
         toInput={(values) => ({ params: { id: issue.record?.id ?? '' }, body: values })}
-        invalidate={[invoiceAdminList, orderAdminDetail, orderAdminTimeline]}
+        invalidate={[invoiceAdminList, orderAdminDetail, orderAdminTimeline, orderAdminStatistics]}
         successMessage="已开票"
       />
 
@@ -178,7 +187,7 @@ export function OrderInvoicesPage() {
         ]}
         route={invoiceAdminReject}
         toInput={(values) => ({ params: { id: reject.record?.id ?? '' }, body: values })}
-        invalidate={[invoiceAdminList, orderAdminDetail, orderAdminTimeline]}
+        invalidate={[invoiceAdminList, orderAdminDetail, orderAdminTimeline, orderAdminStatistics]}
         successMessage="已驳回"
       />
     </PageContainer>

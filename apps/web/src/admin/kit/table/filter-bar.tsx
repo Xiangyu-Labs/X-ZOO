@@ -6,6 +6,7 @@ import { useCallback, useState, type ReactNode } from 'react';
 
 import { DateRangeField } from '../form/date-fields';
 import { MoneyInput } from '../form/money-input';
+import { RemoteSelect } from '../form/remote-select';
 import type { SelectOption } from '../form/types';
 import { defined } from '../props';
 import { useStoredFlag } from '../stored-flag';
@@ -52,6 +53,25 @@ export type FilterSpec = FilterLayout &
         allowClear?: boolean | undefined;
         /** Type to filter the options. Default on for more than 8 options. */
         showSearch?: boolean | undefined;
+      }
+    | {
+        /**
+         * A select whose options the server searches: the list behind it may be
+         * larger than one page, and picking the 101st row must still be possible.
+         */
+        kind: 'remoteSelect';
+        name: string;
+        label: string;
+        loadOptions: (
+          keyword: string,
+        ) => Promise<readonly import('../form/remote-select').RemoteSelectOption[]>;
+        cacheKey: string;
+        knownOptions?: readonly import('../form/remote-select').RemoteSelectOption[] | undefined;
+        /** `false` skips the request, for a filter the viewer may not read options for. */
+        active?: boolean | undefined;
+        /** Multi-select; serialised into the URL and the query as `a,b`. */
+        multiple?: boolean | undefined;
+        allowClear?: boolean | undefined;
       }
     | {
         /** Two query keys, one control: `[startKey, endKey]`. */
@@ -356,6 +376,31 @@ function renderFilter(
               : next === undefined || next === null
                 ? undefined
                 : String(next);
+            set({ [spec.name]: value });
+          }}
+        />
+      );
+
+    case 'remoteSelect':
+      return (
+        <RemoteSelect
+          loadOptions={spec.loadOptions}
+          cacheKey={spec.cacheKey}
+          knownOptions={spec.knownOptions}
+          multiple={spec.multiple ?? false}
+          allowClear={spec.allowClear ?? true}
+          active={spec.active ?? true}
+          placeholder={`请选择${spec.label}`}
+          data-testid={`filter-${spec.name}`}
+          value={
+            spec.multiple ? (draft[spec.name]?.split(',').filter(Boolean) ?? []) : draft[spec.name]
+          }
+          onChange={(next) => {
+            const value = Array.isArray(next)
+              ? next.length > 0
+                ? next.join(',')
+                : undefined
+              : next;
             set({ [spec.name]: value });
           }}
         />

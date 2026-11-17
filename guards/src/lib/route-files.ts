@@ -74,7 +74,63 @@ export function namesAuditTarget(source: string): boolean {
 /**
  * The contract identifiers a route file binds, in `handle(<name>, …)` position.
  * Used to check that the file serves the contract whose path it sits on.
+ *
+ * Comments are stripped first: a note that mentions `handle(listCoupons, …)`
+ * must not count as a binding.
  */
 export function boundContracts(source: string): string[] {
-  return [...source.matchAll(/\bhandle\s*\(\s*([A-Za-z_$][\w$]*)/g)].map((m) => m[1] ?? '');
+  const text = stripComments(source);
+  return [...text.matchAll(/\bhandle\s*\(\s*([A-Za-z_$][\w$]*)/g)].map((m) => m[1] ?? '');
+}
+
+/**
+ * The source of each exported HTTP method: from its `export` keyword up to the
+ * next exported method. Enough to ask a per-method question (does *this* write
+ * call `ctx.audit`?) without a TypeScript parser, and comments are stripped so
+ * a commented-out call cannot answer for a live one.
+ */
+export function methodBodies(source: string): Partial<Record<Method, string>> {
+  const text = stripComments(source);
+  const starts: { method: Method; index: number }[] = [];
+  for (const method of HTTP_METHODS) {
+    const re = new RegExp(`export\\s+(?:const|async\\s+function|function)\\s+${method}\\b`, 'g');
+    for (const match of text.matchAll(re)) starts.push({ method, index: match.index ?? 0 });
+  }
+  starts.sort((a, b) => a.index - b.index);
+  const bodies: Partial<Record<Method, string>> = {};
+  for (const [i, start] of starts.entries()) {
+    const end = starts[i + 1]?.index ?? text.length;
+    bodies[start.method] = text.slice(start.index, end);
+  }
+  return bodies;
+}
+
+/**
+ * The contract each exported method binds through `handle()`, keyed by method.
+ *
+ * `boundContracts` cannot tell which method a name belongs to; in a file that
+ * exports `PUT` and `DELETE` it only says the file names two contracts. This
+ * associates each name with the method whose body contains it, which is what
+ * the contracts guard compares against the URL's route.
+ */
+export function boundContractsByMethod(source: string): Partial<Record<Method, string>> {
+  const bodies = methodBodies(source);
+  const out: Partial<Record<Method, string>> = {};
+  for (const [method, body] of Object.entries(bodies) as [Method, string][]) {
+    const match = /\bhandle\s*\(\s*([A-Za-z_$][\w$]*)/.exec(body);
+    if (match?.[1] !== undefined) out[method] = match[1];
+  }
+  return out;
+}
+
+/**
+ * The route ids a bare handler names in `ctxFor(request, '<route.id>')`.
+ *
+ * The two WeChat webhooks answer with WeChat's own text/XML rather than the
+ * JSON envelope `handle()` validates, so they create their context by hand and
+ * name the contract themselves. Extracted so the guard can check that name.
+ */
+export function ctxRouteIds(source: string): string[] {
+  const text = stripComments(source);
+  return [...text.matchAll(/ctxFor\s*\(\s*[^,]+,\s*['"]([^'"]+)['"]/g)].map((m) => m[1] ?? '');
 }

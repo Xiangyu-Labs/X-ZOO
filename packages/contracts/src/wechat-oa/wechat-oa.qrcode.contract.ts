@@ -8,6 +8,7 @@ import {
   wechatQrcodeCategory,
   wechatQrcodeCategoryExample,
   wechatQrcodeCategoryForm,
+  wechatQrcodeCategoryListQuery,
   wechatQrcodeExample,
   wechatQrcodeForm,
   wechatQrcodeListQuery,
@@ -46,7 +47,7 @@ export const wechatOaQrcodeCategoryList = defineRoute({
   permission: 'wechat-oa:qrcode:read',
   summary: '渠道码分类列表',
   tags: ['wechat-oa'],
-  query: pageQuery,
+  query: wechatQrcodeCategoryListQuery,
   response: paged(wechatQrcodeCategory),
   examples: [
     {

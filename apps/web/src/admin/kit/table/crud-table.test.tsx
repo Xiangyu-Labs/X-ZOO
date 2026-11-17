@@ -125,6 +125,35 @@ describe('<CrudTable>', () => {
     );
   });
 
+  it('clamps a hand-edited pageSize to the contract’s 100', async () => {
+    const { urls } = stubList();
+    renderAdmin(<Harness initial={{ pageSize: '500' }} onState={() => {}} />);
+
+    await waitFor(() => expect(urls).toHaveLength(1));
+    expect(urls[0]).toContain('pageSize=100');
+  });
+
+  it('says the visible rows are stale when a refresh fails', async () => {
+    let fail = false;
+    stubRoutes([
+      on(listRoute, () =>
+        fail
+          ? respondWithError(500, { code: 'INTERNAL', message: '服务器开小差了' })
+          : { items: rows, total: 42, page: 1, pageSize: 20 },
+      ),
+    ]);
+    const user = userEvent.setup();
+    renderAdmin(<Harness onState={() => {}} />);
+    await screen.findByText('组件 1');
+
+    fail = true;
+    await user.click(screen.getByRole('button', { name: zhName('刷新') }));
+
+    expect(await screen.findByText('服务器开小差了')).toBeInTheDocument();
+    // The old page is still there; the banner is what says it is not current.
+    expect(screen.getByText('组件 1')).toBeInTheDocument();
+  });
+
   it('writes filters back to the URL state and resets to page 1', async () => {
     const user = userEvent.setup();
     const { urls } = stubList();

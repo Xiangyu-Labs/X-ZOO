@@ -9,6 +9,7 @@ import {
   orderAdminShip,
   orderAdminShipmentTracking,
   orderAdminShipments,
+  orderAdminStatistics,
   orderAdminTimeline,
   orderAdminUpdateShipment,
 } from '@shop/contracts/order/order.admin.contract';
@@ -23,6 +24,7 @@ import {
 import { useRouteQuery } from '@/admin/api';
 import { ConfirmButton } from '@/admin/kit/confirm-button';
 import { InstantText } from '@/admin/kit/instant-text';
+import { LoadFailure } from '@/admin/kit/load-failure';
 import { ModalForm, useFormModal } from '@/admin/kit/form/modal-form';
 import { StatusTag } from '@/admin/kit/status-tag';
 import { Can } from '@/admin/session';
@@ -99,7 +101,14 @@ export function ShipPanel({
     showShipModal(order);
   }, [autoOpenShip, order, shippable, showShipModal]);
 
-  const invalidate = [orderAdminDetail, orderAdminShipments, orderAdminTimeline, orderAdminList];
+  // 发货 / 撤销发货 change the list's 待发货 and 待收货 counters too.
+  const invalidate = [
+    orderAdminDetail,
+    orderAdminShipments,
+    orderAdminTimeline,
+    orderAdminList,
+    orderAdminStatistics,
+  ];
 
   // Every quantity set to 0 would send an empty `lines`, which the server reads
   // as 「剩余全部发出」 — the opposite of what the operator typed.
@@ -443,7 +452,7 @@ function TrackingLink({ shipmentId }: { shipmentId: string }) {
   const tracking = useRouteQuery(
     orderAdminShipmentTracking,
     { params: { id: shipmentId } },
-    { enabled: open },
+    { enabled: open, presentError: false },
   );
 
   if (!open) {
@@ -454,6 +463,9 @@ function TrackingLink({ shipmentId }: { shipmentId: string }) {
     );
   }
   if (tracking.isPending) return <Typography.Text type="secondary">查询中…</Typography.Text>;
+  if (tracking.isError) {
+    return <LoadFailure error={tracking.error} onRetry={() => tracking.refetch()} />;
+  }
   if (!tracking.data?.available) {
     return <Typography.Text type="secondary">未接入物流查询</Typography.Text>;
   }
