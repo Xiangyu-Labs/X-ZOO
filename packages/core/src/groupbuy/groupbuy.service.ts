@@ -530,6 +530,33 @@ export async function banners(
   return { items: config.banners.map((b) => ({ imageUrl: b.imageUrl, link: b.link })) };
 }
 
+/**
+ * The SKUs a shopper can pick: enabled ones, priced as the campaign prices
+ * them. Shared with the product page's promotion block (`groupbuy.product.ts`).
+ */
+export function toStorefrontSkus(skus: readonly repo.ActivitySkuRow[]): GroupbuyDetail['skus'] {
+  return skus
+    .filter((sku) => sku.isEnabled)
+    .map((sku) => ({
+      skuId: toId(sku.skuId),
+      specText: sku.specText,
+      specValues: sku.specValues,
+      imageUrl: sku.imageUrl,
+      price: sku.price,
+      originalPrice: sku.skuOriginalPrice ?? sku.skuPrice,
+      stock: sku.stock,
+    }));
+}
+
+/**
+ * Whether a shopper may open or join a team now. The server's decision, never
+ * the client's: the button is disabled by the same rule the
+ * `OrderKindHandler` will enforce a moment later.
+ */
+export function canJoin(row: repo.ActivityRow, now: Date): boolean {
+  return isActivityOpen(row, now) && row.stock > 0;
+}
+
 export async function detail(ctx: Ctx, input: { id: string }): Promise<GroupbuyDetail> {
   const id = Number(input.id);
   const now = ctx.clock.now();
@@ -560,17 +587,7 @@ export async function detail(ctx: Ctx, input: { id: string }): Promise<GroupbuyD
     descriptionBlocks: description
       ? storedDescriptionBlocks(description.html, description.blocks)
       : [],
-    skus: skus
-      .filter((sku) => sku.isEnabled)
-      .map((sku) => ({
-        skuId: toId(sku.skuId),
-        specText: sku.specText,
-        specValues: sku.specValues,
-        imageUrl: sku.imageUrl,
-        price: sku.price,
-        originalPrice: sku.skuOriginalPrice ?? sku.skuPrice,
-        stock: sku.stock,
-      })),
+    skus: toStorefrontSkus(skus),
     myOpenGroupId: toIdOrNull(myOpenGroup?.id ?? null),
     myOpenGroupRole: myOpenGroup?.role ?? null,
   };
@@ -917,9 +934,7 @@ function toCard(row: repo.ActivityRow, formingGroups: number, now: Date): Groupb
     startAt: row.startAt.toISOString(),
     endAt: row.endAt.toISOString(),
     formingGroups,
-    // The server's decision, never the client's: the button is disabled by the
-    // same rule the `OrderKindHandler` will enforce a moment later.
-    canBuy: isActivityOpen(row, now) && row.stock > 0,
+    canBuy: canJoin(row, now),
   };
 }
 

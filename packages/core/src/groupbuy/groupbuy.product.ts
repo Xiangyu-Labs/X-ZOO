@@ -5,9 +5,8 @@ import {
   type ProductPromotionPort,
 } from '../catalog';
 import { DomainError } from '../kernel/errors';
-import { toId, toIdOrNull } from '../kernel/ids';
+import { toIdOrNull } from '../kernel/ids';
 import { groupbuyActivityForm } from '@shop/contracts/groupbuy/schemas';
-import { isActivityOpen } from './groupbuy.rules';
 import { groupbuyPermissions } from './permissions';
 import * as service from './groupbuy.service';
 import * as repo from './groupbuy.repo';
@@ -91,35 +90,26 @@ const port: ProductPromotionPort = {
     });
   },
   async storefront(ctx, activityId) {
+    // The campaign and its SKUs only: `service.detail()` would also read the
+    // description, the forming teams and the shopper's own team, and count a
+    // view of a campaign page nobody opened.
     const id = Number(activityId);
-    const now = ctx.clock.now();
     const [activity, skus] = await Promise.all([
       repo.findActivity(ctx.db, id, { sellableProductOnly: true }),
       repo.listActivitySkus(ctx.db, [id]),
     ]);
     if (!activity) throw new DomainError('GROUPBUY_ACTIVITY_NOT_FOUND');
-
     return {
       kind: 'groupbuy',
       activityId,
       price: activity.price,
       originalPrice: activity.originalPrice,
       endAt: activity.endAt.toISOString(),
-      canBuy: isActivityOpen(activity, now) && activity.stock > 0,
+      canBuy: service.canJoin(activity, ctx.clock.now()),
       seatsRequired: activity.seatsRequired,
       shipAfterDays: null,
       perOrderQuantity: activity.perOrderQuantity,
-      skus: skus
-        .filter((sku) => sku.isEnabled)
-        .map((sku) => ({
-          skuId: toId(sku.skuId),
-          specText: sku.specText,
-          specValues: sku.specValues,
-          imageUrl: sku.imageUrl,
-          price: sku.price,
-          originalPrice: sku.skuOriginalPrice ?? sku.skuPrice,
-          stock: sku.stock,
-        })),
+      skus: service.toStorefrontSkus(skus),
     };
   },
 };

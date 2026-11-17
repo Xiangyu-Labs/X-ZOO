@@ -1,5 +1,5 @@
 import { DomainError } from '../kernel/errors';
-import { toId, toIdOrNull } from '../kernel/ids';
+import { toIdOrNull } from '../kernel/ids';
 import { presaleActivityForm } from '@shop/contracts/presale/schemas';
 import {
   registerProductPromotionPort,
@@ -9,12 +9,6 @@ import {
 import { canBuy } from './presale.rules';
 import * as service from './presale.service';
 import * as repo from './presale.repo';
-
-const STOREFRONT_READABLE: ReadonlySet<repo.ActivityRow['status']> = new Set([
-  'active',
-  'paused',
-  'ended',
-]);
 
 const port: ProductPromotionPort = {
   async candidates(ctx, productId, includeId) {
@@ -90,37 +84,25 @@ const port: ProductPromotionPort = {
     });
   },
   async storefront(ctx, activityId) {
+    // The campaign and its SKUs only: `service.detail()` would also read the
+    // product description the product page already has.
     const id = Number(activityId);
-    const now = ctx.clock.now();
-    const [activity, skus] = await Promise.all([
+    const [found, skus] = await Promise.all([
       repo.findActivity(ctx.db, id, { sellableProductOnly: true }),
       repo.listActivitySkus(ctx.db, [id]),
     ]);
-    if (!activity || !STOREFRONT_READABLE.has(activity.status)) {
-      throw new DomainError('PRESALE_ACTIVITY_NOT_FOUND');
-    }
-
+    const activity = service.storefrontReadable(found);
     return {
       kind: 'presale',
       activityId,
       price: activity.price,
       originalPrice: activity.originalPrice,
       endAt: activity.endAt.toISOString(),
-      canBuy: canBuy(activity, now),
+      canBuy: canBuy(activity, ctx.clock.now()),
       seatsRequired: null,
       shipAfterDays: activity.shipAfterDays,
       perOrderQuantity: activity.perOrderQuantity,
-      skus: skus
-        .filter((sku) => sku.isEnabled)
-        .map((sku) => ({
-          skuId: toId(sku.skuId),
-          specText: sku.specText,
-          specValues: sku.specValues,
-          imageUrl: sku.imageUrl,
-          price: sku.price,
-          originalPrice: sku.skuOriginalPrice ?? sku.skuPrice,
-          stock: sku.stock,
-        })),
+      skus: service.toStorefrontSkus(skus),
     };
   },
 };
