@@ -39,10 +39,15 @@ export async function uploadImage(
   const hooks = authHooks();
   const token = hooks.getToken();
   let response = await send(token);
+  let sent = token;
   if (response.status === 401 && token) {
     const renewed = await hooks.renew(token);
-    if (renewed) response = await send(renewed);
+    if (renewed) {
+      sent = renewed;
+      response = await send(renewed);
+    }
   }
+  if (response.status !== 401 && sent) hooks.accepted(sent);
   const payload = parse(response.body);
   if (response.status < 200 || response.status >= 300) {
     if (response.status === 401) hooks.onUnauthorized();

@@ -9,8 +9,8 @@ import '@shop/contracts/locale';
 // machine and its effect handlers. A route module only imports the
 // domain it serves, so without this a checkout would run on the fallback
 // catalogue adapter and `refund.execute` would be parked as `unknown` by the
-// first dispatcher pass after boot. `handle()` is on the path of every request,
-// which is why it is here and not in the container.
+// first dispatcher pass after boot. `handle()` is on the path of every request;
+// the container imports it as well, for the services it builds (see there).
 import '@shop/core/domains';
 import {
   anonymousActor,

@@ -75,3 +75,17 @@ describe('webDbOptions', () => {
     }
   });
 });
+
+describe('the domains the container serves (#91)', () => {
+  it('installs the user lookup in its own module graph, so a container a page built still resolves shopper sessions', async () => {
+    // A fresh graph stands in for the server-rendered bundle (admin layout, landing page, OAuth):
+    // it reaches the container without ever loading `handle.ts`.
+    vi.resetModules();
+    const auth = await import('@shop/core/auth');
+    expect(auth.getUserLookup()).toBeUndefined();
+
+    await import('./container');
+
+    expect(auth.getUserLookup()).toBeDefined();
+  });
+});

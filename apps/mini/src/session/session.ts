@@ -91,6 +91,14 @@ function ownerOf(token: string): string | null {
   return storage.get(TOKEN_KEY) === token ? storage.get(USER_KEY) : null;
 }
 
+/**
+ * Tokens a sign-in issued this launch that no request has yet been answered with anything but
+ * a 401. A 401 for one of them is not an expired session: the server refuses the session it has
+ * just issued, and signing in again gets one it refuses the same way. Renewing it signed in
+ * again on every 401, about once a second, while each new session refetched the page (#91).
+ */
+const unproven = new Set<string>();
+
 /** What the last sign-in left to tell the shopper (`takeSignInHint`). */
 let signInHint: string | null = null;
 
@@ -98,6 +106,7 @@ function signedIn(token: string, userId: string, hint: string | null = null): vo
   clearSessionNotice();
   signInHint = hint;
   storage.set(TOKEN_KEY, token);
+  unproven.add(token);
   if (userId) {
     owners.set(token, userId);
     storage.set(USER_KEY, userId);
@@ -278,10 +287,14 @@ function sendToLogin(renewal: Renewal): void {
  * - Not signed in (signed out, or a renewal already ended without a session): `null`, no
  *   second `wx.login`.
  *
+ * - `sent` was issued this launch and the server has never honoured it: `null`, no renewal
+ *   (`unproven`, #91). The 401 stands and the shopper is signed out.
+ *
  * When the renewal reached another account the shopper is signed out and sent to the login
  * page, once, which says「登录已过期，请重新登录」(`useSessionNotice`); the request is not replayed.
  */
 export async function renewFor(sent: string): Promise<string | null> {
+  if (unproven.has(sent)) return null;
   // Before renewing: the renewal forgets the stored token, and with it a stored token's account.
   const owner = ownerOf(sent);
   let token: string | null;
@@ -299,6 +312,7 @@ export async function renewFor(sent: string): Promise<string | null> {
 installAuth({
   getToken: currentToken,
   renew: renewFor,
+  accepted: (token) => unproven.delete(token),
   onUnauthorized: () => {
     // Renewal already ran (or there was no token to renew): do not loop. The next action that
     // needs a session starts again through `requireLogin`. `signed-out`, not `idle`: nothing is

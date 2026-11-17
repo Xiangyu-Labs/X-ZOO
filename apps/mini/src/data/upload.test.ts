@@ -7,6 +7,7 @@ import { uploadImage } from './upload';
 const noAuth = {
   getToken: () => null,
   renew: () => Promise.resolve(null),
+  accepted: () => undefined,
   onUnauthorized: () => undefined,
 };
 

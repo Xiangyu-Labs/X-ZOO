@@ -1,3 +1,14 @@
+// Side-effect import: installs every domain's ports (the user lookup that
+// `UserSessionService` reads, the catalogue adapter, …) in *this* module
+// graph. Next builds route handlers and server-rendered pages (the admin
+// layout, the landing page, OAuth) as separate bundles, each with its own
+// copy of `@shop/core`, and the first one to call `getContainer()` after a
+// cold start builds the services every later request shares through
+// `globalThis`. When a page built it, its copy had never loaded the domains:
+// UserLookup stayed empty, every shopper token met a 401 until the next
+// restart, and the mini-program signed in again on each one (#91).
+// `handle.ts` imports this too, for routes; both are needed.
+import '@shop/core/domains';
 import { createDb, type Db, type DbOptions, type DbHandle } from '@shop/db';
 import {
   createConfigService,
