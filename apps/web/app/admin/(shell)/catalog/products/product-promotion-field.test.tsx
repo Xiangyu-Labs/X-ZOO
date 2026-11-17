@@ -28,11 +28,13 @@ const skus = [
 function Harness({
   canPresale = true,
   canGroupbuy = true,
+  canFlashSale = true,
   initial = { mode: 'normal', expectedVersion: 0 } as ProductPromotionInput,
   onValue,
 }: {
   canPresale?: boolean;
   canGroupbuy?: boolean;
+  canFlashSale?: boolean;
   initial?: ProductPromotionInput;
   onValue?: (value: ProductPromotionInput) => void;
 }) {
@@ -48,6 +50,7 @@ function Harness({
       disabled={false}
       canPresale={canPresale}
       canGroupbuy={canGroupbuy}
+      canFlashSale={canFlashSale}
       shippingOptions={[]}
     />
   );
@@ -77,6 +80,34 @@ describe('product sale mode field', () => {
     );
     expect(screen.queryByLabelText('付款后发货天数')).toBeNull();
     expect(screen.getByLabelText('成团总人数')).toBeInTheDocument();
+  });
+
+  it('turns on 限时秒杀 as a third exclusive mode with its window and per-spec 秒杀价', async () => {
+    let last: ProductPromotionInput | undefined;
+    renderAdmin(withStubAssets(<Harness onValue={(v) => (last = v)} />));
+    await userEvent.click(screen.getByRole('switch', { name: '是否为预售商品' }));
+    await userEvent.click(screen.getByRole('switch', { name: '是否为秒杀商品' }));
+    expect(screen.getByRole('switch', { name: '是否为秒杀商品' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(screen.getByRole('switch', { name: '是否为预售商品' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    expect(screen.getByLabelText('秒杀活动开始时间')).toBeInTheDocument();
+    expect(screen.getByLabelText('秒杀活动结束时间')).toBeInTheDocument();
+    expect(screen.queryByLabelText('付款后发货天数')).toBeNull();
+    expect(screen.queryByLabelText('成团总人数')).toBeNull();
+    // No 秒杀 stock, quota or advanced settings: the product's own apply.
+    expect(screen.queryByText('高级设置')).toBeNull();
+    expect(screen.getByRole('columnheader', { name: '秒杀价' })).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('批量秒杀价'), '59');
+    await userEvent.click(screen.getByRole('button', { name: '批量填写秒杀价' }));
+    expect(screen.getByLabelText('白秒杀价')).toHaveValue('59.00');
+    expect(last).toMatchObject({ mode: 'flashsale' });
+    expect(last?.settings).not.toHaveProperty('shipAfterDays');
+    expect(last?.settings?.skus.map((sku) => sku.price)).toEqual(['59.00', '59.00']);
   });
 
   it('shows 不限 as an empty 每单限购, and clearing a limit sends 不限', async () => {
@@ -112,8 +143,29 @@ describe('product sale mode field', () => {
   });
 
   it('disables campaign writes for an operator without the corresponding atoms', () => {
-    renderAdmin(withStubAssets(<Harness canPresale={false} canGroupbuy={false} />));
+    renderAdmin(
+      withStubAssets(<Harness canPresale={false} canGroupbuy={false} canFlashSale={false} />),
+    );
     expect(screen.getByRole('switch', { name: '是否为预售商品' })).toBeDisabled();
     expect(screen.getByRole('switch', { name: '是否为拼单商品' })).toBeDisabled();
+    expect(screen.getByRole('switch', { name: '是否为秒杀商品' })).toBeDisabled();
+  });
+
+  it('keeps a running 秒杀 locked for an operator who may only edit presales', () => {
+    const initial = {
+      mode: 'flashsale',
+      expectedVersion: 1,
+      settings: {
+        startAt: '2030-12-01T10:00:00+08:00',
+        endAt: '2030-12-01T12:00:00+08:00',
+        skus: [],
+      },
+    } as ProductPromotionInput;
+    renderAdmin(withStubAssets(<Harness canFlashSale={false} initial={initial} />));
+    expect(screen.getByRole('switch', { name: '是否为预售商品' })).toBeDisabled();
+    expect(screen.getByRole('switch', { name: '是否为秒杀商品' })).toBeDisabled();
+    expect(
+      screen.getByText('当前身份不能修改此活动设置，保存商品时将保留原活动配置。'),
+    ).toBeVisible();
   });
 });

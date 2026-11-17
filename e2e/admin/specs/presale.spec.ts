@@ -103,7 +103,7 @@ test('product editing saves presale prices, preserves them on edit and switches 
   const presaleId = presale.promotion!.activityId;
   const settingsCard = page
     .locator('.ant-card')
-    .filter({ has: page.getByText('预售与拼单', { exact: true }) });
+    .filter({ has: page.getByText('预售、拼单与秒杀', { exact: true }) });
   await settingsCard.screenshot({ path: testInfo.outputPath('presale-settings.png') });
 
   await page.goto(`/admin/presale/activities?keyword=${encodeURIComponent(title)}`);

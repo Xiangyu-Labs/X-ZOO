@@ -242,7 +242,7 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
       const promotion: FieldSpec<Extract<keyof AdminProductForm, string>> = {
         kind: 'custom',
         name: 'promotion',
-        section: '预售与拼单',
+        section: '预售、拼单与秒杀',
         label: '销售模式',
         span: 24,
         render: ({ value, onChange, disabled }) => (
@@ -258,10 +258,11 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
             disabled={disabled}
             canPresale={mayWrite && can('presale:activity:write')}
             canGroupbuy={mayWrite && can('groupbuy:activity:write')}
+            canFlashSale={mayWrite && can('flashsale:activity:write')}
           />
         ),
       };
-      // Sections render in the order their first field appears: 预售与拼单 belongs with the
+      // Sections render in the order their first field appears: 预售、拼单与秒杀 belongs with the
       // prices and stock it overrides, so it goes in before 详情 rather than at the very end.
       const detailAt = base.findIndex((field) => field.section === '详情');
       const at = detailAt === -1 ? base.length : detailAt;
