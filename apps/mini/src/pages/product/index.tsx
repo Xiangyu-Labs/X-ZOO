@@ -26,7 +26,7 @@ import { Countdown } from '@/ui/countdown';
 import { ActivitySkuSheet } from '@/features/promo/activity-sku-sheet';
 import { startActivityCheckout } from '@/features/promo/checkout';
 import { shipText } from '@/features/promo/activity';
-import { GroupbuyRules, PresaleRules } from '@/features/promo/promo-rules';
+import { GroupbuyRules } from '@/features/promo/promo-rules';
 import { OpenTeams } from '@/features/promo/open-teams';
 import { useDidShow } from '@tarojs/taro';
 import { serverNow } from '@/lib/server-clock';
@@ -493,15 +493,6 @@ function Detail({
           seatsRequired={groupbuyDetail.data.seatsRequired}
           groupTtlSeconds={groupbuyDetail.data.groupTtlSeconds}
           perOrderQuantity={groupbuyDetail.data.perOrderQuantity}
-        />
-      ) : null}
-
-      {/* `activity`, not `currentPromotion`: once the presale has ended the page sells at the
-          product price, and the card must go with the presale price. */}
-      {activity?.kind === 'presale' && currentPromotion?.kind === 'presale' ? (
-        <PresaleRules
-          shipAfterDays={currentPromotion.shipAfterDays ?? 0}
-          perOrderQuantity={currentPromotion.perOrderQuantity}
         />
       ) : null}
 

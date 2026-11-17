@@ -1,7 +1,6 @@
 import { Text } from '@tarojs/components';
 import { hasPerOrderLimit } from '@shop/contracts/catalog/per-order';
 import { Card } from '@/ui/card';
-import { shipText } from './activity';
 import './promo-rules.scss';
 
 /** 拼团有效期 in words: 「24 小时」「2 天」「30 分钟」. */
@@ -54,27 +53,6 @@ export function GroupbuyRules({
         '付款后即占一个名额，人满即成团，商家随后发货',
         '到时间未凑齐，拼团自动取消，已付款项原路退回',
         '同一活动每人同时只能有一个团在拼',
-        ...limitLine(perOrderQuantity),
-      ]}
-    />
-  );
-}
-
-/** 预售说明 (商品详情): full payment only, when it ships, and the per-order limit. */
-export function PresaleRules({
-  shipAfterDays,
-  perOrderQuantity,
-}: {
-  shipAfterDays: number;
-  perOrderQuantity: number;
-}) {
-  return (
-    <Rules
-      title="预售说明"
-      id="presale-rules"
-      lines={[
-        `全款预订，${shipText(shipAfterDays)}`,
-        '下单时支付全部货款，无需另付尾款',
         ...limitLine(perOrderQuantity),
       ]}
     />

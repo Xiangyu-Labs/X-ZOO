@@ -861,7 +861,6 @@ describe('商品详情', () => {
     await renderPage(<ProductPage />);
     expect(await screen.findByRole('button', { name: '立即购买' })).toBeTruthy();
     expect(document.querySelector('.product__promotion')).toBeNull();
-    expect(document.querySelector('#presale-rules')).toBeNull();
     expect(document.querySelector('#groupbuy-rules')).toBeNull();
   });
 
@@ -903,11 +902,9 @@ describe('商品详情', () => {
     });
     await renderPage(<ProductPage />);
     await screen.findByText('限时预售补贴');
-    // 预售说明: full payment only, when it ships, the per-order limit.
-    const rules = document.querySelector('#presale-rules') as HTMLElement;
-    expect(within(rules).getByText('全款预订，付款后 7 天内发货')).toBeTruthy();
-    expect(within(rules).getByText('下单时支付全部货款，无需另付尾款')).toBeTruthy();
-    expect(within(rules).getByText('每单限购 5 件')).toBeTruthy();
+    // No 预售说明 card (#94): the box's 付款后 7 天内发货 is all the page says about it.
+    expect(screen.queryByText('预售说明')).toBeNull();
+    expect(screen.queryByText(/全款预订/)).toBeNull();
     act(() => taroFake.hidePage());
     active = false;
     act(() => taroFake.showPage());
@@ -915,7 +912,7 @@ describe('商品详情', () => {
     expect(screen.queryByText('限时预售补贴')).toBeNull();
   });
 
-  it('drops 预售说明 with the presale price once the presale has ended', async () => {
+  it('drops the presale box once the presale has ended', async () => {
     serve({
       'GET /api/v1/catalog/products/12': () => ({
         body: productDetailFixture({
@@ -937,8 +934,8 @@ describe('商品详情', () => {
     });
     await renderPage(<ProductPage />);
     expect(await screen.findByRole('button', { name: '立即购买' })).toBeTruthy();
-    expect(document.querySelector('#presale-rules')).toBeNull();
-    expect(screen.queryByText(/全款预订/)).toBeNull();
+    expect(document.querySelector('.product__promotion')).toBeNull();
+    expect(screen.queryByText('限时预售补贴')).toBeNull();
   });
 
   it('keeps a sold-out presale visible without offering ordinary checkout', async () => {
