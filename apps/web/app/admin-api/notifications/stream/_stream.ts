@@ -62,12 +62,10 @@ export async function serveAdminNotificationStream(
   // status code rather than a stream that closes at once.
   let forward: (payload: string) => void = () => undefined;
   try {
-    unsubscribe = await subscribeToAdmin(
-      container.redis,
-      adminId,
-      (payload) => forward(payload),
-      options.maxPerAdmin === undefined ? {} : { maxPerAdmin: options.maxPerAdmin },
-    );
+    unsubscribe = await subscribeToAdmin(container.redis, adminId, (payload) => forward(payload), {
+      ...(options.maxPerAdmin === undefined ? {} : { maxPerAdmin: options.maxPerAdmin }),
+      onError: (err) => container.logger.warn({ err, adminId }, 'notification stream redis error'),
+    });
   } catch (error) {
     if (error instanceof AdminStreamLimitError) {
       container.logger.warn({ adminId }, 'notification stream refused: too many open');

@@ -2,13 +2,14 @@ import type { z } from 'zod';
 
 /**
  * Who may call a route.
- * - `public`        no credentials looked at
- * - `user`          storefront bearer session required
- * - `user-optional` storefront session attached when present, never required
- * - `admin`         admin cookie session required; `permission` is mandatory
- * - `webhook`       third-party callback; the handler verifies the provider signature itself
+ * - `public`         no credentials looked at
+ * - `user`           storefront bearer session required
+ * - `user-optional`  storefront session attached when present, never required
+ * - `admin`          admin cookie session required; `permission` is mandatory
+ * - `admin-optional` admin cookie session attached when present, never required
+ * - `webhook`        third-party callback; the handler verifies the provider signature itself
  */
-export type AuthMode = 'public' | 'user' | 'user-optional' | 'admin' | 'webhook';
+export type AuthMode = 'public' | 'user' | 'user-optional' | 'admin' | 'admin-optional' | 'webhook';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -88,11 +89,18 @@ export function defineRoute<
     throw new Error(`${def.id}: path must start with ${PATH_PREFIXES.join(' or ')}`);
   }
   const surface = surfaceOf(def.path);
-  if (surface === 'admin' && def.auth !== 'admin' && def.auth !== 'public') {
-    throw new Error(`${def.id}: admin routes use auth 'admin' (or 'public' for login)`);
+  if (
+    surface === 'admin' &&
+    def.auth !== 'admin' &&
+    def.auth !== 'admin-optional' &&
+    def.auth !== 'public'
+  ) {
+    throw new Error(
+      `${def.id}: admin routes use auth 'admin', 'admin-optional' (or 'public' for login)`,
+    );
   }
-  if (surface === 'storefront' && def.auth === 'admin') {
-    throw new Error(`${def.id}: storefront routes cannot use auth 'admin'`);
+  if (surface === 'storefront' && (def.auth === 'admin' || def.auth === 'admin-optional')) {
+    throw new Error(`${def.id}: storefront routes cannot use auth '${def.auth}'`);
   }
   if (def.auth === 'admin' && !def.permission) {
     throw new Error(`${def.id}: admin routes must declare a permission`);

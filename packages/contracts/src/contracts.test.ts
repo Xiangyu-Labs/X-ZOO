@@ -4,6 +4,7 @@ import { checkRoutes } from '../scripts/lib/check';
 import { buildDocument, toOpenApiPath } from '../scripts/lib/openapi-doc';
 import { allRoutes } from './routes.gen';
 import { errorRegistry } from './errors.gen';
+import { id } from './_conventions/common';
 import { defineRoute, surfaceOf, type AnyRouteDef } from './_conventions/route';
 
 const route = (over: Partial<AnyRouteDef> = {}): AnyRouteDef =>
@@ -139,5 +140,42 @@ describe('surfaceOf', () => {
   it('splits the two surfaces', () => {
     expect(surfaceOf('/admin-api/x')).toBe('admin');
     expect(surfaceOf('/api/v1/x')).toBe('storefront');
+  });
+});
+
+describe('common.id', () => {
+  it('accepts safe positive integers and refuses anything above MAX_SAFE_INTEGER', () => {
+    expect(id.safeParse('1').success).toBe(true);
+    expect(id.safeParse(String(Number.MAX_SAFE_INTEGER)).success).toBe(true);
+    expect(id.safeParse('9007199254740992').success).toBe(false);
+    expect(id.safeParse('99999999999999999').success).toBe(false);
+    expect(id.safeParse('9'.repeat(400)).success).toBe(false);
+  });
+});
+
+describe('admin-optional auth', () => {
+  it('allows admin-optional on admin routes without a permission and refuses it elsewhere', () => {
+    expect(() =>
+      route({
+        id: 'auth.opt',
+        path: '/admin-api/auth/opt',
+        auth: 'admin-optional',
+      }),
+    ).not.toThrow();
+    expect(() =>
+      route({
+        id: 'auth.badStorefront',
+        path: '/api/v1/auth/opt',
+        auth: 'admin-optional',
+      }),
+    ).toThrow();
+    expect(() =>
+      route({
+        id: 'auth.badPerm',
+        path: '/admin-api/auth/opt',
+        auth: 'admin-optional',
+        permission: 'auth:session:delete',
+      }),
+    ).toThrow();
   });
 });

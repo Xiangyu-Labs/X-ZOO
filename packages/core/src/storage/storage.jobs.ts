@@ -48,8 +48,14 @@ export async function cleanOrphanAttachments(
   const before = new Date(
     ctx.clock.now().getTime() - settings.orphanRetentionDays * 24 * 60 * 60 * 1000,
   );
+  const resolved = await resolveStorage(ctx);
 
-  const candidates = await repo.listSweepableAttachments(ctx.db, before, limit);
+  // Filter to the active driver + bucket in SQL so historical tombstones from
+  // a retired driver/bucket cannot fill the batch and starve cleanup forever.
+  const candidates = await repo.listSweepableAttachments(ctx.db, before, limit, {
+    driver: resolved.driver,
+    bucket: resolved.bucket,
+  });
   if (candidates.length === 0) return { examined: 0, removed: 0, kept: 0, failed: 0 };
 
   const referenced = await repo.referencedNeedles(ctx.db, candidates.map(needleOf));
@@ -60,15 +66,11 @@ export async function cleanOrphanAttachments(
     ctx.clock.now(),
   );
 
-  const resolved = await resolveStorage(ctx);
   const purgeable: number[] = [];
   let failed = 0;
 
   for (const candidate of candidates) {
     if (referenced.has(needleOf(candidate))) continue;
-    // A row written under a driver the shop no longer uses is left alone: its
-    // bytes are in a bucket this process cannot address, and guessing would
-    // delete the wrong object.
     if (candidate.driver !== resolved.driver) continue;
     try {
       await resolved.storage.delete(candidate.storageKey);

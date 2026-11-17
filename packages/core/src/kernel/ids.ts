@@ -12,6 +12,14 @@ import type { Clock } from './clock';
 
 const MAX_SAFE = Number.MAX_SAFE_INTEGER;
 
+/** Thrown by `fromId` when a wire id is malformed or outside the safe integer range. */
+export class InvalidIdError extends TypeError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidIdError';
+  }
+}
+
 /** DB number -> wire string. */
 export function toId(value: number): string {
   if (!Number.isInteger(value) || value <= 0) {
@@ -20,13 +28,13 @@ export function toId(value: number): string {
   return String(value);
 }
 
-/** Wire string -> DB number. Throws `TypeError`; callers turn that into a 422. */
+/** Wire string -> DB number. Throws `InvalidIdError` (`TypeError`); callers turn that into a 422. */
 export function fromId(value: string): number {
   if (typeof value !== 'string' || !/^[1-9]\d*$/.test(value)) {
-    throw new TypeError(`fromId: id 格式不正确 "${value}"`);
+    throw new InvalidIdError(`fromId: id 格式不正确 "${value}"`);
   }
   const n = Number(value);
-  if (n > MAX_SAFE) throw new TypeError(`fromId: id 超出安全整数范围 "${value}"`);
+  if (n > MAX_SAFE) throw new InvalidIdError(`fromId: id 超出安全整数范围 "${value}"`);
   return n;
 }
 

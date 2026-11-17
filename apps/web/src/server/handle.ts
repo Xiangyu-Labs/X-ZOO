@@ -17,6 +17,7 @@ import {
   createCtx,
   DomainError,
   foreignKeyViolationOf,
+  InvalidIdError,
   type Actor,
   type Ctx,
 } from '@shop/core/kernel';
@@ -187,7 +188,11 @@ export function readCookie(request: Request, name: string): string | null {
     const at = part.indexOf('=');
     if (at === -1) continue;
     if (part.slice(0, at).trim() === name) {
-      return decodeURIComponent(part.slice(at + 1).trim());
+      try {
+        return decodeURIComponent(part.slice(at + 1).trim());
+      } catch {
+        return null;
+      }
     }
   }
   return null;
@@ -445,6 +450,21 @@ export function handle<
           sessionId: session.sessionId,
           display: session.account,
         };
+      } else if (anyRoute.auth === 'admin-optional') {
+        const token = readCookie(request, ADMIN_COOKIE);
+        if (token) {
+          const session = await container.adminAuth.resolve(token);
+          if (session) {
+            actor = {
+              kind: 'admin',
+              id: session.adminId,
+              permissions: session.permissions,
+              isSuper: session.isSuper,
+              sessionId: session.sessionId,
+              display: session.account,
+            };
+          }
+        }
       } else if (anyRoute.auth === 'user') {
         const token = readBearer(request.headers.get('authorization'));
         if (!token) return fail(new DomainError('UNAUTHENTICATED'));
@@ -480,9 +500,11 @@ export function handle<
       }
 
       // -- 3. CSRF, for cookie auth only ----------------------------------
+      const hasOptionalAdminCookie =
+        anyRoute.auth === 'admin-optional' && readCookie(request, ADMIN_COOKIE) !== null;
       if (
         surface === 'admin' &&
-        actor.kind === 'admin' &&
+        (actor.kind === 'admin' || hasOptionalAdminCookie) &&
         actor.apiTokenId === undefined &&
         MUTATING.has(request.method)
       ) {
@@ -584,6 +606,9 @@ export function handle<
     } catch (error) {
       // A conditional GET that matched: no body, no validation, no audit.
       if (error === NOT_MODIFIED) return finish(304, null);
+      if (error instanceof InvalidIdError) {
+        return fail(new DomainError('VALIDATION_FAILED'));
+      }
       if (DomainError.is(error)) {
         if (error.unregistered) {
           logger.error({ code: error.code }, 'DomainError with an unregistered code');

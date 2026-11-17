@@ -14,7 +14,7 @@ import {
   type StorefrontRouteParams,
 } from './storefront-routes';
 
-const MAX_ID = '9223372036854775807'; // 19 digits, the largest bigint id
+const MAX_ID = String(Number.MAX_SAFE_INTEGER); // 16 digits, the largest safe integer id
 
 const miniCodeKeys = storefrontRouteKeys.filter((key) => storefrontRouteDef(key).miniCode);
 
@@ -208,7 +208,7 @@ describe('scene encoding (mini-program codes)', () => {
     expect(encodeScene({ route: 'product', params: { id: '3001' } })).toBe('id=3001');
     expect(encodeScene({ route: 'home', params: {} })).toBe('_');
     expect(encodeScene({ route: 'couponCenter', params: {} })).toBe('_');
-    expect(encodeScene({ route: 'product', params: { id: MAX_ID } })).toHaveLength(22);
+    expect(encodeScene({ route: 'product', params: { id: MAX_ID } })).toHaveLength(19);
   });
 
   it('types the decoded params by key', () => {
@@ -237,13 +237,14 @@ describe('scene encoding (mini-program codes)', () => {
     expect(() => encodeScene({ route: 'product', params: { id: 'abc' } })).toThrow();
   });
 
-  it('refuses a scene over 32 bytes', () => {
-    // No id fits past 19 digits today, so the limit is checked with a longer one.
+  it('refuses an id beyond MAX_SAFE_INTEGER', () => {
     const longId = '1'.repeat(30);
     expect(storefrontRoute.safeParse({ route: 'product', params: { id: longId } }).success).toBe(
-      true,
+      false,
     );
-    expect(() => encodeScene({ route: 'product', params: { id: longId } })).toThrow(/32 字节/);
+    expect(() => encodeScene({ route: 'product', params: { id: longId } })).toThrow(
+      /id 格式不正确/,
+    );
   });
 
   it.each([

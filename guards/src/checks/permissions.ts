@@ -22,11 +22,13 @@ import '../lib/install-domains';
  * Atoms the product editor's sale mode checks (`productPromotionAtoms`) count as used, as config
  * groups' atoms do: one product route serves every mode.
  *
- * The implicit atoms every admin holds (`auth:profile:*`) are exempt from (3):
- * they are granted by `IMPLICIT_ADMIN_PERMISSIONS`, not by a role.
+ * The implicit atoms every admin holds (`auth:profile:*`, `auth:session:delete`)
+ * are exempt from (3): they are granted by `IMPLICIT_ADMIN_PERMISSIONS`, not by
+ * a role (`adminLogout` uses `admin-optional` so expired sessions still clear
+ * their cookie).
  */
 
-const IMPLICITLY_HELD = /^auth:profile:/;
+const IMPLICITLY_HELD = /^auth:(?:profile:|session:delete$)/;
 
 export const permissions = defineCheck(
   'permissions',

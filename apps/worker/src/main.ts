@@ -4,6 +4,7 @@ import { enqueueCommand } from './enqueue';
 import { exhaustedSummary, NO_HANDLER_SUMMARY } from './failed-job';
 import { HEARTBEAT_KEY } from './env';
 import { indexJobs, parsePayload, type AnyJobDefinition } from './define-job';
+import { createKeyedGate } from './job-gate';
 import { createJobHeartbeat } from './job-heartbeat';
 import { allJobs } from './jobs.gen';
 import { recordFailedJob } from '@shop/core/kernel';
@@ -43,6 +44,7 @@ export async function start(): Promise<{ stop: () => Promise<void>; container: W
     env.WORKER_CONCURRENCY,
     ...[...jobs.values()].map((job) => job.concurrency ?? 1),
   );
+  const gate = createKeyedGate();
 
   const worker = new Worker(
     env.QUEUE_NAME,
@@ -66,12 +68,15 @@ export async function start(): Promise<{ stop: () => Promise<void>; container: W
       }
       const payload = parsePayload(definition, job.data);
       const jobCtx = ctx.as(ctx.actor);
-      const startedAt = ctx.clock.nowMs();
-      await definition.handler(jobCtx, payload);
-      logger.debug(
-        { jobName: job.name, jobId: job.id, durationMs: ctx.clock.nowMs() - startedAt },
-        'job done',
-      );
+      const limit = definition.concurrency ?? env.WORKER_CONCURRENCY;
+      await gate.run(job.name, limit, async () => {
+        const startedAt = ctx.clock.nowMs();
+        await definition.handler(jobCtx, payload);
+        logger.debug(
+          { jobName: job.name, jobId: job.id, durationMs: ctx.clock.nowMs() - startedAt },
+          'job done',
+        );
+      });
     },
     {
       connection: container.queueRedis,

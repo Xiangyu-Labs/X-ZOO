@@ -357,7 +357,9 @@ function secretSafePatch(
   const patch: Record<string, unknown> = {};
   const missing: Array<{ field: string; message: string }> = [];
   for (const [key, value] of Object.entries(values)) {
-    if (secrets.has(key) && (typeof value !== 'string' || value.length === 0)) continue;
+    if (secrets.has(key) && value !== null && (typeof value !== 'string' || value.length === 0)) {
+      continue;
+    }
     const field = shape[key];
     if (value === null && field && !field.safeParse(null).success) {
       const fallback = field.safeParse(undefined);

@@ -351,21 +351,30 @@ export async function findAttachment(db: DbOrTx, id: number): Promise<Attachment
 }
 
 /**
- * The dedupe lookup: same bytes, same driver, still alive.
+ * The dedupe lookup: same bytes, same driver and bucket, still alive.
  *
- * Scoped by driver because the key means nothing across drivers, and ordered
- * by id so two concurrent uploads of the same file converge on the same row
- * rather than on whichever the planner happened to return.
+ * Scoped by driver and bucket because a key means nothing across drivers or
+ * buckets, and ordered by id so two concurrent uploads of the same file
+ * converge on the same row rather than on whichever the planner happened to
+ * return.
  */
 export async function findByDigest(
   db: DbOrTx,
   sha256: string,
   driver: 'local' | 's3',
+  bucket: string | null = null,
 ): Promise<AttachmentRow | undefined> {
   const [row] = await db
     .select(ATTACHMENT_COLUMNS)
     .from(attachments)
-    .where(and(eq(attachments.sha256, sha256), eq(attachments.driver, driver), ATTACHMENT_ALIVE))
+    .where(
+      and(
+        eq(attachments.sha256, sha256),
+        eq(attachments.driver, driver),
+        bucket === null ? isNull(attachments.bucket) : eq(attachments.bucket, bucket),
+        ATTACHMENT_ALIVE,
+      ),
+    )
     .orderBy(asc(attachments.id))
     .limit(1);
   return row;
@@ -511,6 +520,7 @@ export async function listSweepableAttachments(
   db: DbOrTx,
   before: Date,
   limit: number,
+  target: { driver: 'local' | 's3'; bucket: string | null },
 ): Promise<OrphanRow[]> {
   return db
     .select({
@@ -522,6 +532,8 @@ export async function listSweepableAttachments(
     .from(attachments)
     .where(
       and(
+        eq(attachments.driver, target.driver),
+        target.bucket === null ? isNull(attachments.bucket) : eq(attachments.bucket, target.bucket),
         sql`${attachments.deletedAt} is not null`,
         sql`${attachments.deletedAt} < ${before}`,
         sql`not exists (select 1 from ${attachments} live

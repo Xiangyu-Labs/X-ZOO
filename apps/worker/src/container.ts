@@ -62,6 +62,8 @@ export function buildWorkerContainer(env: Env = loadEnv()): WorkerContainer {
   });
   const redis = new Redis(env.REDIS_URL, { maxRetriesPerRequest: null });
   const queueRedis = new Redis(env.REDIS_URL, { maxRetriesPerRequest: null });
+  redis.on('error', (err) => logger.warn({ err }, 'redis connection error'));
+  queueRedis.on('error', (err) => logger.warn({ err }, 'worker queue redis connection error'));
   const clock = systemClock;
 
   const ctx = createCtx({

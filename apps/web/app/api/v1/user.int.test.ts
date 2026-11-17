@@ -411,6 +411,17 @@ describe('DELETE /api/v1/auth/sessions/current', () => {
     const { GET } = await import('./profile/route');
     expect((await GET(get('/api/v1/profile', first.headers))).status).toBe(401);
     expect((await GET(get('/api/v1/profile', second.headers))).status).toBe(200);
+
+    // Retrying logout with an expired/revoked token (or no token) is idempotent 200.
+    const retry = await DELETE(
+      json('DELETE', '/api/v1/auth/sessions/current', undefined, first.headers),
+    );
+    expect(retry.status).toBe(200);
+    expect(await retry.json()).toEqual({ ok: true });
+
+    const bare = await DELETE(json('DELETE', '/api/v1/auth/sessions/current'));
+    expect(bare.status).toBe(200);
+    expect(await bare.json()).toEqual({ ok: true });
   });
 });
 

@@ -642,8 +642,9 @@ export async function updateAddress(
 }
 
 /**
- * Serialises one customer's address-book writes that pick a default (deleting the default
- * promotes the next), so two at once cannot both promote and trip `user_addresses_default_uq`.
+ * Serialises one customer's address-book writes (create, update, delete, setDefault),
+ * so concurrent operations cannot race on `user_addresses_default_uq` or bypass the
+ * address-count limit.
  */
 export async function lockAddressBook(tx: Tx, userId: number): Promise<void> {
   await tx.execute(

@@ -24,7 +24,14 @@ function statusesFor(route: AnyRouteDef): number[] {
     codes.add(spec.status);
   }
   codes.add(422); // every route validates its input
-  if (route.auth !== 'public' && route.auth !== 'webhook') codes.add(401);
+  if (
+    route.auth !== 'public' &&
+    route.auth !== 'webhook' &&
+    route.auth !== 'admin-optional' &&
+    route.auth !== 'user-optional'
+  ) {
+    codes.add(401);
+  }
   if (route.permission) codes.add(403);
   codes.add(500);
   return [...codes].sort((a, b) => a - b);
@@ -45,7 +52,7 @@ export function buildDocument(routes: readonly AnyRouteDef[]) {
 
   for (const route of routes) {
     const security =
-      route.auth === 'admin'
+      route.auth === 'admin' || route.auth === 'admin-optional'
         ? [{ [adminSession.name]: [] }]
         : route.auth === 'user' || route.auth === 'user-optional'
           ? [{ [userBearer.name]: [] }]

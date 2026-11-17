@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { id } from '@shop/contracts/conventions';
 import { GENERATE_IMAGE_VARIANTS_JOB, generateImageVariants } from '@shop/core/storage';
 import { defineJob } from '../define-job';
 
@@ -18,7 +19,7 @@ import { defineJob } from '../define-job';
 export default defineJob({
   name: GENERATE_IMAGE_VARIANTS_JOB,
   schema: z.object({
-    attachmentId: z.string().regex(/^[1-9]\d*$/),
+    attachmentId: id,
     /** Rewrite thumbnails that already exist (after a change of widths or quality). */
     force: z.boolean().default(false),
   }),

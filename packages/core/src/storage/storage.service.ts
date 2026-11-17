@@ -85,12 +85,33 @@ export interface ResolvedStorage {
  */
 let s3Cache: { signature: string; storage: Storage } | null = null;
 
+function withPublicPrefix(storage: Storage, rawPrefix: string): Storage {
+  const trimmed = rawPrefix.trim();
+  if (trimmed === '') return storage;
+  const prefix = trimmed === '/' ? '' : trimmed.replace(/\/+$/, '');
+  if (prefix === '/uploads') return storage;
+  return {
+    put: (body, options) => storage.put(body, options),
+    putVariant: (key, width, body, contentType) =>
+      storage.putVariant(key, width, body, contentType),
+    get: (key) => storage.get(key),
+    delete: (key) => storage.delete(key),
+    exists: (key) => storage.exists(key),
+    url: (key) => `${prefix}/${key.replace(/^\/+/, '')}`,
+  };
+}
+
 export async function resolveStorage(ctx: Ctx): Promise<ResolvedStorage> {
   const settings = await ctx.config.get(storageConfig);
   if (settings.driver === 'local') {
-    return { storage: ctx.storage, driver: 'local', bucket: null };
+    return {
+      storage: withPublicPrefix(ctx.storage, settings.localPublicPrefix),
+      driver: 'local',
+      bucket: null,
+    };
   }
 
+  const secretDigest = createHash('sha256').update(settings.s3SecretAccessKey).digest('hex');
   const signature = [
     settings.s3Bucket,
     settings.s3Region,
@@ -98,8 +119,9 @@ export async function resolveStorage(ctx: Ctx): Promise<ResolvedStorage> {
     settings.s3AccessKeyId,
     settings.s3PublicBaseUrl,
     settings.s3Addressing,
-    // The secret takes part in the signature but never leaves this function.
-    settings.s3SecretAccessKey.length > 0 ? 'set' : 'unset',
+    // Hash the secret so key rotation invalidates the memoised client without
+    // storing plaintext credentials in the cache signature.
+    secretDigest,
   ].join('|');
 
   if (!s3Cache || s3Cache.signature !== signature) {
@@ -531,7 +553,7 @@ async function storeFile(ctx: Ctx, args: StoreArgs): Promise<UploadResult> {
     }
     await lockDigest(tx, digest);
 
-    const existing = await repo.findByDigest(tx, digest, resolved.driver);
+    const existing = await repo.findByDigest(tx, digest, resolved.driver, resolved.bucket);
     if (existing) return { attachment: toItem(existing), deduped: true };
 
     let stored;

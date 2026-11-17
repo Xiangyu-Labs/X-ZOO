@@ -1,7 +1,10 @@
 import { z } from 'zod';
 
 /** Primary keys are bigint identity columns, carried on the wire as decimal strings. */
-export const id = z.string().regex(/^[1-9]\d*$/, 'id 格式不正确');
+export const id = z
+  .string()
+  .regex(/^[1-9]\d*$/, 'id 格式不正确')
+  .refine((value) => Number.isSafeInteger(Number(value)), 'id 格式不正确');
 
 /**
  * A list of ids in a query string: a comma list or the key repeated. At most

@@ -93,6 +93,7 @@ interface ChannelEntry {
 interface Hub {
   subscriber: Redis;
   channels: Map<string, ChannelEntry>;
+  onError?: ((error: unknown) => void) | undefined;
 }
 
 /**
@@ -107,15 +108,23 @@ interface Hub {
  */
 const hubs = new WeakMap<Redis, Hub>();
 
-function hubFor(redis: Redis): Hub {
+function hubFor(redis: Redis, onError?: (error: unknown) => void): Hub {
   const existing = hubs.get(redis);
-  if (existing) return existing;
+  if (existing) {
+    if (onError) existing.onError = onError;
+    return existing;
+  }
   // ioredis puts a connection into subscriber mode, where ordinary commands
   // are refused, so the hub duplicates the shared client rather than
   // borrowing it — the one mistake that turns a notification bell into an
   // outage of everything else that uses Redis.
   const subscriber = redis.duplicate();
-  const hub: Hub = { subscriber, channels: new Map() };
+  const hub: Hub = { subscriber, channels: new Map(), onError };
+  // A duplicated ioredis client does not inherit the source client's error
+  // listeners; attach one so transient Redis blips do not crash the process.
+  subscriber.on('error', (error: unknown) => {
+    hub.onError?.(error);
+  });
   subscriber.on('message', (channel: string, payload: string) => {
     const entry = hub.channels.get(channel);
     if (!entry) return;
@@ -143,9 +152,9 @@ export async function subscribeToAdmin(
   redis: Redis,
   adminId: number,
   onEvent: (raw: string) => void,
-  options: { maxPerAdmin?: number } = {},
+  options: { maxPerAdmin?: number; onError?: (error: unknown) => void } = {},
 ): Promise<() => Promise<void>> {
-  const hub = hubFor(redis);
+  const hub = hubFor(redis, options.onError);
   const channel = adminChannel(adminId);
   const max = options.maxPerAdmin ?? MAX_STREAMS_PER_ADMIN;
 

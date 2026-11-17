@@ -126,10 +126,12 @@ export function isConfigFieldVisible(field: ConfigFieldDescriptor, values: Confi
  * `undefined` it would vanish from the JSON, and the server, which merges the
  * payload over what is stored, would keep the old value.
  */
+export type ConfigSecretPatch = Record<string, string | null>;
+
 export function buildConfigPayload(
   descriptor: ConfigGroupDescriptor,
   formValues: ConfigValues,
-  secrets: Record<string, string>,
+  secrets: ConfigSecretPatch,
 ): ConfigValues {
   const payload: ConfigValues = {};
   for (const field of descriptor.fields) {
@@ -137,7 +139,7 @@ export function buildConfigPayload(
     if (field.readOnly === true) continue;
     if (field.kind === 'password') {
       const typed = secrets[field.key];
-      if (typed !== undefined && typed !== '') payload[field.key] = typed;
+      if (typed === null || (typed !== undefined && typed !== '')) payload[field.key] = typed;
       continue;
     }
     if (!(field.key in formValues)) continue;
@@ -156,19 +158,20 @@ function sameValue(a: unknown, b: unknown): boolean {
 
 /**
  * The keys whose value on the screen differs from the saved one: every visible,
- * writable field, plus each secret the operator typed something into.
+ * writable field, plus each secret the operator typed into or marked to clear.
  */
 export function changedConfigKeys(
   descriptor: ConfigGroupDescriptor,
   formValues: ConfigValues,
   saved: ConfigValues | undefined,
-  secrets: Record<string, string>,
+  secrets: ConfigSecretPatch,
 ): string[] {
   const out: string[] = [];
   for (const field of descriptor.fields) {
     if (field.readOnly === true) continue;
     if (field.kind === 'password') {
-      if ((secrets[field.key] ?? '') !== '') out.push(field.key);
+      const next = secrets[field.key];
+      if (next === null || (next !== undefined && next !== '')) out.push(field.key);
       continue;
     }
     if (!isConfigFieldVisible(field, formValues)) continue;
