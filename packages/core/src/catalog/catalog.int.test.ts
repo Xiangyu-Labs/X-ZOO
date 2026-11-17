@@ -432,6 +432,68 @@ describe('products', () => {
     expect(edited.skus[0]!.sales).toBe(4);
   });
 
+  it('#107 — 多规格改回单规格 keeps the first SKU by its code instead of refusing "规格编码已被使用"', async () => {
+    const product = await makeProduct(asAdmin(), {
+      specMode: true,
+      specs: [{ name: '颜色', values: [{ value: '红' }, { value: '蓝' }] }],
+      skus: [
+        {
+          specValues: { 颜色: '红' },
+          price: '99.00',
+          stock: 10,
+          isDefault: true,
+          isVisible: true,
+          sortOrder: 0,
+        },
+        {
+          specValues: { 颜色: '蓝' },
+          price: '99.00',
+          stock: 5,
+          isDefault: false,
+          isVisible: true,
+          sortOrder: 1,
+        },
+      ],
+    });
+    const [red] = product.skus;
+    await harness.ctx.db
+      .update(productSkus)
+      .set({ sales: 3 })
+      .where(eq(productSkus.id, Number(red!.id)));
+
+    // What the editor posts after 规格模式 is switched off: the first row, its
+    // spec values emptied, still carrying the code and stock it was loaded with.
+    const edited = await service.adminProductUpdate(
+      asAdmin(),
+      { id: product.id },
+      productForm({
+        name: product.name,
+        categoryIds: product.categoryIds,
+        specMode: false,
+        specs: [],
+        skus: [
+          {
+            specValues: {},
+            skuCode: red!.skuCode,
+            price: '88.00',
+            stock: 10,
+            expectedStock: 10,
+            isDefault: true,
+            isVisible: true,
+            sortOrder: 0,
+          },
+        ],
+      }),
+    );
+
+    expect(edited.skus).toHaveLength(1);
+    expect(edited.skus[0]!.id).toBe(red!.id);
+    expect(edited.skus[0]!.skuCode).toBe(red!.skuCode);
+    expect(edited.skus[0]!.specText).toBe('');
+    expect(edited.skus[0]!.price).toBe('88.00');
+    expect(edited.skus[0]!.sales).toBe(3);
+  });
+
   it('rejects missing, soft-deleted or duplicate references instead of 500ing', async () => {
     const categoryId = await makeCategory(asAdmin());
     const [deletedTpl] = await harness.ctx.db

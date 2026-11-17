@@ -1170,7 +1170,9 @@ async function reconcileSkus(
   for (const input of body.skus) {
     if (!input.skuCode) continue;
     if (seenSkuCodes.has(input.skuCode)) {
-      throw new DomainError('CATALOG_SKU_CODE_TAKEN');
+      throw new DomainError('CATALOG_SKU_CODE_TAKEN', {
+        message: `规格编码「${input.skuCode}」重复，每个规格的编码不能相同`,
+      });
     }
     seenSkuCodes.add(input.skuCode);
   }
@@ -1178,12 +1180,28 @@ async function reconcileSkus(
   const axisOrder = body.specs.map((s) => s.name);
   const existing = await repo.listSkus(tx, productId);
   const byCombo = new Map(existing.map((sku) => [comboKey(sku.specValues), sku]));
+
+  // A row whose combination is new but which carries the code of one of this
+  // product's own SKUs is that SKU re-labelled: 多规格 switched back to 单规格
+  // keeps the first row's code, and so does a spec value renamed in place.
+  // Inserting it would collide with the very row it came from (which is only
+  // deleted below) and refuse the save with "规格编码已被使用".
+  const comboClaimed = new Set(
+    body.skus.flatMap((input) => {
+      const sku = byCombo.get(comboKey(input.specValues));
+      return sku ? [sku.id] : [];
+    }),
+  );
+  const byCode = new Map(
+    existing.filter((sku) => !comboClaimed.has(sku.id)).map((sku) => [sku.skuCode, sku]),
+  );
   const keptIds = new Set<number>();
 
   for (const [index, input] of body.skus.entries()) {
     const key = comboKey(input.specValues);
     const specText = specTextOf(input.specValues, axisOrder);
-    const match = byCombo.get(key);
+    const match =
+      byCombo.get(key) ?? (input.skuCode === undefined ? undefined : byCode.get(input.skuCode));
 
     const shared = {
       specText,
@@ -1243,7 +1261,9 @@ async function reconcileSkus(
         keptIds.add(inserted.id);
       } catch (error) {
         if (isUniqueViolation(error, 'product_skus_code_uq')) {
-          throw new DomainError('CATALOG_SKU_CODE_TAKEN');
+          throw new DomainError('CATALOG_SKU_CODE_TAKEN', {
+            message: `规格编码「${input.skuCode ?? ''}」已被其他商品使用，请换一个或留空自动生成`,
+          });
         }
         throw error;
       }
