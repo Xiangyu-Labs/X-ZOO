@@ -51,6 +51,12 @@ const port: ProductPromotionPort = {
     }
     return out;
   },
+  async summaries(ctx, productIds, includeIds) {
+    return (await repo.productActivitySummaries(ctx.db, productIds, includeIds)).map((row) => ({
+      ...row,
+      activityId: String(row.id),
+    }));
+  },
   async save(ctx, { product, settings, activityId }) {
     const previous = activityId ? await service.adminActivityDetail(ctx, { id: activityId }) : null;
     const parsed = groupbuyActivityForm.safeParse({

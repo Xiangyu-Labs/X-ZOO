@@ -281,6 +281,31 @@ describe('PROMO-003 — presale checkout cannot be bypassed', () => {
     ).rejects.toMatchObject({ code: 'CATALOG_PRESALE_REQUIRED' });
   });
 
+  it('takes 加入购物车 off the list card exactly while the cart would refuse it', async () => {
+    const presaled = await makeProduct(harness.ctx, { promotion: input('presale') });
+    const plain = await makeProduct(harness.ctx);
+    const cartable = async () =>
+      new Map(
+        (await storefront.productList(harness.ctx, { page: 1, pageSize: 20 })).items.map((card) => [
+          card.id,
+          card.canAddToCart,
+        ]),
+      );
+
+    expect(await cartable()).toEqual(
+      new Map([
+        [presaled.id, false],
+        [plain.id, true],
+      ]),
+    );
+    const [card] = await service.productCardsFor(harness.ctx, [Number(presaled.id)]);
+    expect(card?.canAddToCart).toBe(false);
+
+    // Over: the cart takes it again, and so does the card.
+    harness.clock.set('2100-01-01T00:00:00.000Z');
+    expect((await cartable()).get(presaled.id)).toBe(true);
+  });
+
   it('returns to ordinary buying on expiry and creates a new campaign when reenabled', async () => {
     const product = await makeProduct(harness.ctx, { promotion: input('presale') });
     harness.clock.set('2100-01-01T00:00:00.000Z');

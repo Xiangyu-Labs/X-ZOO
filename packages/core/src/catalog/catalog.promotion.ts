@@ -30,6 +30,23 @@ export interface ProductPromotionPort {
   ): Promise<string>;
   end(ctx: Ctx, activityId: string): Promise<void>;
   storefront(ctx: Ctx, activityId: string): Promise<StorefrontPromotion>;
+  /**
+   * `candidates` for a whole page of product cards, reduced to what the cart
+   * rule reads: each product's not-ended activities, plus `includeIds` (the
+   * linked ones) even when ended. One query, not one per product.
+   */
+  summaries(
+    ctx: Ctx,
+    productIds: readonly number[],
+    includeIds: readonly number[],
+  ): Promise<PromotionSummary[]>;
+}
+export interface PromotionSummary {
+  productId: number;
+  activityId: string;
+  status: string;
+  startAt: Date;
+  endAt: Date;
 }
 const ports = new Map<Kind, ProductPromotionPort>();
 export function registerProductPromotionPort(kind: Kind, port: ProductPromotionPort): void {
@@ -254,6 +271,66 @@ export async function storefrontProductPromotion(
     promotionConflict: false,
   };
 }
+/**
+ * The products a page of cards must not offer 加入购物车 for: exactly the ones
+ * `assertProductPromotionPurchase(…, 'normal')` would refuse — two live
+ * campaigns at once, or the product's current campaign is a started 预售.
+ * Batched, so a list of 100 cards costs one query per campaign kind.
+ */
+export async function cartBlockedProductIds(
+  ctx: Ctx,
+  productIds: readonly number[],
+): Promise<Set<number>> {
+  const blocked = new Set<number>();
+  const ids = [...new Set(productIds)];
+  if (ids.length === 0 || ports.size === 0) return blocked;
+  const now = ctx.clock.now().getTime();
+
+  const selections = new Map<number, { kind: Kind; activityId: string }>();
+  for (const link of await repo.findPromotionLinks(ctx.db, ids)) {
+    const selection = linkSelection(link);
+    if (selection) selections.set(link.productId, selection);
+  }
+  const byProduct = new Map<number, (PromotionSummary & { kind: Kind })[]>();
+  for (const [kind, port] of ports) {
+    const includeIds = [...selections.values()]
+      .filter((selection) => selection.kind === kind)
+      .map((selection) => Number(selection.activityId));
+    for (const row of await port.summaries(ctx, ids, includeIds)) {
+      const list = byProduct.get(row.productId) ?? [];
+      list.push({ ...row, kind });
+      byProduct.set(row.productId, list);
+    }
+  }
+
+  const open = (row: PromotionSummary) => row.status !== 'ended' && row.endAt.getTime() > now;
+  for (const [productId, rows] of byProduct) {
+    const live = rows.filter(open);
+    if (live.length > 1) {
+      blocked.add(productId);
+      continue;
+    }
+    // `productPromotionState`'s `current`: the linked campaign while it exists,
+    // otherwise the only live one.
+    const selection = selections.get(productId);
+    const current =
+      (selection &&
+        rows.find(
+          (row) => row.kind === selection.kind && row.activityId === selection.activityId,
+        )) ||
+      (live.length === 1 ? live[0]! : undefined);
+    if (
+      current?.kind === 'presale' &&
+      current.status === 'active' &&
+      current.startAt.getTime() <= now &&
+      open(current)
+    ) {
+      blocked.add(productId);
+    }
+  }
+  return blocked;
+}
+
 /** Order creation calls this under the product lock before locking campaign stock. */
 export async function assertProductPromotionPurchase(
   ctx: Ctx,
@@ -271,6 +348,7 @@ export async function assertProductPromotionPurchase(
     );
     if (
       kind === 'normal' &&
+      state.mode === 'presale' &&
       candidate?.status === 'active' &&
       candidate.settings &&
       Date.parse(candidate.settings.startAt ?? '') <= ctx.clock.now().getTime() &&

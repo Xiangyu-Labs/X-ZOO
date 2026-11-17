@@ -1,4 +1,8 @@
-import { adminProductPromotion, saveProductPromotion } from './catalog.promotion';
+import {
+  adminProductPromotion,
+  cartBlockedProductIds,
+  saveProductPromotion,
+} from './catalog.promotion';
 import { lockPromotionProduct } from './catalog.promotion.repo';
 import type { PageQuery } from '@shop/contracts/conventions';
 import type {
@@ -951,10 +955,32 @@ export async function productCardsFor(
 ): Promise<ProductCard[]> {
   const products = await repo.findSellableProducts(ctx.db, productIds);
   const labels = await repo.labelsFor(ctx.db, [...products.keys()]);
-  return productIds
-    .map((pid) => products.get(pid))
-    .filter((row): row is repo.ProductRow => row !== undefined)
-    .map((row) => toProductCard(row, labels.get(row.id) ?? []));
+  return withCartRule(
+    ctx,
+    productIds
+      .map((pid) => products.get(pid))
+      .filter((row): row is repo.ProductRow => row !== undefined)
+      .map((row) => toProductCard(row, labels.get(row.id) ?? [])),
+  );
+}
+
+/**
+ * `canAddToCart` as 加入购物车 will answer it. `toProductCard` only knows the
+ * product; a product a started 预售 owns, or two clashing campaigns, is refused
+ * by the cart (`CATALOG_PRESALE_REQUIRED` / `CATALOG_PROMOTION_CONFLICT`), so a
+ * storefront card must not offer the button either.
+ */
+export async function withCartRule<T extends ProductCard>(
+  ctx: Ctx,
+  cards: readonly T[],
+): Promise<T[]> {
+  const blocked = await cartBlockedProductIds(
+    ctx,
+    cards.filter((card) => card.canAddToCart).map((card) => Number(card.id)),
+  );
+  return cards.map((card) =>
+    blocked.has(Number(card.id)) ? { ...card, canAddToCart: false } : card,
+  );
 }
 
 // ---------------------------------------------------------------------------

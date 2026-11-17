@@ -1573,6 +1573,33 @@ export async function listActivityOrders(
 }
 
 /** Internal product-editor read, unpaged so legacy conflicts cannot be hidden by a list cap. */
+/** `productActivityIds` for many products at once: what a product card needs to know. */
+export async function productActivitySummaries(
+  db: DbOrTx,
+  productIds: readonly number[],
+  includeIds: readonly number[],
+): Promise<{ id: number; productId: number; status: string; startAt: Date; endAt: Date }[]> {
+  if (productIds.length === 0) return [];
+  return db
+    .select({
+      id: groupbuyActivities.id,
+      productId: groupbuyActivities.productId,
+      status: groupbuyActivities.status,
+      startAt: groupbuyActivities.startAt,
+      endAt: groupbuyActivities.endAt,
+    })
+    .from(groupbuyActivities)
+    .where(
+      and(
+        inArray(groupbuyActivities.productId, [...productIds]),
+        isNull(groupbuyActivities.deletedAt),
+        or(
+          ne(groupbuyActivities.status, 'ended'),
+          includeIds.length === 0 ? undefined : inArray(groupbuyActivities.id, [...includeIds]),
+        ),
+      ),
+    );
+}
 export async function productActivityIds(
   db: DbOrTx,
   productId: number,
