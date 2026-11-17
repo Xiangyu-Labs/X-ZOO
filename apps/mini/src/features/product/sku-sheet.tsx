@@ -51,6 +51,10 @@ export interface SkuSheetProps {
   initialQuantity?: number | undefined;
   /** An action in flight: its button spins, the others wait. */
   busy?: SkuAction | 'confirm' | null | undefined;
+  /** A sale mode's own words for a button (限时秒杀: 立即抢购 for 立即购买). */
+  labels?: Partial<Record<SkuAction | 'confirm', string>> | undefined;
+  /** On the sheet, for a sale mode's colours; each button also has `sku-sheet__button--<action>`. */
+  className?: string | undefined;
 }
 
 const LABEL: Record<SkuAction | 'confirm', string> = {
@@ -76,6 +80,8 @@ export function SkuSheet({
   skuId,
   initialQuantity,
   busy,
+  labels,
+  className,
 }: SkuSheetProps) {
   const [picked, setPicked] = useState<SkuSelection | null>(null);
   const [quantity, setQuantity] = useState<number | null>(null);
@@ -108,18 +114,19 @@ export function SkuSheet({
           block
           size="lg"
           variant={buttons.length > 1 && index === 0 ? 'secondary' : 'primary'}
+          className={`sku-sheet__button--${action}`}
           disabled={!ready || (busy != null && busy !== action)}
           loading={busy === action}
           onClick={() => (sku && ready ? onConfirm(action, sku, count) : undefined)}
         >
-          {soldOut ? '已售罄' : LABEL[action]}
+          {soldOut ? '已售罄' : (labels?.[action] ?? LABEL[action])}
         </Button>
       ))}
     </View>
   );
 
   return (
-    <Sheet visible={visible} onClose={onClose} footer={footer}>
+    <Sheet visible={visible} onClose={onClose} footer={footer} className={className}>
       {!matrix ? (
         <View className="sku-sheet__loading" id="sku-sheet-loading">
           <Skeleton className="sku-sheet__loading-image" />

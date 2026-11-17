@@ -330,3 +330,12 @@
 .shop-btn.product__buy--flashsale {
   background: linear-gradient(110deg, #e9578c, #f58ca9);
 }
+// 秒杀's 规格 sheet (#100): its 秒杀价 and 立即抢购 in the box's pink; 加入购物车 keeps its colour.
+.product__sku--flashsale .sku-sheet__summary .shop-price {
+  color: #e9578c;
+}
+.product__sku--flashsale .shop-btn.sku-sheet__button--buy {
+  border: 0;
+  background: linear-gradient(110deg, #e9578c, #f58ca9);
+  color: #fff;
+}

@@ -846,12 +846,19 @@ describe('商品详情', () => {
       expect(found).not.toBeNull();
       return found as HTMLElement;
     });
+    // In the 秒杀 pink (#100), with 立即抢购 for 立即购买, and the 秒杀价 before a spec is picked.
+    expect(sheet.closest('.shop-sheet')?.className).toContain('product__sku--flashsale');
+    expect(sheet.textContent).toContain('49.00');
+    expect(sheet.textContent).not.toContain('59.00');
     fireEvent.click(within(sheet).getByRole('radio', { name: '白' }));
     fireEvent.click(within(sheet).getByRole('radio', { name: 'M' }));
     // The sheet says what checkout charges: the 秒杀价, not the SKU's own 59.00.
     expect(sheet.textContent).toContain('49.00');
     expect(sheet.textContent).not.toContain('59.00');
-    fireEvent.click(screen.getAllByRole('button', { name: '立即购买' }).at(-1) as HTMLElement);
+    expect(screen.queryByRole('button', { name: '立即购买' })).toBeNull();
+    const grab = screen.getByRole('button', { name: '立即抢购' });
+    expect(grab.className).toContain('sku-sheet__button--buy');
+    fireEvent.click(grab);
     expect(useCheckoutDraft.getState().draft).toMatchObject({
       source: 'buy-now',
       kind: 'normal',
