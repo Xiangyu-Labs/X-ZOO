@@ -636,12 +636,18 @@ function Detail({
       <SkuSheet
         visible={sheet === 'sku'}
         onClose={() => setSheet(null)}
-        product={flashSale ? { ...product, skus: sheetSkus } : product}
+        // Before a spec is picked the header shows the product's price: the 秒杀价 here too.
+        product={
+          flashSale && activity ? { ...product, price: activity.price, skus: sheetSkus } : product
+        }
         matrix={flashSale ? { ...matrix, skus: sheetSkus } : matrix}
         actions={actions}
         skuId={skuId}
         busy={addItem.isPending ? 'cart' : null}
         onConfirm={confirm}
+        // 秒杀 (#100): 立即抢购 and the 秒杀价 in the box's pink, as on the action bar.
+        labels={flashSale ? { buy: '立即抢购' } : undefined}
+        tone={flashSale ? 'flashsale' : undefined}
       />
       <Sheet visible={sheet === 'service'} onClose={() => setSheet(null)} title="服务说明">
         <View className="product__sheet-list">

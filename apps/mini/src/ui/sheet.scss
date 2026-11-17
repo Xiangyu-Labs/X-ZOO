@@ -91,9 +91,12 @@
     padding: 0 $space-5 $space-5;
   }
 
+  // A column, so what the caller puts here spans the sheet: in a row, a wrapper View around
+  // the buttons (规格 sheet, 筛选, 收货地址) shrank to their labels, 立即购买 a pill at the left.
   &__footer {
     flex: none;
     display: flex;
+    flex-direction: column;
     gap: $space-3;
     padding: $space-3 $space-5 0;
     @include safe-bottom($space-3);
