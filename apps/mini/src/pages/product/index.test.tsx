@@ -673,7 +673,7 @@ describe('商品详情', () => {
     );
   });
 
-  it('shows a guest the 拼团 rules and the teams still open, without names or faces', async () => {
+  it('shows a guest the teams still open, without names or faces', async () => {
     serve({
       ...onPromotion(groupbuyPromotion()),
       'GET /api/v1/groupbuy/activities/7/groups': () => ({
@@ -685,12 +685,8 @@ describe('商品详情', () => {
     expect(screen.getByText('可直接参与，人满即成团')).toBeTruthy();
     expect(screen.queryByText(/小\*/)).toBeNull();
     expect(document.querySelectorAll('img[src="leader.png"]').length).toBe(0);
-    // The honest rule: no 虚拟成团, an unfilled team is refunded.
-    const rules = document.querySelector('#groupbuy-rules') as HTMLElement;
-    expect(within(rules).getByText('2 人成团，开团后 1 天内有效')).toBeTruthy();
-    expect(within(rules).getByText('到时间未凑齐，拼团自动取消，已付款项原路退回')).toBeTruthy();
-    expect(within(rules).getByText('同一活动每人同时只能有一个团在拼')).toBeTruthy();
-    expect(within(rules).getByText('每单限购 5 件')).toBeTruthy();
+    // No 拼团规则 card (#96).
+    expect(screen.queryByText('拼团规则')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '去参团，还差 1 人' }));
     await waitFor(() =>
       expect(taroFake.calls).toContainEqual({
@@ -866,7 +862,6 @@ describe('商品详情', () => {
     await renderPage(<ProductPage />);
     expect(await screen.findByRole('button', { name: '立即购买' })).toBeTruthy();
     expect(document.querySelector('.product__promotion')).toBeNull();
-    expect(document.querySelector('#groupbuy-rules')).toBeNull();
   });
 
   it('blocks purchasing while two campaigns conflict and await an operator choice', async () => {

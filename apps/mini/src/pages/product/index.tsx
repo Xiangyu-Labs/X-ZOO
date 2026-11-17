@@ -26,7 +26,6 @@ import { Countdown } from '@/ui/countdown';
 import { ActivitySkuSheet } from '@/features/promo/activity-sku-sheet';
 import { startActivityCheckout } from '@/features/promo/checkout';
 import { shipText } from '@/features/promo/activity';
-import { GroupbuyRules } from '@/features/promo/promo-rules';
 import { OpenTeams } from '@/features/promo/open-teams';
 import { useDidShow } from '@tarojs/taro';
 import { serverNow } from '@/lib/server-clock';
@@ -181,8 +180,8 @@ function Detail({
       : undefined;
   const [activitySheet, setActivitySheet] = useState(false);
   const [skuId, setSkuId] = useState<string | undefined>(undefined);
-  // A 拼团 is read for its rules (how long a team stays open) and, signed in, for the shopper's
-  // own open team on it (`myOpenGroupId`): they go to it instead of starting a second one.
+  // A 拼团 is read, signed in, for the shopper's own open team on it (`myOpenGroupId`): they go
+  // to it instead of starting a second one.
   const signedIn = useSignedIn();
   const groupbuyDetail = useRouteQuery(
     'groupbuy.detail',
@@ -487,14 +486,6 @@ function Detail({
           />
         ) : null}
       </View>
-
-      {activity?.kind === 'groupbuy' && groupbuyDetail.data ? (
-        <GroupbuyRules
-          seatsRequired={groupbuyDetail.data.seatsRequired}
-          groupTtlSeconds={groupbuyDetail.data.groupTtlSeconds}
-          perOrderQuantity={groupbuyDetail.data.perOrderQuantity}
-        />
-      ) : null}
 
       {/* One live team per shopper per activity: with a team of their own, there is nothing to join. */}
       {activity?.kind === 'groupbuy' && activity.canBuy && !product.promotionConflict && !myTeam ? (
