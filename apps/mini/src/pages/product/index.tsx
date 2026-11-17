@@ -620,6 +620,7 @@ function Detail({
           skus={activityDetail.skus}
           perOrderQuantity={activityDetail.perOrderQuantity}
           confirmText={activity.kind === 'groupbuy' ? '立即开团' : '立即预订'}
+          tone={activity.kind === 'presale' ? 'presale' : undefined}
           onConfirm={(sku, quantity) => {
             setSkuId(sku.skuId);
             setActivitySheet(false);

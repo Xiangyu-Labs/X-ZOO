@@ -234,6 +234,11 @@
 .product__promotion--presale {
   background: linear-gradient(110deg, #e9578c, #f58ca9);
 }
+// 预售 (#101): the countdown and 已售 a little lower, against the box's bottom edge: the countdown
+// level with 付款后…发货, 已售 level with the 划线价, rather than both up beside the big price.
+.product__promotion--presale .product__promotion-side {
+  align-self: flex-end;
+}
 .product__promotion-label {
   margin-left: 12px;
   font-weight: 600;
