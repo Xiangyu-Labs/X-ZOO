@@ -225,8 +225,8 @@
 .product__promotion {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 24px;
+  align-items: flex-start;
+  padding: 16px 24px;
   gap: 16px;
   color: #fff;
   background: linear-gradient(110deg, #238cff, #437cf5);
@@ -255,10 +255,27 @@
   color: #fff;
 }
 
-.product__promotion-original {
+// 划线价 on a line of its own under the activity price (#95), not after 2人拼团价. Two classes,
+// so `display` wins over the price's own `inline-flex` whatever order the stylesheets load in.
+.shop-price.product__promotion-original {
+  display: flex;
   color: #fff;
   opacity: 0.8;
   margin-top: 8px;
+}
+
+// Countdown on top, 已售 under it, both against the right edge.
+.product__promotion-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+// Level with the big price beside it rather than with its top edge.
+.product__promotion-countdown {
+  display: flex;
+  align-items: center;
+  margin-top: 10px;
 }
 
 .product__promotion-sales {

@@ -646,7 +646,15 @@ describe('商品详情', () => {
     // The box is the price: no 2 人团 note under it, the sales inside it, no plain price row.
     const box = document.querySelector('.product__promotion') as HTMLElement;
     expect(within(box).queryByText('2 人团')).toBeNull();
-    expect(within(box).getByText('已售 128')).toBeTruthy();
+    // 划线价 on its own line under the price (#95): the price side, not the countdown's.
+    expect(
+      within(box.querySelector('.product__promotion-original') as HTMLElement).getByText('59'),
+    ).toBeTruthy();
+    expect(box.querySelector('.product__promotion-side .product__promotion-original')).toBeNull();
+    // 已售 under the countdown (#95), not under the price.
+    const side = box.querySelector('.product__promotion-side') as HTMLElement;
+    expect(within(side).getByText('已售 128')).toBeTruthy();
+    expect(within(side).getByText('距结束剩')).toBeTruthy();
     expect(document.querySelector('.product__price-row')).toBeNull();
     const single = screen.getByRole('button', { name: /单独购买 ¥59.00/ });
     expect(single.className).toContain('product__buy--groupbuy-single');
@@ -665,7 +673,7 @@ describe('商品详情', () => {
     );
   });
 
-  it('shows a guest the 拼团 rules and the teams still open, without names or faces', async () => {
+  it('shows a guest the teams still open, without names or faces', async () => {
     serve({
       ...onPromotion(groupbuyPromotion()),
       'GET /api/v1/groupbuy/activities/7/groups': () => ({
@@ -677,12 +685,8 @@ describe('商品详情', () => {
     expect(screen.getByText('可直接参与，人满即成团')).toBeTruthy();
     expect(screen.queryByText(/小\*/)).toBeNull();
     expect(document.querySelectorAll('img[src="leader.png"]').length).toBe(0);
-    // The honest rule: no 虚拟成团, an unfilled team is refunded.
-    const rules = document.querySelector('#groupbuy-rules') as HTMLElement;
-    expect(within(rules).getByText('2 人成团，开团后 1 天内有效')).toBeTruthy();
-    expect(within(rules).getByText('到时间未凑齐，拼团自动取消，已付款项原路退回')).toBeTruthy();
-    expect(within(rules).getByText('同一活动每人同时只能有一个团在拼')).toBeTruthy();
-    expect(within(rules).getByText('每单限购 5 件')).toBeTruthy();
+    // No 拼团规则 card (#96).
+    expect(screen.queryByText('拼团规则')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '去参团，还差 1 人' }));
     await waitFor(() =>
       expect(taroFake.calls).toContainEqual({
@@ -782,7 +786,10 @@ describe('商品详情', () => {
     expect(screen.queryByRole('button', { name: '加入购物车' })).toBeNull();
     const box = document.querySelector('.product__promotion') as HTMLElement;
     expect(within(box).getByText('付款后 10 天内发货')).toBeTruthy();
-    expect(within(box).getByText('已售 128')).toBeTruthy();
+    // 已售 under the countdown (#93), not under the price.
+    const side = box.querySelector('.product__promotion-side') as HTMLElement;
+    expect(within(side).getByText('已售 128')).toBeTruthy();
+    expect(within(side).getByText('距结束剩')).toBeTruthy();
     expect(document.querySelector('.product__price-row')).toBeNull();
     expect(screen.queryByText('去预订')).toBeNull();
     expect(screen.getByRole('button', { name: '立即预订 ¥49.00' }).className).toContain(
@@ -855,8 +862,6 @@ describe('商品详情', () => {
     await renderPage(<ProductPage />);
     expect(await screen.findByRole('button', { name: '立即购买' })).toBeTruthy();
     expect(document.querySelector('.product__promotion')).toBeNull();
-    expect(document.querySelector('#presale-rules')).toBeNull();
-    expect(document.querySelector('#groupbuy-rules')).toBeNull();
   });
 
   it('blocks purchasing while two campaigns conflict and await an operator choice', async () => {
@@ -897,11 +902,9 @@ describe('商品详情', () => {
     });
     await renderPage(<ProductPage />);
     await screen.findByText('限时预售补贴');
-    // 预售说明: full payment only, when it ships, the per-order limit.
-    const rules = document.querySelector('#presale-rules') as HTMLElement;
-    expect(within(rules).getByText('全款预订，付款后 7 天内发货')).toBeTruthy();
-    expect(within(rules).getByText('下单时支付全部货款，无需另付尾款')).toBeTruthy();
-    expect(within(rules).getByText('每单限购 5 件')).toBeTruthy();
+    // No 预售说明 card (#94): the box's 付款后 7 天内发货 is all the page says about it.
+    expect(screen.queryByText('预售说明')).toBeNull();
+    expect(screen.queryByText(/全款预订/)).toBeNull();
     act(() => taroFake.hidePage());
     active = false;
     act(() => taroFake.showPage());
@@ -909,7 +912,7 @@ describe('商品详情', () => {
     expect(screen.queryByText('限时预售补贴')).toBeNull();
   });
 
-  it('drops 预售说明 with the presale price once the presale has ended', async () => {
+  it('drops the presale box once the presale has ended', async () => {
     serve({
       'GET /api/v1/catalog/products/12': () => ({
         body: productDetailFixture({
@@ -931,8 +934,8 @@ describe('商品详情', () => {
     });
     await renderPage(<ProductPage />);
     expect(await screen.findByRole('button', { name: '立即购买' })).toBeTruthy();
-    expect(document.querySelector('#presale-rules')).toBeNull();
-    expect(screen.queryByText(/全款预订/)).toBeNull();
+    expect(document.querySelector('.product__promotion')).toBeNull();
+    expect(screen.queryByText('限时预售补贴')).toBeNull();
   });
 
   it('keeps a sold-out presale visible without offering ordinary checkout', async () => {

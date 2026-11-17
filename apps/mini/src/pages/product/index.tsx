@@ -26,7 +26,6 @@ import { Countdown } from '@/ui/countdown';
 import { ActivitySkuSheet } from '@/features/promo/activity-sku-sheet';
 import { startActivityCheckout } from '@/features/promo/checkout';
 import { shipText } from '@/features/promo/activity';
-import { GroupbuyRules, PresaleRules } from '@/features/promo/promo-rules';
 import { OpenTeams } from '@/features/promo/open-teams';
 import { useDidShow } from '@tarojs/taro';
 import { serverNow } from '@/lib/server-clock';
@@ -181,8 +180,8 @@ function Detail({
       : undefined;
   const [activitySheet, setActivitySheet] = useState(false);
   const [skuId, setSkuId] = useState<string | undefined>(undefined);
-  // A 拼团 is read for its rules (how long a team stays open) and, signed in, for the shopper's
-  // own open team on it (`myOpenGroupId`): they go to it instead of starting a second one.
+  // A 拼团 is read, signed in, for the shopper's own open team on it (`myOpenGroupId`): they go
+  // to it instead of starting a second one.
   const signedIn = useSignedIn();
   const groupbuyDetail = useRouteQuery(
     'groupbuy.detail',
@@ -393,23 +392,26 @@ function Detail({
                 className="product__promotion-original"
               />
             ) : null}
+          </View>
+          {/* 已售 sits under the countdown, so the price side is no taller than it needs to be. */}
+          <View className="product__promotion-side">
+            <View className="product__promotion-countdown">
+              <Text>距结束剩</Text>
+              <Countdown
+                endsAt={activity.endAt}
+                format="dhms"
+                variant="boxed"
+                onEnd={() => {
+                  setActivityVersion((value) => value + 1);
+                  return reload();
+                }}
+              />
+            </View>
             {product.salesDisplay > 0 ? (
               <Text className="product__promotion-sales">
                 已售 {formatSales(product.salesDisplay)}
               </Text>
             ) : null}
-          </View>
-          <View>
-            <Text>距结束剩</Text>
-            <Countdown
-              endsAt={activity.endAt}
-              format="dhms"
-              variant="boxed"
-              onEnd={() => {
-                setActivityVersion((value) => value + 1);
-                return reload();
-              }}
-            />
           </View>
         </View>
       ) : null}
@@ -484,23 +486,6 @@ function Detail({
           />
         ) : null}
       </View>
-
-      {activity?.kind === 'groupbuy' && groupbuyDetail.data ? (
-        <GroupbuyRules
-          seatsRequired={groupbuyDetail.data.seatsRequired}
-          groupTtlSeconds={groupbuyDetail.data.groupTtlSeconds}
-          perOrderQuantity={groupbuyDetail.data.perOrderQuantity}
-        />
-      ) : null}
-
-      {/* `activity`, not `currentPromotion`: once the presale has ended the page sells at the
-          product price, and the card must go with the presale price. */}
-      {activity?.kind === 'presale' && currentPromotion?.kind === 'presale' ? (
-        <PresaleRules
-          shipAfterDays={currentPromotion.shipAfterDays ?? 0}
-          perOrderQuantity={currentPromotion.perOrderQuantity}
-        />
-      ) : null}
 
       {/* One live team per shopper per activity: with a team of their own, there is nothing to join. */}
       {activity?.kind === 'groupbuy' && activity.canBuy && !product.promotionConflict && !myTeam ? (
