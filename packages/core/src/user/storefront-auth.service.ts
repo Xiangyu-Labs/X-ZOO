@@ -371,21 +371,37 @@ async function createUser(
     nickname: string | null;
     avatarUrl: string | null;
     registerIp: string | null;
+    /**
+     * Set when `account` is one we generated (`syntheticAccount`): a conflict
+     * on it is a collision with a stranger's account, never the same person
+     * registering twice, so it draws a new one instead of signing in to theirs
+     * (#110). Without it a conflict means the account or phone already exists.
+     */
+    freshAccount?: () => string;
   },
 ): Promise<{ user: repo.UserRow; created: boolean }> {
   const now = ctx.clock.now();
-  const inserted = await repo.insertUser(tx, {
-    account: input.account,
-    phone: input.phone,
-    passwordHash: input.passwordHash,
-    passwordAlgo: input.passwordHash === null ? null : 'bcrypt',
-    nickname: input.nickname,
-    avatarUrl: input.avatarUrl,
-    registerSource: registerSourceOf(ctx),
-    registerIp: input.registerIp,
-    now,
-  });
+  let account = input.account;
+  let inserted: repo.UserRow | null = null;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    inserted = await repo.insertUser(tx, {
+      account,
+      phone: input.phone,
+      passwordHash: input.passwordHash,
+      passwordAlgo: input.passwordHash === null ? null : 'bcrypt',
+      nickname: input.nickname,
+      avatarUrl: input.avatarUrl,
+      registerSource: registerSourceOf(ctx),
+      registerIp: input.registerIp,
+      now,
+    });
+    if (inserted || !input.freshAccount) break;
+    account = input.freshAccount();
+  }
 
+  if (!inserted && input.freshAccount) {
+    throw new DomainError('INTERNAL', { message: '无法生成唯一的账号，请重试' });
+  }
   if (!inserted) {
     const raced =
       (input.phone !== null ? await repo.findByPhone(tx, input.phone) : null) ??
@@ -792,6 +808,7 @@ async function signInWithIdentity(
     created = await ctx.withTx(async (tx) => {
       const outcome = await createUser(tx, ctx, {
         account: syntheticAccount(),
+        freshAccount: () => syntheticAccount(),
         phone: null,
         passwordHash: null,
         nickname: pending.nickname ?? defaultNickname(null),
