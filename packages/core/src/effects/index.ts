@@ -381,6 +381,7 @@ export async function effectsBacklogMs(ctx: Ctx): Promise<number | null> {
  * told about this shipment" (`payment.mini-trade.ts`), which a 修改发货信息 or
  * the last part of a split delivery asks months later if it likes.
  */
+// `effects_prunable_idx` repeats this list in its predicate: change both together.
 export const EFFECT_SCOPES_KEPT = ['shipment'] as const;
 
 /**

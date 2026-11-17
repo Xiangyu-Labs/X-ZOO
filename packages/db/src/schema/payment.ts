@@ -123,6 +123,10 @@ export const paymentAttempts = pgTable(
     uniqueIndex('payment_attempts_open_uq')
       .on(t.orderId)
       .where(sql`status in ('creating','submitted','closing','unknown')`),
+    // listStaleAttempts: open attempts not touched since, oldest first (OPEN_ATTEMPT_STATUSES).
+    index('payment_attempts_stale_idx')
+      .on(t.updatedAt)
+      .where(sql`status in ('creating','submitted','closing','unknown')`),
     check('payment_attempts_amount_positive', sql`${t.amount} > 0`),
     check(
       'payment_attempts_paid_shape',
@@ -253,6 +257,10 @@ export const paymentExceptions = pgTable(
     uniqueIndex('payment_exceptions_refund_no_uq').on(t.refundNo),
     index('payment_exceptions_order_idx').on(t.orderId),
     index('payment_exceptions_status_idx').on(t.status, t.createdAt),
+    // listUnsettledExceptions: refunds still in flight, oldest update first.
+    index('payment_exceptions_unsettled_idx')
+      .on(t.updatedAt)
+      .where(sql`status in ('refunding','refund_unknown')`),
     check('payment_exceptions_amount_positive', sql`${t.paidAmount} > 0`),
     check(
       'payment_exceptions_resolved_shape',

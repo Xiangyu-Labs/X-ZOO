@@ -52,6 +52,8 @@ export const productEvents = pgTable(
     index('product_events_created_at_idx').on(t.createdAt),
     index('product_events_user_idx').on(t.userId, t.createdAt),
     index('product_events_order_idx').on(t.orderId),
+    // pruneBrowseHistory and the ranking's per-kind window (kind = 'view' / 'cart' in a range).
+    index('product_events_kind_idx').on(t.kind, t.createdAt),
     check(
       'product_events_non_negative',
       sql`${t.quantity} >= 0 and ${t.amount} >= 0 and ${t.costAmount} >= 0`,

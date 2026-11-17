@@ -225,6 +225,13 @@
       "when": 1794917200601,
       "tag": "0031_soft_deleted_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1794918082954,
+      "tag": "0032_missing_indexes",
+      "breakpoints": true
     }
   ]
 }

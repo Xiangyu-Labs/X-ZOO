@@ -170,6 +170,10 @@ export const refunds = pgTable(
     index('refunds_open_idx')
       .on(t.orderId)
       .where(sql`status in ('applied','approved','processing','unknown')`),
+    // listExecutableRefunds: refunds the sweep pushes forward, oldest update first.
+    index('refunds_executable_idx')
+      .on(t.updatedAt)
+      .where(sql`status in ('processing','unknown')`),
     check('refunds_quantity_positive', sql`${t.quantity} >= 1`),
     // Zero is a refund of an order a coupon paid for in full: it gives back
     // units, the coupon and the seat, and settles without the gateway.

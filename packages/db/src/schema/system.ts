@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   index,
   integer,
@@ -97,6 +98,11 @@ export const effects = pgTable(
     /** The claim query: `WHERE status = 'pending' AND next_run_at <= now()`. */
     index('effects_due_idx').on(t.status, t.nextRunAt),
     index('effects_scope_idx').on(t.scope, t.scopeId),
+    // pruneDone: done rows by id, leaving out the scopes kept for good. The predicate must
+    // match EFFECT_SCOPES_KEPT (packages/core/src/effects/index.ts) or the planner cannot use it.
+    index('effects_prunable_idx')
+      .on(t.id)
+      .where(sql`status = 'done' and scope not in ('shipment')`),
   ],
 );
 
@@ -123,5 +129,11 @@ export const failedJobs = pgTable(
     resolvedAt: instant(),
     createdAt: createdAt(),
   },
-  (t) => [index('failed_jobs_queue_idx').on(t.queue, t.createdAt)],
+  (t) => [
+    index('failed_jobs_queue_idx').on(t.queue, t.createdAt),
+    // The 失败的后台任务 screen's default (open, newest id first) and the 异常待处理 count.
+    index('failed_jobs_open_idx')
+      .on(t.id)
+      .where(sql`resolved_at is null`),
+  ],
 );
