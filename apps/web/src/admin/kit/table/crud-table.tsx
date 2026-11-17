@@ -108,6 +108,8 @@ export interface CrudTableProps<R extends AnyRouteDef, T = PagedItemOf<R>> {
   bordered?: boolean | undefined;
   /** Called whenever a page of data arrives. For summaries above the table. */
   onData?: ((data: ResponseOf<R>) => void) | undefined;
+  /** Called alongside list refetch when the toolbar refresh button is clicked. */
+  onRefresh?: (() => void | Promise<unknown>) | undefined;
 }
 
 const DEFAULT_SORT_KEYS = { field: 'sortBy', order: 'sortOrder' } as const;
@@ -199,6 +201,7 @@ function CrudTableInner<R extends AnyRouteDef, T>({
   title,
   bordered = false,
   onData,
+  onRefresh,
 }: CrudTableProps<R, T> & { urlState: TableUrlState }) {
   const key = useCallback((name: string) => prefixKey(urlPrefix, name), [urlPrefix]);
   const { read, write } = urlState;
@@ -363,7 +366,12 @@ function CrudTableInner<R extends AnyRouteDef, T>({
         />
       ) : null}
 
-      <TableToolbar onRefresh={() => result.refetch()} refreshing={result.isFetching}>
+      <TableToolbar
+        onRefresh={() =>
+          onRefresh ? Promise.all([result.refetch(), onRefresh()]) : result.refetch()
+        }
+        refreshing={result.isFetching}
+      >
         {typeof toolbar === 'function'
           ? toolbar({
               filters: filterQuery,

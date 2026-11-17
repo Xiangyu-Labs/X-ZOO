@@ -77,7 +77,7 @@ export const freightPort = {
       cityPath,
       templates,
       // The setting is in 元 ("0 表示不启用满额包邮"); everything else here is 分.
-      freeThresholdFen: config.freeShippingThreshold * 100,
+      freeThresholdFen: Money.fromYuan(config.freeShippingThreshold).fen,
       goodsTotalFen: lines.reduce((sum, line) => sum + line.amountFen, 0),
     });
 
@@ -117,15 +117,14 @@ async function loadTemplates(
   const out = new Map<number, FreightTemplateRules>();
   if (templateIds.length === 0) return out;
 
-  const [regions, freeRules, noDelivery] = await Promise.all([
+  const [heads, regions, freeRules, noDelivery] = await Promise.all([
+    repo.listTemplatesByIds(db, templateIds),
     repo.listRegions(db, templateIds),
     repo.listFreeRules(db, templateIds),
     repo.listNoDeliveryCities(db, templateIds),
   ]);
-  const heads = await Promise.all(templateIds.map((id) => repo.findTemplate(db, id)));
 
   for (const head of heads) {
-    if (head === null) continue;
     out.set(head.id, {
       templateId: head.id,
       chargeMode: head.chargeMode,

@@ -1,10 +1,6 @@
 import type { DbOrTx } from '@shop/db';
 import { PER_ORDER_UNLIMITED } from '@shop/contracts/catalog/per-order';
-import type {
-  FlashSaleCard,
-  FlashSaleListQuery,
-  ProductPromotionCandidate,
-} from '@shop/contracts/catalog/promotion';
+import type { FlashSaleCard, FlashSaleListQuery } from '@shop/contracts/catalog/promotion';
 import type { Ctx } from '../kernel/context';
 import { DomainError } from '../kernel/errors';
 import { Money } from '../kernel/money';
@@ -167,23 +163,36 @@ export async function flashSaleCardsFor(
 
 const port: ProductPromotionPort = {
   async candidates(ctx, productId, includeId) {
-    const out: ProductPromotionCandidate[] = [];
-    for (const row of await repo.productActivities(ctx.db, productId, includeId)) {
-      const skus = await repo.activitySkus(ctx.db, row.id);
-      out.push({
-        kind: KIND,
-        activityId: String(row.id),
-        title: row.title,
-        status: row.status,
-        settings: {
-          startAt: row.startAt.toISOString(),
-          endAt: row.endAt.toISOString(),
-          title: row.title,
-          skus: skus.map((sku) => ({ specValues: sku.specValues, price: sku.price })),
-        },
-      });
+    const activities = await repo.productActivities(ctx.db, productId, includeId);
+    if (activities.length === 0) return [];
+
+    const skus = await repo.listActivitiesSkus(
+      ctx.db,
+      activities.map((row) => row.id),
+    );
+    const skusByActivity = new Map<
+      number,
+      { specValues: Record<string, string>; price: string }[]
+    >();
+    for (const sku of skus) {
+      const list = skusByActivity.get(sku.activityId);
+      const entry = { specValues: sku.specValues, price: sku.price };
+      if (list) list.push(entry);
+      else skusByActivity.set(sku.activityId, [entry]);
     }
-    return out;
+
+    return activities.map((row) => ({
+      kind: KIND,
+      activityId: String(row.id),
+      title: row.title,
+      status: row.status,
+      settings: {
+        startAt: row.startAt.toISOString(),
+        endAt: row.endAt.toISOString(),
+        title: row.title,
+        skus: skusByActivity.get(row.id) ?? [],
+      },
+    }));
   },
 
   async summaries(ctx, productIds, includeIds) {

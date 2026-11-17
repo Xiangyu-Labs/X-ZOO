@@ -524,6 +524,27 @@ export async function takeOneFromSupply(
   });
 }
 
+export async function takeManyFromSupply(
+  tx: Tx,
+  args: { templateId: number; count: number; now: Date },
+): Promise<ConditionalUpdateResult> {
+  if (args.count <= 0) return { affected: 0, won: true };
+  if (args.count === 1)
+    return takeOneFromSupply(tx, { templateId: args.templateId, now: args.now });
+  return conditionalUpdate(tx, couponTemplates, {
+    where: and(
+      eq(couponTemplates.id, args.templateId),
+      eq(couponTemplates.isUnlimitedSupply, false),
+      gte(couponTemplates.remainingCount, args.count),
+      liveTemplate(),
+    ),
+    set: {
+      remainingCount: sql`${couponTemplates.remainingCount} - ${args.count}`,
+      updatedAt: args.now,
+    },
+  });
+}
+
 /** Disables templates whose claim window closed. Batched, so one pass cannot lock the table. */
 export async function disableClosedTemplates(
   tx: Tx,
@@ -579,6 +600,24 @@ export async function lockIssueSlot(
   await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`);
 }
 
+export async function lockIssueSlots(
+  tx: Tx,
+  args: { templateId: number; userIds: readonly number[] },
+): Promise<void> {
+  if (args.userIds.length === 0) return;
+  const ids = sql.join(
+    args.userIds.map((id) => sql`${id}::bigint`),
+    sql`, `,
+  );
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(
+          hashtextextended(${`coupon:issue:${args.templateId}:`} || u::text, 0)
+        )
+        from unnest(array[${ids}]) with ordinality as t(u, ord)
+        order by t.ord`,
+  );
+}
+
 /**
  * Where this user stands with this template: the `claim_slot` their next
  * coupon would take, and how many they hold that count against the per-user
@@ -606,6 +645,32 @@ export async function claimState(
     .from(userCoupons)
     .where(and(eq(userCoupons.templateId, args.templateId), eq(userCoupons.userId, args.userId)));
   return { nextSlot: (rows[0]?.lastSlot ?? 0) + 1, held: rows[0]?.held ?? 0 };
+}
+
+export async function claimStatesForUsers(
+  db: DbOrTx,
+  args: { templateId: number; userIds: readonly number[] },
+): Promise<Map<number, { nextSlot: number; held: number }>> {
+  const out = new Map<number, { nextSlot: number; held: number }>();
+  if (args.userIds.length === 0) return out;
+  const rows = await db
+    .select({
+      userId: userCoupons.userId,
+      lastSlot: sql<number>`coalesce(max(${userCoupons.claimSlot}), 0)::int`,
+      held: sql<number>`(count(*) filter (where ${userCoupons.status} <> 'revoked'))::int`,
+    })
+    .from(userCoupons)
+    .where(
+      and(
+        eq(userCoupons.templateId, args.templateId),
+        inArray(userCoupons.userId, [...args.userIds]),
+      ),
+    )
+    .groupBy(userCoupons.userId);
+  for (const row of rows) {
+    out.set(row.userId, { nextSlot: row.lastSlot + 1, held: row.held });
+  }
+  return out;
 }
 
 /**
@@ -669,6 +734,19 @@ export async function insertUserCoupon(
 ): Promise<UserCouponRow | null> {
   const rows = await tx.insert(userCoupons).values(values).onConflictDoNothing().returning();
   return rows[0] ?? null;
+}
+
+export async function insertUserCoupons(
+  tx: Tx,
+  values: readonly NewUserCouponValues[],
+): Promise<number[]> {
+  if (values.length === 0) return [];
+  const rows = await tx
+    .insert(userCoupons)
+    .values([...values])
+    .onConflictDoNothing()
+    .returning({ userId: userCoupons.userId });
+  return rows.map((row) => row.userId);
 }
 
 /**

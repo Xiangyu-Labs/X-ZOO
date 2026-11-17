@@ -95,6 +95,7 @@ export function CapitalFlowsPage() {
       <CrudTable
         route={paymentAdminCapitalFlowList}
         scrollX={1400}
+        onRefresh={() => summary.refetch()}
         filters={[
           { kind: 'text', name: 'keyword', label: '单号' },
           {

@@ -9,6 +9,7 @@ import { callRoute, useRouteQuery } from '@/admin/api';
 import { useCan } from '@/admin/session';
 
 import { defined } from './props';
+import { useDebouncedValue } from './use-debounced-value';
 
 /** The list's `ids` filter takes at most this many at once. */
 const IDS_PER_READ = 100;
@@ -58,6 +59,7 @@ export function ProductSelect({
 }: ProductSelectProps) {
   const canRead = useCan()(catalogAdminProductList.permission);
   const [keyword, setKeyword] = useState('');
+  const debouncedKeyword = useDebouncedValue(keyword, 250);
   // Names of what was picked from a search, kept for when the next search no longer shows them.
   const [picked, setPicked] = useState<ReadonlyMap<string, string>>(new Map());
 
@@ -69,11 +71,13 @@ export function ProductSelect({
 
   const search = useRouteQuery(
     catalogAdminProductList,
-    { query: { page: 1, pageSize: 20, ...(keyword ? { keyword } : {}) } },
+    {
+      query: { page: 1, pageSize: 20, ...(debouncedKeyword ? { keyword: debouncedKeyword } : {}) },
+    },
     { enabled: canRead && !disabled },
   );
   // An id typed into the search finds that product too: operators copy ids from 商品列表.
-  const typedId = DECIMAL_ID.test(keyword) ? keyword : undefined;
+  const typedId = DECIMAL_ID.test(debouncedKeyword) ? debouncedKeyword : undefined;
   const byId = useRouteQuery(
     catalogAdminProductList,
     { query: { page: 1, pageSize: 1, ids: typedId ?? '' } },
@@ -129,9 +133,11 @@ export function ProductSelect({
       {...(multiple ? { mode: 'multiple' as const } : {})}
       value={multiple ? chosen : chosen[0]}
       placeholder={placeholder ?? '搜索商品名称或 ID'}
-      loading={search.isFetching || byId.isFetching}
+      loading={search.isFetching || byId.isFetching || keyword !== debouncedKeyword}
       showSearch={{ filterOption: false, onSearch: setKeyword }}
-      notFoundContent={search.isPending ? '搜索中…' : '没有找到商品'}
+      notFoundContent={
+        search.isPending || keyword !== debouncedKeyword ? '搜索中…' : '没有找到商品'
+      }
       onChange={(next: string | string[] | undefined) => {
         setKeyword('');
         setPicked(found);

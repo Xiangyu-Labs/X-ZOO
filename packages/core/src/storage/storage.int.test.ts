@@ -804,6 +804,23 @@ describe('cleanOrphans', () => {
     expect(remaining).toHaveLength(3);
     expect(remaining.every((r) => r.driver === 's3')).toBe(true);
   });
+
+  // The scan reads every text column outside the log tables, so a column
+  // nobody thought of still counts: an admin's avatar is in no list anywhere.
+  it('keeps a picture only a column nobody listed still shows', async () => {
+    const ctx = as(adminActor(adminId));
+    const avatar = await attachmentUpload(ctx, {}, png(1, 1, 4));
+    const avatarKey = await storageKeyOf(avatar.attachment.id);
+    await harness.ctx.db
+      .update(admins)
+      .set({ avatar: avatar.attachment.url })
+      .where(eq(admins.id, adminId));
+    await attachmentDeleteMany(ctx, { ids: [avatar.attachment.id] });
+
+    harness.clock.set('2026-10-05T08:00:00.000Z');
+    expect(await cleanOrphanAttachments(ctx)).toMatchObject({ removed: 0, kept: 1, failed: 0 });
+    expect(await harness.ctx.storage.exists(avatarKey)).toBe(true);
+  });
 });
 
 describe('storage driver & dedupe isolation', () => {

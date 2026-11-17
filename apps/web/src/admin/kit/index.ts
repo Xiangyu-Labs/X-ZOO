@@ -29,8 +29,10 @@ export {
   normaliseMoney,
 } from './money';
 export type { FormatMoneyOptions } from './money';
+export { csvCell, downloadCsv, formatCsvTable } from './csv';
 export { DISPLAY_TZ, formatInstant, fromInstant, toDisplayDayjs, toInstant } from './instant';
 export type { InstantFormat } from './instant';
+export { useDebouncedValue } from './use-debounced-value';
 
 // ── Table ───────────────────────────────────────────────────────────────────
 export { CrudTable, TableToolbar } from './table/crud-table';

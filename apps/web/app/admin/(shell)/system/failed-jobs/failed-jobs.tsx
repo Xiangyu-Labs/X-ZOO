@@ -29,6 +29,7 @@ export const JOB_LABELS: Record<string, string> = {
   'catalog.pruneHistory': '清理浏览足迹',
   'coupon.closeClaimWindows': '关闭已过领取期的优惠券',
   'coupon.expireUserCoupons': '标记过期优惠券',
+  'groupbuy.foldActivityViews': '汇总拼团活动浏览量',
   'groupbuy.sweepEndedActivities': '结束到期的拼团活动',
   'groupbuy.sweepExpiredGroups': '处理超时未成团的拼团',
   'order.autoCancel': '自动取消未支付订单',

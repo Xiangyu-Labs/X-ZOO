@@ -17,6 +17,7 @@ import {
 
 import { callRoute, presentApiError, presentSuccess, useRouteQuery } from '@/admin/api';
 import { ConfirmButton } from '@/admin/kit/confirm-button';
+import { downloadCsv } from '@/admin/kit/csv';
 import { MoneyText } from '@/admin/kit/money-text';
 import { PageContainer } from '@/admin/kit/page-container';
 import { CrudTable } from '@/admin/kit/table/crud-table';
@@ -141,6 +142,7 @@ export function OrdersPage() {
         route={orderAdminList}
         columns={[]}
         fixedQuery={preset}
+        onRefresh={canStats ? () => stats.refetch() : undefined}
         toolbar={<OrdersToolbar preset={preset} />}
         batchActions={
           canDelete
@@ -283,13 +285,7 @@ function ExportButton({ preset }: { preset: Record<string, unknown> }) {
       const result = await callRoute(orderAdminExport, {
         query: { ...exportQuery(), kindOfExport: 'orders' } as never,
       });
-      const blob = new Blob(['\uFEFF', result.content], { type: 'text/csv;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = result.filename;
-      anchor.click();
-      URL.revokeObjectURL(url);
+      downloadCsv(result.filename, result.content);
       if (result.truncated) {
         void message.warning(`导出已截断到 ${result.rowCount} 行，请缩小筛选范围`);
       }

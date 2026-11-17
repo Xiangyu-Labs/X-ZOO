@@ -330,16 +330,43 @@ const STOREFRONT_READABLE: ReadonlySet<repo.ActivityRow['status']> = new Set([
   'ended',
 ]);
 
-export async function detail(ctx: Ctx, input: { id: string }): Promise<PresaleDetail> {
-  const id = Number(input.id);
-  const now = ctx.clock.now();
-  const activity = await repo.findActivity(ctx.db, id, { sellableProductOnly: true });
-  // A draft is not on the storefront, not even by id: ids are sequential, and
-  // the form promises 「草稿不会出现在前台」. `paused` and `ended` stay
-  // readable — orders link to the page — and `canBuy` says no.
+/**
+ * The campaign a shopper may see, or `PRESALE_ACTIVITY_NOT_FOUND`. A draft is
+ * not on the storefront, not even by id: ids are sequential, and the form
+ * promises 「草稿不会出现在前台」. `paused` and `ended` stay readable — orders
+ * link to the page — and `canBuy` says no. Shared with the product page's
+ * promotion block (`presale.product.ts`), so the two cannot disagree.
+ */
+export function storefrontReadable(activity: repo.ActivityRow | null): repo.ActivityRow {
   if (!activity || !STOREFRONT_READABLE.has(activity.status)) {
     throw new DomainError('PRESALE_ACTIVITY_NOT_FOUND');
   }
+  return activity;
+}
+
+/** The SKUs a shopper can pick: enabled ones, priced as the campaign prices them. */
+export function toStorefrontSkus(skus: readonly repo.ActivitySkuRow[]): PresaleDetail['skus'] {
+  return skus
+    .filter((sku) => sku.isEnabled)
+    .map((sku) => ({
+      skuId: toId(sku.skuId),
+      specText: sku.specText,
+      specValues: sku.specValues,
+      imageUrl: sku.imageUrl,
+      price: sku.price,
+      // The struck-through price is the catalogue's, not the campaign's:
+      // showing 预售价 twice would be a discount of nothing.
+      originalPrice: sku.skuOriginalPrice ?? sku.skuPrice,
+      stock: sku.stock,
+    }));
+}
+
+export async function detail(ctx: Ctx, input: { id: string }): Promise<PresaleDetail> {
+  const id = Number(input.id);
+  const now = ctx.clock.now();
+  const activity = storefrontReadable(
+    await repo.findActivity(ctx.db, id, { sellableProductOnly: true }),
+  );
 
   const [skus, description] = await Promise.all([
     repo.listActivitySkus(ctx.db, [id]),
@@ -354,19 +381,7 @@ export async function detail(ctx: Ctx, input: { id: string }): Promise<PresaleDe
     descriptionBlocks: description
       ? storedDescriptionBlocks(description.html, description.blocks)
       : [],
-    skus: skus
-      .filter((sku) => sku.isEnabled)
-      .map((sku) => ({
-        skuId: toId(sku.skuId),
-        specText: sku.specText,
-        specValues: sku.specValues,
-        imageUrl: sku.imageUrl,
-        price: sku.price,
-        // The struck-through price is the catalogue's, not the campaign's:
-        // showing 预售价 twice would be a discount of nothing.
-        originalPrice: sku.skuOriginalPrice ?? sku.skuPrice,
-        stock: sku.stock,
-      })),
+    skus: toStorefrontSkus(skus),
   };
 }
 

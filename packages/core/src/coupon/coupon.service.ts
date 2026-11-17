@@ -273,19 +273,68 @@ async function grantInTx(
   template: repo.TemplateRow,
   userIds: readonly number[],
 ): Promise<CouponGrantResult> {
-  const skippedUserIds: string[] = [];
-  let granted = 0;
-  for (const userId of [...new Set(userIds)].sort((a, b) => a - b)) {
-    const outcome = await issueOne(tx, ctx, {
-      template,
-      userId,
-      sourceKind: 'admin_grant',
-    });
-    if (outcome.kind === 'issued') granted += 1;
-    else if (outcome.kind === 'limit-reached') skippedUserIds.push(String(userId));
-    else throw new DomainError('COUPON_SOLD_OUT');
+  const sortedUserIds = [...new Set(userIds)].sort((a, b) => a - b);
+  if (sortedUserIds.length === 0) return { granted: 0, skippedUserIds: [] };
+
+  const now = ctx.clock.now();
+  await repo.lockIssueSlots(tx, { templateId: template.id, userIds: sortedUserIds });
+  const states = await repo.claimStatesForUsers(tx, {
+    templateId: template.id,
+    userIds: sortedUserIds,
+  });
+
+  const skipped = new Set<number>();
+  const eligible: { userId: number; claimSlot: number }[] = [];
+  for (const userId of sortedUserIds) {
+    const state = states.get(userId) ?? { nextSlot: 1, held: 0 };
+    if (template.perUserLimit !== null && state.held >= template.perUserLimit) {
+      skipped.add(userId);
+    } else {
+      eligible.push({ userId, claimSlot: state.nextSlot });
+    }
   }
-  return { granted, skippedUserIds };
+
+  if (eligible.length === 0) {
+    return { granted: 0, skippedUserIds: sortedUserIds.map(String) };
+  }
+
+  const window = windowForIssue(template, now);
+  const insertedUserIds = await repo.insertUserCoupons(
+    tx,
+    eligible.map(({ userId, claimSlot }) => ({
+      templateId: template.id,
+      userId,
+      claimSlot,
+      sourceKind: 'admin_grant' as const,
+      title: template.name,
+      discountAmount: template.discountAmount,
+      minSpend: template.minSpend,
+      status: 'unused' as const,
+      validFrom: window.from,
+      validTo: window.to,
+      createdAt: now,
+      updatedAt: now,
+    })),
+  );
+
+  if (insertedUserIds.length < eligible.length) {
+    const insertedSet = new Set(insertedUserIds);
+    for (const { userId } of eligible) {
+      if (!insertedSet.has(userId)) skipped.add(userId);
+    }
+  }
+
+  if (insertedUserIds.length > 0 && !template.isUnlimitedSupply) {
+    const { won } = await repo.takeManyFromSupply(tx, {
+      templateId: template.id,
+      count: insertedUserIds.length,
+      now,
+    });
+    if (!won) throw new DomainError('COUPON_SOLD_OUT');
+  }
+
+  const skippedUserIds = sortedUserIds.filter((id) => skipped.has(id)).map(String);
+  return { granted: insertedUserIds.length, skippedUserIds };
 }
 
 /**

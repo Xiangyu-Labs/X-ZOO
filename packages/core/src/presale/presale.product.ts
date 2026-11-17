@@ -1,53 +1,62 @@
 import { DomainError } from '../kernel/errors';
+import { toIdOrNull } from '../kernel/ids';
 import { presaleActivityForm } from '@shop/contracts/presale/schemas';
 import {
   registerProductPromotionPort,
   productPromotionForm,
   type ProductPromotionPort,
 } from '../catalog';
+import { canBuy } from './presale.rules';
 import * as service from './presale.service';
 import * as repo from './presale.repo';
 
 const port: ProductPromotionPort = {
   async candidates(ctx, productId, includeId) {
-    const ids = await repo.productActivityIds(ctx.db, productId, includeId);
-    const out = [];
-    for (const id of ids) {
-      const activity = await service.adminActivityDetail(ctx, { id: String(id) });
-      const skus = await repo.listActivitySkus(ctx.db, [id]);
-      out.push({
-        kind: 'presale' as const,
-        activityId: String(id),
-        title: activity.title,
-        status: activity.status,
-        settings: {
-          endAt: activity.endAt,
-          startAt: activity.startAt,
-          shipAfterDays: activity.shipAfterDays,
-          title: activity.title,
-          originalPrice: activity.originalPrice,
-          intro: activity.intro,
-          imageUrl: activity.imageUrl,
-          sliderImages: activity.sliderImages,
-          ...(activity.status === 'ended' ? {} : { status: activity.status }),
-          stock: activity.stock,
-          expectedStock: activity.stock,
-          totalQuota: activity.totalQuota,
-          perOrderQuantity: activity.perOrderQuantity,
-          shippingTemplateId: activity.shippingTemplateId,
-          sortOrder: activity.sortOrder,
-          skus: skus.map((sku) => ({
-            specValues: sku.specValues,
-            price: sku.price,
-            stock: sku.stock,
-            expectedStock: sku.stock,
-            quota: sku.quota,
-            isEnabled: sku.isEnabled,
-          })),
-        },
-      });
+    const activities = await repo.listProductActivities(ctx.db, productId, includeId);
+    if (activities.length === 0) return [];
+
+    const skus = await repo.listActivitySkus(
+      ctx.db,
+      activities.map((activity) => activity.id),
+    );
+    const skusByActivity = new Map<number, repo.ActivitySkuRow[]>();
+    for (const sku of skus) {
+      const list = skusByActivity.get(sku.activityId);
+      if (list) list.push(sku);
+      else skusByActivity.set(sku.activityId, [sku]);
     }
-    return out;
+
+    return activities.map((activity) => ({
+      kind: 'presale' as const,
+      activityId: String(activity.id),
+      title: activity.title,
+      status: activity.status,
+      settings: {
+        endAt: activity.endAt.toISOString(),
+        startAt: activity.startAt.toISOString(),
+        shipAfterDays: activity.shipAfterDays,
+        title: activity.title,
+        originalPrice: activity.originalPrice,
+        intro: activity.intro,
+        imageUrl: activity.imageUrl,
+        sliderImages: activity.sliderImages,
+        ...(activity.status === 'ended' ? {} : { status: activity.status }),
+        stock: activity.stock,
+        expectedStock: activity.stock,
+        totalQuota: activity.totalQuota,
+        perOrderQuantity: activity.perOrderQuantity,
+        shippingTemplateId: toIdOrNull(activity.shippingTemplateId),
+        sortOrder: activity.sortOrder,
+        skus: (skusByActivity.get(activity.id) ?? []).map((sku) => ({
+          specValues: sku.specValues,
+          price: sku.price,
+          stock: sku.stock,
+          expectedStock: sku.stock,
+          quota: sku.quota,
+          isEnabled: sku.isEnabled,
+        })),
+      },
+    }));
   },
   async summaries(ctx, productIds, includeIds) {
     return (await repo.productActivitySummaries(ctx.db, productIds, includeIds)).map((row) => ({
@@ -75,18 +84,25 @@ const port: ProductPromotionPort = {
     });
   },
   async storefront(ctx, activityId) {
-    const data = await service.detail(ctx, { id: activityId });
+    // The campaign and its SKUs only: `service.detail()` would also read the
+    // product description the product page already has.
+    const id = Number(activityId);
+    const [found, skus] = await Promise.all([
+      repo.findActivity(ctx.db, id, { sellableProductOnly: true }),
+      repo.listActivitySkus(ctx.db, [id]),
+    ]);
+    const activity = service.storefrontReadable(found);
     return {
       kind: 'presale',
       activityId,
-      price: data.price,
-      originalPrice: data.originalPrice,
-      endAt: data.endAt,
-      canBuy: data.canBuy,
+      price: activity.price,
+      originalPrice: activity.originalPrice,
+      endAt: activity.endAt.toISOString(),
+      canBuy: canBuy(activity, ctx.clock.now()),
       seatsRequired: null,
-      shipAfterDays: data.shipAfterDays,
-      perOrderQuantity: data.perOrderQuantity,
-      skus: data.skus,
+      shipAfterDays: activity.shipAfterDays,
+      perOrderQuantity: activity.perOrderQuantity,
+      skus: service.toStorefrontSkus(skus),
     };
   },
 };

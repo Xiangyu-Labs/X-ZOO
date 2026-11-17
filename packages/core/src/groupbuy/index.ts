@@ -47,6 +47,8 @@ export {
   type SweepReport,
 } from './groupbuy.jobs';
 
+export { ACTIVITY_VIEWS_PENDING_KEY, foldActivityViews } from './groupbuy.views';
+
 export { groupbuyConfig, type GroupbuyConfig } from './groupbuy.config';
 export { groupbuyPermissions } from './permissions';
 

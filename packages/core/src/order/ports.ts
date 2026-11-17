@@ -518,6 +518,11 @@ export interface OrderFactsPort {
   ): Promise<ReviewableLine | null>;
   /** Units of the product this user has committed to (not cancelled, not refunded, unpaid included): `order.repo.purchasedQuantity`. */
   purchasedQuantity(tx: Tx, args: { userId: number; productId: number }): Promise<number>;
+  /** Batch version of `purchasedQuantity` for multiple products at once. */
+  purchasedQuantities(
+    tx: Tx,
+    args: { userId: number; productIds: readonly number[] },
+  ): Promise<Map<number, number>>;
   /**
    * Lines of orders completed in `(completedAfter, completedBefore]` that still have no review,
    * oldest first. The lower bound keeps the sweep off every completed order ever.

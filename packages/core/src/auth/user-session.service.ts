@@ -105,8 +105,8 @@ export class UserSessionService {
   }
 
   /** Housekeeping job (`system.pruneSessions`). */
-  async pruneExpired(ctx: Ctx): Promise<number> {
-    return repo.deleteExpired(ctx.db, ctx.clock.now());
+  async pruneExpired(ctx: Ctx, options: { limit?: number } = {}): Promise<number> {
+    return repo.deleteExpired(ctx.db, ctx.clock.now(), options.limit ?? 5000);
   }
 }
 

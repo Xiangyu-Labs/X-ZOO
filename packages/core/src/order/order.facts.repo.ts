@@ -77,6 +77,10 @@ export const orderFacts: OrderFactsPort = {
     return counted.get(args.productId) ?? 0;
   },
 
+  async purchasedQuantities(tx, args): Promise<Map<number, number>> {
+    return purchasedQuantity(tx, args);
+  },
+
   /**
    * Keyed on `completed_at`, which the state machine stamps on the
    * `received -> completed` transition (the fulfilment sweep or the shopper's

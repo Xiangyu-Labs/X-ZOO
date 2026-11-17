@@ -113,6 +113,19 @@ export async function setSelected(
   });
 }
 
+export async function setSelectedReturningIds(
+  tx: Tx,
+  args: { userId: number; ids: readonly number[]; isSelected: boolean },
+): Promise<number[]> {
+  if (args.ids.length === 0) return [];
+  const rows = await tx
+    .update(cartItems)
+    .set({ isSelected: args.isSelected, updatedAt: sql`now()` })
+    .where(and(eq(cartItems.userId, args.userId), inArray(cartItems.id, [...new Set(args.ids)])))
+    .returning({ id: cartItems.id });
+  return rows.map((row) => row.id);
+}
+
 export async function remove(
   tx: Tx,
   args: { userId: number; ids: readonly number[] },
@@ -124,6 +137,18 @@ export async function remove(
     and(eq(cartItems.userId, args.userId), inArray(cartItems.id, [...new Set(args.ids)])),
   );
   return affected;
+}
+
+export async function removeReturningIds(
+  tx: Tx,
+  args: { userId: number; ids: readonly number[] },
+): Promise<number[]> {
+  if (args.ids.length === 0) return [];
+  const rows = await tx
+    .delete(cartItems)
+    .where(and(eq(cartItems.userId, args.userId), inArray(cartItems.id, [...new Set(args.ids)])))
+    .returning({ id: cartItems.id });
+  return rows.map((row) => row.id);
 }
 
 /**

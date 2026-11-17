@@ -549,7 +549,9 @@ export async function listSweepableAttachments(
  * an audit entry or a job payload is not a picture on a page, and these are
  * the tables that grow without bound, so the reference scan skips them.
  * Everything else is scanned — a table added later is covered without anyone
- * remembering to list it here.
+ * remembering to list it here. Never turn this into a list of tables to scan:
+ * a column it forgets is a picture this job deletes (`admins.avatar`, a
+ * shopper's image answer in `orders.custom_form`).
  */
 const NOT_CONTENT_TABLES = [
   'attachments',
@@ -591,7 +593,9 @@ const regexpLiteral = (text: string) => text.replace(/[\\^$.|?*+()[\]{}]/g, '\\$
  *
  * One pass per table, whatever the number of needles. A needle is matched as a
  * substring, so a false hit keeps a file that could have gone — the safe side
- * for a job whose other mistake is a broken picture.
+ * for a job whose other mistake is a broken picture. A row is first tested
+ * with `~`, which stops at the first match; only the rows that hold a needle
+ * go through `regexp_matches(…, 'g')` to say which.
  */
 export async function referencedNeedles(
   db: DbOrTx,
@@ -632,8 +636,9 @@ export async function referencedNeedles(
     );
     const hits = await db.execute<{ needle: string }>(sql`
       select distinct m[1] as needle
-        from ${sql.identifier(table)},
-             regexp_matches(concat_ws(' ', ${text}), ${pattern}, 'g') as m`);
+        from (select concat_ws(' ', ${text}) as body from ${sql.identifier(table)}) as c,
+             regexp_matches(c.body, ${pattern}, 'g') as m
+       where c.body ~ ${pattern}`);
     for (const hit of hits.rows) found.add(hit.needle);
   }
   return found;

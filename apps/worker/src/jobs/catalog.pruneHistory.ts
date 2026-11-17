@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { pruneBrowseHistory } from '@shop/core/catalog';
 import { defineJob } from '../define-job';
+import { drainInBatches } from '../drain';
 
 /**
  * Drops 足迹 rows older than the configured retention window.
@@ -10,8 +11,9 @@ import { defineJob } from '../define-job';
  * on the same window — so a missed run shows the shopper nothing extra; it
  * exists so `product_events` does not grow without end.
  *
- * Batched: a long-neglected shop drains over several nights rather than
- * holding one transaction over a million rows.
+ * Batched: one statement per batch, as many batches as a night's rows need
+ * (`drainInBatches`), so a long-neglected shop drains over several nights
+ * rather than holding one transaction over a million rows.
  */
 export default defineJob({
   name: 'catalog.pruneHistory',
@@ -19,7 +21,10 @@ export default defineJob({
   concurrency: 1,
   repeat: { pattern: '41 3 * * *' },
   handler: async (ctx, payload) => {
-    const { deleted } = await pruneBrowseHistory(ctx, { limit: payload.limit });
+    const deleted = await drainInBatches(
+      async () => (await pruneBrowseHistory(ctx, { limit: payload.limit })).deleted,
+      payload,
+    );
     if (deleted > 0) ctx.logger.info({ deleted }, 'pruned browse history');
   },
 });
