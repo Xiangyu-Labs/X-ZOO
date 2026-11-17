@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { UserSessionService } from '@shop/core/auth';
 import { defineJob } from '../define-job';
+import { drainInBatches } from '../drain';
 
 /**
  * Housekeeping: an expired `user_sessions` row can never be presented again,
@@ -12,7 +13,11 @@ export default defineJob({
   concurrency: 1,
   repeat: { pattern: '20 3 * * *' },
   handler: async (ctx, payload) => {
-    const removed = await new UserSessionService().pruneExpired(ctx, { limit: payload.limit });
+    const sessions = new UserSessionService();
+    const removed = await drainInBatches(
+      () => sessions.pruneExpired(ctx, { limit: payload.limit }),
+      payload,
+    );
     if (removed > 0) ctx.logger.info({ removed }, 'pruned expired storefront sessions');
   },
 });

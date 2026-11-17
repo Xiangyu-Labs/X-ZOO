@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { pruneEffects } from '@shop/core/effects';
 import { defineJob } from '../define-job';
+import { drainInBatches } from '../drain';
 
 /**
  * Trims delivered side effects to their retention window. Nightly at 04:10.
@@ -21,7 +22,7 @@ export default defineJob({
   concurrency: 1,
   repeat: { pattern: '10 4 * * *' },
   handler: async (ctx, payload) => {
-    const removed = await pruneEffects(ctx, payload);
+    const removed = await drainInBatches(() => pruneEffects(ctx, payload), payload);
     if (removed > 0) ctx.logger.info({ removed }, 'pruned delivered effects');
   },
 });

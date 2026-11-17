@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { pruneAuditLogs } from '@shop/core/system';
 import { defineJob } from '../define-job';
+import { drainInBatches } from '../drain';
 
 /**
  * Trims the audit log to its retention window. Nightly at 03:50.
@@ -20,7 +21,7 @@ export default defineJob({
   concurrency: 1,
   repeat: { pattern: '50 3 * * *' },
   handler: async (ctx, payload) => {
-    const removed = await pruneAuditLogs(ctx, payload);
+    const removed = await drainInBatches(() => pruneAuditLogs(ctx, payload), payload);
     if (removed > 0) ctx.logger.info({ removed }, 'pruned audit log rows');
   },
 });

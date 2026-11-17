@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { pruneVisits } from '@shop/core/user';
 import { defineJob } from '../define-job';
+import { drainInBatches } from '../drain';
 
 /**
  * Drops page views older than `stats.visitRetentionDays` (400 days unless an
@@ -11,8 +12,9 @@ import { defineJob } from '../define-job';
  * log). Nothing depends on it for correctness — a missed run only keeps old
  * rows a day longer.
  *
- * Batched: a table that was never swept drains over several nights rather than
- * holding one transaction over millions of rows.
+ * Batched: one statement per batch, as many batches as a night's rows need
+ * (`drainInBatches`), so a table that was never swept drains over several
+ * nights rather than holding one transaction over millions of rows.
  */
 export default defineJob({
   name: 'user.pruneVisits',
@@ -20,7 +22,10 @@ export default defineJob({
   concurrency: 1,
   repeat: { pattern: '44 3 * * *' },
   handler: async (ctx, payload) => {
-    const { deleted } = await pruneVisits(ctx, { limit: payload.limit });
+    const deleted = await drainInBatches(
+      async () => (await pruneVisits(ctx, { limit: payload.limit })).deleted,
+      payload,
+    );
     if (deleted > 0) ctx.logger.info({ deleted }, 'pruned page views');
   },
 });
