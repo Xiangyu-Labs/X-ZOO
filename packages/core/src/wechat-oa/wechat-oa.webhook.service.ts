@@ -64,6 +64,10 @@ export interface OaWebhookResult {
 
 const OK: OaWebhookResult = { status: 200, body: 'success' };
 const FORBIDDEN: OaWebhookResult = { status: 403, body: 'invalid signature' };
+/** Anything but `success` makes WeChat deliver again later. */
+const UNAVAILABLE: OaWebhookResult = { status: 503, body: 'try again later' };
+/** WeChat's callbacks are a few KB; anything past this is not one. */
+const MAX_BODY_BYTES = 64 * 1024;
 
 /** WeChat's own window is 5 s; leaving 1 s for the network is the difference between late and on time. */
 const BUDGET_MS = 4_000;
@@ -88,6 +92,29 @@ const NONCE_TTL_SECONDS = 2 * FRESHNESS_SECONDS;
  * then no message ever arrives.
  */
 export async function verifyUrl(
+  ctx: Ctx,
+  query: Record<string, string | undefined>,
+): Promise<OaWebhookResult> {
+  return unavailableOnFailure(ctx, () => verifySignedUrl(ctx, query));
+}
+
+/**
+ * A failure of ours (the database, the config, a bug) answers 503 so WeChat delivers again,
+ * instead of escaping to the framework as a 500 page.
+ */
+async function unavailableOnFailure(
+  ctx: Ctx,
+  run: () => Promise<OaWebhookResult>,
+): Promise<OaWebhookResult> {
+  try {
+    return await run();
+  } catch (error) {
+    ctx.logger.error({ err: error }, 'oa webhook failed');
+    return UNAVAILABLE;
+  }
+}
+
+async function verifySignedUrl(
   ctx: Ctx,
   query: Record<string, string | undefined>,
 ): Promise<OaWebhookResult> {
@@ -121,6 +148,11 @@ export interface OaWebhookRequest {
 }
 
 export async function handleEvent(ctx: Ctx, req: OaWebhookRequest): Promise<OaWebhookResult> {
+  if (Buffer.byteLength(req.body, 'utf8') > MAX_BODY_BYTES) return FORBIDDEN;
+  return unavailableOnFailure(ctx, () => handleSignedEvent(ctx, req));
+}
+
+async function handleSignedEvent(ctx: Ctx, req: OaWebhookRequest): Promise<OaWebhookResult> {
   const credentials = await oaCredentials(ctx);
   if (!credentials.enabled) {
     ctx.logger.warn({}, 'oa webhook: callback for a disabled account');

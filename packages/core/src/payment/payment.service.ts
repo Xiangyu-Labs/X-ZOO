@@ -768,6 +768,11 @@ export interface WebhookResult {
 }
 
 const ACK: WebhookResult = { status: 200, body: { code: 'SUCCESS', message: '成功' } };
+/** A body past the webhook ceiling is no WeChat notification: refused unread, like a bad signature. */
+export const OVERSIZED_NOTIFY: WebhookResult = {
+  status: 401,
+  body: { code: 'FAIL', message: '通知内容过大' },
+};
 
 /**
  * Turns a webhook result into what `handle()` can return.

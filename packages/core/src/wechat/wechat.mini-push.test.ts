@@ -112,3 +112,13 @@ describe('WXSHIP-008 — without the nonce store, only 安全模式 takes a push
     expect((await handleMiniPush(ctx, forged)).status).toBe(403);
   });
 });
+
+describe('a failure of ours', () => {
+  it('answers a retryable 503 instead of throwing when the push cannot be recorded', async () => {
+    const { ctx, withTx, logger } = fakeCtx({ mode: 'plain', redisDown: false });
+    const answer = await handleMiniPush(ctx, push('plain', SETTLEMENT));
+    expect(withTx).toHaveBeenCalled();
+    expect(answer).toEqual({ status: 503, body: 'try again later' });
+    expect(logger.error).toHaveBeenCalledWith(expect.anything(), 'mini push failed');
+  });
+});

@@ -24,5 +24,6 @@ export type {
   RouteInput,
 } from './handle';
 export { healthPayload } from './health';
+export { readWebhookBody, WEBHOOK_MAX_BODY_BYTES } from './webhook-body';
 export { buildContainer, getContainer, setContainer, type Container } from './container';
 export { loadEnv, resetEnv, isProduction, envSchema, type Env } from './env';

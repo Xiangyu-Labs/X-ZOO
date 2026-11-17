@@ -354,7 +354,11 @@ export function handle<
           ip: clientIp(request),
         });
       }
-      return finish(error.status, error.toBody());
+      // A webhook answers in the gateway's own ack shape: WeChat Pay reads `{"code":"FAIL"}`.
+      return finish(
+        error.status,
+        anyRoute.auth === 'webhook' ? { code: 'FAIL', message: error.message } : error.toBody(),
+      );
     };
 
     try {

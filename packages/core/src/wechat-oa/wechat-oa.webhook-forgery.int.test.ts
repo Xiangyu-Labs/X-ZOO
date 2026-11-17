@@ -4,7 +4,7 @@ import { createTestCtx, flushTestRedis, type TestCtx } from '@shop/testing';
 import { startFakeOaServer, type FakeOaServer } from '@shop/testing/wechat';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { Actor } from '../kernel/context';
+import type { Actor, Ctx } from '../kernel/context';
 import { wechatOaConfig } from '../system';
 import { resetWechatTokenFlight, wechatConfig } from '../wechat';
 import { encryptMessage, signatureOf } from './wechat-oa.crypto';
@@ -258,6 +258,33 @@ describe('what a valid signature triple is good for', () => {
     await expect(verifyUrl(harness.ctx, fresh)).resolves.toEqual({
       status: 200,
       body: 'reflect-me',
+    });
+  });
+});
+
+describe('what the callback answers when it cannot take a delivery', () => {
+  it('refuses a body far larger than any WeChat callback without reading it', async () => {
+    await configure('plain');
+    await followedVictim();
+    const result = await handleEvent(harness.ctx, {
+      query: triple(NOW_SECONDS),
+      body: event(VICTIM, 'unsubscribe') + ' '.repeat(64 * 1024),
+    });
+    expect(result.status).toBe(403);
+    expect(await victimSubscribed()).toBe(true);
+  });
+
+  it('answers a retryable 503, not a 500 page, when the shop itself fails', async () => {
+    const broken = {
+      ...harness.ctx,
+      config: { get: () => Promise.reject(new Error('connect ECONNREFUSED')) },
+    } as unknown as Ctx;
+    expect(
+      await handleEvent(broken, { query: triple(NOW_SECONDS), body: event(VICTIM, 'subscribe') }),
+    ).toEqual({ status: 503, body: 'try again later' });
+    expect(await verifyUrl(broken, { ...triple(NOW_SECONDS), echostr: 'x' })).toEqual({
+      status: 503,
+      body: 'try again later',
     });
   });
 });
