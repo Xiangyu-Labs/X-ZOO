@@ -198,11 +198,26 @@ export function ShipPanel({
             ),
           }}
           columns={[
-            { title: '发货单号', dataIndex: 'shipmentNo', width: 200 },
+            {
+              // 发货时间 rides under the number: the drawer is 960 wide, and a
+              // column of its own left 物流 too narrow for a waybill number,
+              // let alone the courier feed.
+              title: '发货单号 / 时间',
+              key: 'shipmentNo',
+              width: 190,
+              render: (_value: unknown, row: Shipment) => (
+                <Space direction="vertical" size={0}>
+                  <Typography.Text>{row.shipmentNo}</Typography.Text>
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    <InstantText value={row.dispatchedAt} />
+                  </Typography.Text>
+                </Space>
+              ),
+            },
             {
               title: '方式',
               dataIndex: 'deliveryMode',
-              width: 110,
+              width: 100,
               render: (value: Shipment['deliveryMode']) => (
                 <StatusTag value={value} map={DELIVERY_MODE} />
               ),
@@ -210,7 +225,7 @@ export function ShipPanel({
             {
               title: '状态',
               dataIndex: 'status',
-              width: 100,
+              width: 90,
               render: (value: Shipment['status']) => (
                 <StatusTag value={value} map={SHIPMENT_STATUS} />
               ),
@@ -220,9 +235,11 @@ export function ShipPanel({
               key: 'tracking',
               render: (_value: unknown, row: Shipment) =>
                 row.trackingNo ? (
-                  <Space size={4}>
+                  <Space direction="vertical" size={2} style={{ width: '100%' }}>
                     <Typography.Text>{row.expressCompanyName ?? '—'}</Typography.Text>
-                    <Typography.Text copyable>{row.trackingNo}</Typography.Text>
+                    <Typography.Text copyable style={{ wordBreak: 'break-all' }}>
+                      {row.trackingNo}
+                    </Typography.Text>
                     <TrackingLink shipmentId={row.id} />
                   </Space>
                 ) : (
@@ -232,15 +249,9 @@ export function ShipPanel({
                 ),
             },
             {
-              title: '发货时间',
-              dataIndex: 'dispatchedAt',
-              width: 170,
-              render: (value: string) => <InstantText value={value} />,
-            },
-            {
               title: '操作',
               key: 'actions',
-              width: 150,
+              width: 140,
               render: (_value: unknown, row: Shipment) =>
                 row.status === 'dispatched' ? (
                   <Can permission="order:shipment:write">
@@ -469,12 +480,25 @@ function TrackingLink({ shipmentId }: { shipmentId: string }) {
   if (!tracking.data?.available) {
     return <Typography.Text type="secondary">未接入物流查询</Typography.Text>;
   }
+  if (tracking.data.traces.length === 0) {
+    return <Typography.Text type="secondary">暂无物流轨迹</Typography.Text>;
+  }
+  // Time on its own line above the event: side by side, a long 「快件已到达…」
+  // wrapped under the timestamp and the column read as one block of text.
   return (
-    <Space direction="vertical" size={0}>
-      {tracking.data.traces.map((trace) => (
-        <Typography.Text key={trace.at} type="secondary">
-          <InstantText value={trace.at} /> {trace.context}
-        </Typography.Text>
+    <Space direction="vertical" size={6} style={{ width: '100%' }}>
+      {tracking.data.traces.map((trace, index) => (
+        <div key={`${trace.at}-${index}`}>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            <InstantText value={trace.at} />
+          </Typography.Text>
+          <br />
+          {index === 0 ? (
+            <Typography.Text>{trace.context}</Typography.Text>
+          ) : (
+            <Typography.Text type="secondary">{trace.context}</Typography.Text>
+          )}
+        </div>
       ))}
     </Space>
   );
