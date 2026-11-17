@@ -67,13 +67,43 @@ describe('评价商品', () => {
     await screen.findByText('评价成功');
     const bodies = seen.filter((r) => r.key === 'POST /api/v1/catalog/reviews').map((r) => r.body);
     expect(bodies).toEqual([
-      { orderItemId: '7001', productScore: 3, serviceScore: 4, content: '很好', images: [] },
-      { orderItemId: '7002', productScore: 5, serviceScore: 4, images: [] },
+      {
+        orderItemId: '7001',
+        productScore: 3,
+        serviceScore: 4,
+        content: '很好',
+        images: [],
+        anonymous: true,
+      },
+      { orderItemId: '7002', productScore: 5, serviceScore: 4, images: [], anonymous: true },
     ]);
     await waitFor(() => expect(client.getQueryState(productReviews)?.isInvalidated).toBe(true));
     // 商品详情 carries the review summary; 我的's 待评价 badge drops.
     expect(client.getQueryState(product)?.isInvalidated).toBe(true);
     expect(client.getQueryState(me)?.isInvalidated).toBe(true);
+  });
+
+  it('#112 — 匿名评价 is ticked by default, and unticking it signs the review', async () => {
+    const seen = serveApi({
+      'GET /api/v1/orders/9001': () => ({
+        body: { ...received, items: [orderItem('7001', { reviewable: true })] },
+      }),
+      'POST /api/v1/catalog/reviews': () => answer('published'),
+    });
+    await renderPage(<ReviewPage />);
+    const box = await screen.findByRole('checkbox', { name: '匿名评价' });
+    expect(box.getAttribute('aria-checked')).toBe('true');
+    screen.getByText('评价将显示为默认头像和隐藏部分字的昵称');
+
+    fireEvent.click(box);
+    screen.getByText('评价将显示你的昵称和头像');
+    fireEvent.click(screen.getByRole('button', { name: '提交评价' }));
+
+    await screen.findByText('评价成功');
+    const bodies = seen.filter((r) => r.key === 'POST /api/v1/catalog/reviews').map((r) => r.body);
+    expect(bodies).toEqual([
+      { orderItemId: '7001', productScore: 5, serviceScore: 5, images: [], anonymous: false },
+    ]);
   });
 
   it('says 审核后展示, never an error, when the shop holds a review', async () => {
@@ -136,7 +166,9 @@ describe('评价商品', () => {
     fireEvent.click(screen.getByRole('button', { name: '提交评价' }));
     await screen.findByText('评价成功');
     const bodies = seen.filter((r) => r.key === 'POST /api/v1/catalog/reviews').map((r) => r.body);
-    expect(bodies).toEqual([{ orderItemId: '7002', productScore: 5, serviceScore: 5, images: [] }]);
+    expect(bodies).toEqual([
+      { orderItemId: '7002', productScore: 5, serviceScore: 5, images: [], anonymous: true },
+    ]);
   });
 
   it('says so when every line was reviewed already', async () => {

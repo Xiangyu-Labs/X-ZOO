@@ -9,6 +9,7 @@ import { LoginCard } from '@/session/login-card';
 import { useSignedIn } from '@/session/session';
 import { Button } from '@/ui/button';
 import { Card } from '@/ui/card';
+import { Checkbox } from '@/ui/choice';
 import { Empty } from '@/ui/empty';
 import { ErrorBlock } from '@/ui/error-block';
 import { toast } from '@/ui/feedback';
@@ -54,9 +55,9 @@ export function reviewLines(order: OrderDetail, only?: string): StorefrontOrderI
  * line. A review the shop has to look at first (评价需审核, or WeChat's 内容安全, C09) is not an
  * error: the page says 「评价已提交，审核后展示」 either way.
  *
- * No 匿名 switch: the server keeps no nickname or avatar on a review (`authorNickname` is
- * always `null` for a shopper's own), so every review already shows without one; the page
- * says so.
+ * 匿名评价 (#112), ticked by default, covers every line of the submit: ticked, the review shows
+ * a masked nickname (`a***` or `***c`) and the default avatar; unticked, the shopper's own
+ * nickname and avatar. The server freezes either onto the review.
  */
 export default function ReviewPage() {
   const { orderId = '', orderItemId } = useRouteParams('reviewWrite');
@@ -87,6 +88,7 @@ function ReviewForm({ orderId, only }: { orderId: string; only?: string | undefi
   const detail = useRouteQuery('order.detail', { params: { id: orderId } }, { enabled: signedIn });
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [serviceScore, setServiceScore] = useState(5);
+  const [anonymous, setAnonymous] = useState(true);
   const [outcomes, setOutcomes] = useState<Record<string, LineOutcome>>({});
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -163,6 +165,7 @@ function ReviewForm({ orderId, only }: { orderId: string; only?: string | undefi
               serviceScore,
               ...(content ? { content } : {}),
               images: draft.images,
+              anonymous,
             },
           });
           done[line.id] = review.moderation;
@@ -237,7 +240,13 @@ function ReviewForm({ orderId, only }: { orderId: string; only?: string | undefi
       })}
       <Card className="review__card">
         <Stars label="服务评分" value={serviceScore} onChange={setServiceScore} />
-        <Text className="review__hint">评价不显示你的昵称和头像</Text>
+        <View className="review__anonymous">
+          <Checkbox checked={anonymous} onChange={setAnonymous} label="匿名评价" />
+          {/* One text, its words swapped: the row's height stays put (design.md §4.3). */}
+          <Text className="review__hint">
+            {anonymous ? '评价将显示为默认头像和隐藏部分字的昵称' : '评价将显示你的昵称和头像'}
+          </Text>
+        </View>
       </Card>
       <View className="review__bar">
         <Button

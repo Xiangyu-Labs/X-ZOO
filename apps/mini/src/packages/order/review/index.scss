@@ -53,6 +53,12 @@
     color: var(--color-text-secondary);
   }
 
+  &__anonymous {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   &__bar {
     position: fixed;
     right: 0;

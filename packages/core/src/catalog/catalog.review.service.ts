@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import type { PageQuery } from '@shop/contracts/conventions';
 import type {
   AdminProductReview,
@@ -15,7 +16,7 @@ import { DomainError } from '../kernel/errors';
 import { requireAdminId, requireUserId, type Ctx } from '../kernel/context';
 import { catalogConfig } from './catalog.config';
 import * as repo from './catalog.repo';
-import { summariseReviews } from './catalog.rules';
+import { maskedNickname, summariseReviews } from './catalog.rules';
 import { asArray, pageBounds } from './catalog.service';
 import { getOrderFacts } from '../order/ports';
 import { isStoredImageUrl } from '../storage';
@@ -327,14 +328,20 @@ export async function reviewSubmit(ctx: Ctx, body: ReviewSubmitBody): Promise<Su
     if (!line) throw new DomainError('CATALOG_REVIEW_NOT_ALLOWED');
 
     const now = ctx.clock.now();
+    const author = await repo.findReviewAuthor(tx, userId);
+    const anonymous = body.anonymous !== false;
     const row = await repo.insertReview(tx, {
       productId: line.productId,
       skuId: line.skuId,
       userId,
       orderId: line.orderId,
       orderItemId: line.orderItemId,
-      authorNickname: null,
-      authorAvatarUrl: null,
+      // Frozen at write time: a later nickname or avatar change does not
+      // rewrite a review, and 注销 clears both (`clearReviewAuthorOf`).
+      authorNickname: anonymous
+        ? maskedNickname(author?.nickname ?? null, randomInt(2) === 0)
+        : author?.nickname?.trim() || null,
+      authorAvatarUrl: anonymous ? null : author?.avatarUrl || null,
       specText: line.specText,
       productScore: body.productScore,
       serviceScore: body.serviceScore,
@@ -419,10 +426,10 @@ export const holdUncheckedReview: MediaUncheckedHandler = async (tx, ctx, input)
  * of the product's, and the words were written for other buyers — but the
  * storefront draws them as 匿名用户 with the default avatar.
  *
- * Reviews this app writes for a shopper carry no copy of the profile (the
- * `null`s in `reviewSubmit` and `runAutoReview`); the columns exist for the
- * reviews an operator seeds, which have no user. A row with both a user and a
- * name came from somewhere else — an import — and is exactly what this clears.
+ * A shopper's review carries the name it was signed with — masked when written
+ * 匿名, their own nickname and avatar otherwise (`reviewSubmit`, #112) — and so
+ * does an imported one; this clears both. 默认好评 (`runAutoReview`) carries
+ * none, and an operator-seeded review has no user to forget.
  */
 export const forgetReviewAuthor: AccountCancelledListener = async (tx, ctx, { userId }) => {
   await repo.clearReviewAuthorOf(tx, { userId, now: ctx.clock.now() });

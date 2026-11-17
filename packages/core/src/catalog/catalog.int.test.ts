@@ -5,6 +5,7 @@ import { couponTemplates } from '@shop/db/schema/coupon';
 import { shippingTemplates } from '@shop/db/schema/shipping';
 import { productEvents } from '@shop/db/schema/stats';
 import { attachments } from '@shop/db/schema/storage';
+import { users } from '@shop/db/schema/user';
 import { effects as effectsTable } from '@shop/db/schema/system';
 import { createTestCtx, type TestCtx } from '@shop/testing';
 
@@ -1756,6 +1757,46 @@ describe('reviews', () => {
         images: [],
       }),
     ).rejects.toMatchObject({ code: 'CATALOG_REVIEW_ALREADY_WRITTEN' });
+  });
+
+  it('#112 — 匿名评价 shows a masked nickname and no avatar; unticked, the buyer’s own', async () => {
+    const product = await makeProduct(asAdmin());
+    const skuId = await firstSkuId(harness, product.id);
+    const userId = await makeUser(harness);
+    await harness.ctx.db
+      .update(users)
+      .set({ nickname: 'abc', avatarUrl: '/storage/avatar/abc.png' })
+      .where(eq(users.id, userId));
+    const first = await makeOrderLine(harness, { userId, productId: Number(product.id), skuId });
+    const second = await makeOrderLine(harness, { userId, productId: Number(product.id), skuId });
+
+    const masked = await reviews.reviewSubmit(asUser(userId), {
+      orderItemId: String(first.orderItemId),
+      productScore: 5,
+      serviceScore: 5,
+      images: [],
+    });
+    expect(['a***', '***c']).toContain(masked.authorNickname);
+    expect(masked.authorAvatarUrl).toBeNull();
+
+    const signed = await reviews.reviewSubmit(asUser(userId), {
+      orderItemId: String(second.orderItemId),
+      productScore: 5,
+      serviceScore: 5,
+      images: [],
+      anonymous: false,
+    });
+    expect(signed.authorNickname).toBe('abc');
+    expect(signed.authorAvatarUrl).toBe('/storage/avatar/abc.png');
+
+    // A later rename does not rewrite what was signed.
+    await harness.ctx.db.update(users).set({ nickname: 'xyz' }).where(eq(users.id, userId));
+    const { items } = await reviews.productReviews(
+      harness.ctx,
+      { id: product.id },
+      { rating: 'all', page: 1, pageSize: 20 },
+    );
+    expect(items.map((r) => r.authorNickname)).toContain('abc');
   });
 
   it('refuses a line belonging to somebody else without saying why', async () => {

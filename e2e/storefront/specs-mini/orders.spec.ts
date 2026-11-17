@@ -89,16 +89,28 @@ test('a shopper pays, follows the parcel, confirms receipt in WeChat and reviews
   await detail.action('去评价').click();
   const review = new ReviewPage(page);
   await review.expectOpen();
-  await expect(shown(page).getByText('评价不显示你的昵称和头像')).toBeVisible();
+  // 匿名评价 is ticked unless the shopper unticks it (#112).
+  await expect(shown(page).getByRole('checkbox', { name: '匿名评价' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
   await review.write('包装很严实，待定测试');
   await review.submit();
   await expect(review.result()).toContainText('评价已提交，审核后展示');
 
   const [written] = await shop.db
-    .select({ content: productReviews.content, status: productReviews.status })
+    .select({
+      content: productReviews.content,
+      status: productReviews.status,
+      authorAvatarUrl: productReviews.authorAvatarUrl,
+    })
     .from(productReviews)
     .where(eq(productReviews.orderId, Number(order.id)));
-  expect(written).toEqual({ content: '包装很严实，待定测试', status: 'pending' });
+  expect(written).toEqual({
+    content: '包装很严实，待定测试',
+    status: 'pending',
+    authorAvatarUrl: null,
+  });
 
   await shown(page).getByText('返回订单', { exact: true }).click();
   await detail.expectHeadline('已收货');
