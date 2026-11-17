@@ -265,6 +265,9 @@ function Detail({
   const soldOut = product.stock <= 0 || product.skus.every((sku) => sku.stock <= 0);
   const strike = strikePrice(product.price, product.originalPrice);
   const canCart = product.canAddToCart && !soldOut && activity === undefined;
+  // 秒杀 (#105) and 拼团's 单独购买 (#103) are ordinary orders, so they may go in the cart too:
+  // 立即抢购 / 立即购买 first, 加入购物车 beside it. The cart prices a 秒杀 SKU at its 秒杀价.
+  const ordinaryActions: readonly SkuAction[] = product.canAddToCart ? ['buy', 'cart'] : ['buy'];
   const isFavorite = favorited ?? product.favorited === true;
   const matrix = { specs: product.specs, skus: product.skus };
   const picked = skuId ? initialSelection(matrix, skuId) : {};
@@ -480,7 +483,7 @@ function Detail({
           onClick={() =>
             activity && !flashSale && !myTeam
               ? openActivity()
-              : openSku(canCart ? ['cart', 'buy'] : ['buy'])
+              : openSku(activity ? ordinaryActions : canCart ? ['cart', 'buy'] : ['buy'])
           }
           disabled={soldOut || product.promotionConflict === true}
         />
@@ -533,7 +536,7 @@ function Detail({
             block
             className="product__buy product__buy--flashsale"
             disabled={soldOut}
-            onClick={() => openSku(['buy'])}
+            onClick={() => openSku(ordinaryActions)}
           >
             {soldOut ? '已售罄' : `立即抢购 ¥${activityPrice}${activityFrom ? '起' : ''}`}
           </Button>
@@ -547,7 +550,7 @@ function Detail({
                 className="product__buy product__buy--groupbuy-single"
                 label={`单独购买 ¥${singlePrice}`}
                 disabled={soldOut}
-                onClick={() => openSku(['buy'])}
+                onClick={() => openSku(ordinaryActions)}
               >
                 <BuyLabel price={`¥${singlePrice}`} action="单独购买" />
               </Button>

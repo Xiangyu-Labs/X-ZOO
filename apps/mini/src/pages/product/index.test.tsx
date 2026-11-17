@@ -763,6 +763,44 @@ describe('商品详情', () => {
     expect(sheet.className).toContain('sku-sheet--groupbuy');
     expect(sheet.querySelector('.shop-price.sku-sheet__price')).not.toBeNull();
     expect(buy.className).toContain('sku-sheet__button--buy');
+    // 加入购物车 to its right (#103).
+    const cart = within(sheet).getByRole('button', { name: '加入购物车' });
+    expect(buy.compareDocumentPosition(cart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('puts 单独购买 in the cart from its sheet, 加入购物车 beside 立即购买 (#103)', async () => {
+    const seen = serve({
+      ...onPromotion(groupbuyPromotion()),
+      'POST /api/v1/cart/items': () => ({
+        status: 201,
+        body: {
+          item: null,
+          cart: { items: 1, quantity: 1, availableCount: 1, unavailableCount: 0 },
+        },
+      }),
+    });
+    await signIn();
+    await renderPage(<ProductPage />);
+    fireEvent.click(await screen.findByRole('button', { name: /单独购买 ¥59.00/ }));
+    const sheet = await waitFor(() => {
+      const found = document.getElementById('sku-sheet');
+      expect(found).not.toBeNull();
+      return found?.closest('.shop-sheet') as HTMLElement;
+    });
+    const buy = within(sheet).getByRole('button', { name: '立即购买' });
+    const cart = within(sheet).getByRole('button', { name: '加入购物车' });
+    // 立即购买 first in the 活动 pink, 加入购物车 after it on the light pink.
+    expect(buy.compareDocumentPosition(cart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(sheet.className).toContain('sku-sheet--groupbuy');
+    expect(cart.className).toContain('sku-sheet__button--cart');
+    fireEvent.click(within(sheet).getByRole('radio', { name: '黑' }));
+    fireEvent.click(within(sheet).getByRole('radio', { name: 'M' }));
+    fireEvent.click(cart);
+    await waitFor(() =>
+      expect(seen.filter((r) => r.key === 'POST /api/v1/cart/items').map((r) => r.body)).toEqual([
+        { skuId: '103', quantity: 1 },
+      ]),
+    );
   });
 
   it('AGENTS 16 — reads the 拼团 again once signed in: a leader is sent to their team', async () => {
@@ -882,6 +920,10 @@ describe('商品详情', () => {
     expect(screen.queryByRole('button', { name: '立即购买' })).toBeNull();
     const grab = screen.getByRole('button', { name: '立即抢购' });
     expect(grab.className).toContain('sku-sheet__button--buy');
+    // 加入购物车 to the right of 立即抢购 (#105); the cart prices it at the 秒杀价 too.
+    const cart = screen.getByRole('button', { name: '加入购物车' });
+    expect(cart.className).toContain('sku-sheet__button--cart');
+    expect(grab.compareDocumentPosition(cart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     fireEvent.click(grab);
     expect(useCheckoutDraft.getState().draft).toMatchObject({
       source: 'buy-now',

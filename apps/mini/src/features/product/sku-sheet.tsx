@@ -26,7 +26,7 @@ import {
 } from './sku-select';
 import './sku-sheet.scss';
 
-/** What the sheet's buttons do; `both` shows 加入购物车 and 立即购买 side by side. */
+/** What the sheet's buttons do; both show side by side, in the order given. */
 export type SkuAction = 'cart' | 'buy';
 
 export interface SkuSheetProduct extends PurchaseRules {
@@ -54,8 +54,8 @@ export interface SkuSheetProps {
   /** A sale mode's own words for a button (限时秒杀: 立即抢购 for 立即购买). */
   labels?: Partial<Record<SkuAction | 'confirm', string>> | undefined;
   /**
-   * 秒杀 (#100), 拼团's 单独购买 (#102): the price and the buy button in the 活动 pink. Without
-   * it, the shop's colours.
+   * 秒杀 (#100), 拼团's 单独购买 (#102): the price and the buy button in the 活动 pink, 加入购物车
+   * on a light pink (#103, #105). Without it, the shop's colours.
    */
   tone?: 'flashsale' | 'groupbuy' | undefined;
 }
@@ -111,12 +111,13 @@ export function SkuSheet({
 
   const footer = (
     <View className="sku-sheet__buttons">
-      {buttons.map((action, index) => (
+      {buttons.map((action) => (
         <Button
           key={action}
           block
           size="lg"
-          variant={buttons.length > 1 && index === 0 ? 'secondary' : 'primary'}
+          // Beside another button, 加入购物车 is the quiet one, on whichever side it is.
+          variant={buttons.length > 1 && action === 'cart' ? 'secondary' : 'primary'}
           className={`sku-sheet__button--${action}`}
           disabled={!ready || (busy != null && busy !== action)}
           loading={busy === action}
