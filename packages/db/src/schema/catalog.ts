@@ -414,6 +414,10 @@ export const productVirtualCards = pgTable(
     index('product_virtual_cards_available_idx')
       .on(t.skuId, t.id)
       .where(sql`state = 'unclaimed'`),
+    // The admin card list (product, optional state, newest first) and the product FK cascade.
+    index('product_virtual_cards_product_idx').on(t.productId, t.state, t.id),
+    // existingCardNos and the SKU FK cascade, whatever the state.
+    index('product_virtual_cards_sku_idx').on(t.skuId, t.cardNo),
     check(
       'product_virtual_cards_claim_consistent',
       sql`(${t.state} = 'claimed') = (${t.orderItemId} is not null)`,
@@ -666,6 +670,8 @@ export const productReviews = pgTable(
     uniqueIndex('product_reviews_order_item_uq')
       .on(t.orderItemId)
       .where(sql`order_item_id is not null`),
+    // The admin review list filtered by status across products.
+    index('product_reviews_status_idx').on(t.status, t.createdAt),
     check(
       'product_reviews_scores_range',
       sql`${t.productScore} between 1 and 5 and ${t.serviceScore} between 1 and 5`,

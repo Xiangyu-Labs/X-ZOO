@@ -518,10 +518,13 @@ export interface OrderFactsPort {
   ): Promise<ReviewableLine | null>;
   /** Units of the product this user has committed to (not cancelled, not refunded, unpaid included): `order.repo.purchasedQuantity`. */
   purchasedQuantity(tx: Tx, args: { userId: number; productId: number }): Promise<number>;
-  /** Lines of orders completed at or before the instant that still have no review, oldest first. */
+  /**
+   * Lines of orders completed in `(completedAfter, completedBefore]` that still have no review,
+   * oldest first. The lower bound keeps the sweep off every completed order ever.
+   */
   findLinesAwaitingReview(
     tx: Tx,
-    args: { completedBefore: Date; limit: number },
+    args: { completedAfter: Date; completedBefore: Date; limit: number },
   ): Promise<ReviewableLine[]>;
   /** Whether any unfinished order still references the product. */
   hasOpenOrders(tx: Tx, productId: number): Promise<boolean>;

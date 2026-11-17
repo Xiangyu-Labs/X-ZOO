@@ -91,6 +91,10 @@ export const attachments = pgTable(
     index('attachments_category_idx').on(t.categoryId),
     index('attachments_sha256_idx').on(t.sha256),
     index('attachments_created_at_idx').on(t.createdAt),
+    // listSweepableAttachments: the few tombstones, in id order, without walking live rows.
+    index('attachments_tombstone_idx')
+      .on(t.id)
+      .where(sql`deleted_at is not null`),
     /**
      * "Is this URL one of ours?" — `PUT /api/v1/profile` accepts an avatar only
      * from our own storage. Hash, not btree: equality is the only question and

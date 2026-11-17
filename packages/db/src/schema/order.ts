@@ -188,6 +188,14 @@ export const orders = pgTable(
     index('orders_auto_receive_idx')
       .on(t.autoReceiveAt)
       .where(sql`status = 'shipped'`),
+    // listCompletionDue: received orders whose review window has run out, oldest first.
+    index('orders_completion_due_idx')
+      .on(t.receivedAt)
+      .where(sql`status = 'received'`),
+    // findLinesAwaitingReview: completed orders inside the auto-review window.
+    index('orders_completed_at_idx')
+      .on(t.completedAt)
+      .where(sql`status = 'completed'`),
 
     check('orders_quantity_positive', sql`${t.totalQuantity} >= 1`),
     check(

@@ -189,6 +189,8 @@ export const auditLogs = pgTable(
     index('audit_logs_failed_idx')
       .on(t.createdAt)
       .where(sql`${t.status} >= 400`),
+    // The 操作日志 list's default order (created_at, id), and pruneAuditLogs' range.
+    index('audit_logs_created_at_idx').on(t.createdAt, t.id),
     check('audit_logs_actor_kind_known', sql`${t.actorKind} in ('admin', 'staff')`),
   ],
 );
