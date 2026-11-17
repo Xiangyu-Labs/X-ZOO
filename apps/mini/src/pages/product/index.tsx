@@ -646,7 +646,7 @@ function Detail({
         onConfirm={confirm}
         // 秒杀 (#100): 立即抢购 and the 秒杀价 in the box's pink, as on the action bar.
         labels={flashSale ? { buy: '立即抢购' } : undefined}
-        className={flashSale ? 'product__sku--flashsale' : undefined}
+        tone={flashSale ? 'flashsale' : undefined}
       />
       <Sheet visible={sheet === 'service'} onClose={() => setSheet(null)} title="服务说明">
         <View className="product__sheet-list">

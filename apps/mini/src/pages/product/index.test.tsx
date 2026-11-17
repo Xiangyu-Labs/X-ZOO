@@ -847,7 +847,10 @@ describe('商品详情', () => {
       return found as HTMLElement;
     });
     // In the 秒杀 pink (#100), with 立即抢购 for 立即购买, and the 秒杀价 before a spec is picked.
-    expect(sheet.closest('.shop-sheet')?.className).toContain('product__sku--flashsale');
+    expect(sheet.closest('.shop-sheet')?.className).toContain('sku-sheet--flashsale');
+    expect(
+      sheet.closest('.shop-sheet')?.querySelector('.shop-price.sku-sheet__price'),
+    ).not.toBeNull();
     expect(sheet.textContent).toContain('49.00');
     expect(sheet.textContent).not.toContain('59.00');
     fireEvent.click(within(sheet).getByRole('radio', { name: '白' }));

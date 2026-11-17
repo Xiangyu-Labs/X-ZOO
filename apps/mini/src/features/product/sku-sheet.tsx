@@ -53,8 +53,8 @@ export interface SkuSheetProps {
   busy?: SkuAction | 'confirm' | null | undefined;
   /** A sale mode's own words for a button (限时秒杀: 立即抢购 for 立即购买). */
   labels?: Partial<Record<SkuAction | 'confirm', string>> | undefined;
-  /** On the sheet, for a sale mode's colours; each button also has `sku-sheet__button--<action>`. */
-  className?: string | undefined;
+  /** 秒杀: the price and 立即抢购 in the 秒杀 box's pink (#100). Without it, the shop's colours. */
+  tone?: 'flashsale' | undefined;
 }
 
 const LABEL: Record<SkuAction | 'confirm', string> = {
@@ -81,7 +81,7 @@ export function SkuSheet({
   initialQuantity,
   busy,
   labels,
-  className,
+  tone,
 }: SkuSheetProps) {
   const [picked, setPicked] = useState<SkuSelection | null>(null);
   const [quantity, setQuantity] = useState<number | null>(null);
@@ -126,7 +126,12 @@ export function SkuSheet({
   );
 
   return (
-    <Sheet visible={visible} onClose={onClose} footer={footer} className={className}>
+    <Sheet
+      visible={visible}
+      onClose={onClose}
+      footer={footer}
+      className={tone ? `sku-sheet--${tone}` : undefined}
+    >
       {!matrix ? (
         <View className="sku-sheet__loading" id="sku-sheet-loading">
           <Skeleton className="sku-sheet__loading-image" />
@@ -209,7 +214,7 @@ function Header({
         <Image src={image} label={product.name} radius="sm" size="small" />
       </Pressable>
       <View className="sku-sheet__summary">
-        <Price value={sku?.price ?? product.price} size="lg" />
+        <Price value={sku?.price ?? product.price} size="lg" className="sku-sheet__price" />
         {sku ? (
           <Text className="sku-sheet__stock">
             库存 {sku.stock}
