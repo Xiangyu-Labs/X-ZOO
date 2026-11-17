@@ -17,12 +17,15 @@ interface AuthHooks {
    * session if needed), or `null` to let the 401 stand (session.ts `renewFor`).
    */
   renew: (sent: string) => Promise<string | null>;
+  /** A request sent with `token` got an answer other than 401 (session.ts `renewFor`). */
+  accepted: (token: string) => void;
   onUnauthorized: () => void;
 }
 
 let auth: AuthHooks = {
   getToken: () => null,
   renew: () => Promise.resolve(null),
+  accepted: () => undefined,
   onUnauthorized: () => undefined,
 };
 
@@ -50,6 +53,7 @@ export const api = createApiClient({
   baseUrl: platform.api.baseUrl,
   transport: renewingTransport(serverClockTransport(platform.api.transport), {
     renew: (sent) => auth.renew(sent),
+    accepted: (token) => auth.accepted(token),
   }),
   platform: platform.api.clientPlatform,
   clientVersion: CLIENT_VERSION,

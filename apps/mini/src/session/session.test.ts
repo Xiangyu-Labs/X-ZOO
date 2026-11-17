@@ -200,6 +200,66 @@ describe('session', () => {
     expect(useSession.getState().session).toEqual({ status: 'signed-out' });
   });
 
+  it('does not sign in again and again when the server refuses even the session it just issued (#91)', async () => {
+    const { onSessionChange, serveApi, startSession, taroFake, useSession } = await load();
+    taroFake.storage.set('shop.session.token', 'stale');
+    taroFake.storage.set('shop.session.user', '7');
+    let issued = 0;
+    // The server after a bad cold start: every token, new ones included, meets a 401.
+    const seen = serveApi({
+      'GET /api/v1/cart/count': (_body, request) =>
+        request.headers.Authorization
+          ? { status: 401, body: { code: 'UNAUTHENTICATED', message: '请先登录' } }
+          : { body: { items: 0, quantity: 0, availableCount: 0, unavailableCount: 0 } },
+      'POST /api/v1/auth/sessions/wechat-mini': () => {
+        issued += 1;
+        // Stops the loop the bug made, so a failing run ends.
+        if (issued > 5) return { status: 500, body: { code: 'INTERNAL', message: '服务器错误' } };
+        return { body: signedIn(`fresh-${issued}`) };
+      },
+    });
+    const { api } = await import('@/data/api');
+    // What 首页 and the cart badge do: fetch again whenever the shopper signs in or out.
+    onSessionChange((session, previous) => {
+      if ((session.status === 'signed-in') !== (previous.status === 'signed-in'))
+        void api.call('cart.count').catch(() => undefined);
+    });
+
+    await startSession();
+    await api.call('cart.count').catch(() => undefined);
+    await vi.waitFor(() => expect(useSession.getState().session).toEqual({ status: 'signed-out' }));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(seen.filter((r) => r.key === 'POST /api/v1/auth/sessions/wechat-mini')).toHaveLength(1);
+    expect(useSession.getState().session).toEqual({ status: 'signed-out' });
+  });
+
+  it('still renews a session issued this launch once the server has honoured it and it later expired', async () => {
+    const { serveApi, startSession, useSession } = await load();
+    let expired = false;
+    const count = { items: 0, quantity: 0, availableCount: 0, unavailableCount: 0 };
+    let issued = 0;
+    const seen = serveApi({
+      'GET /api/v1/cart/count': (_body, request) =>
+        expired && request.headers.Authorization === 'Bearer fresh-1'
+          ? { status: 401, body: { code: 'UNAUTHENTICATED', message: '请先登录' } }
+          : { body: count },
+      'POST /api/v1/auth/sessions/wechat-mini': () => {
+        issued += 1;
+        return { body: signedIn(`fresh-${issued}`) };
+      },
+    });
+    const { api } = await import('@/data/api');
+
+    await startSession();
+    await expect(api.call('cart.count')).resolves.toEqual(count);
+    expired = true;
+    await expect(api.call('cart.count')).resolves.toEqual(count);
+
+    expect(seen.filter((r) => r.key === 'POST /api/v1/auth/sessions/wechat-mini')).toHaveLength(2);
+    expect(useSession.getState().session).toEqual({ status: 'signed-in', token: 'fresh-2' });
+  });
+
   it('signs in once when an action asks for a session while a renewal is under way', async () => {
     const { serveApi, startSession, taroFake, useSession } = await load();
     const { holdRequests } = await import('@/test/fake-api');

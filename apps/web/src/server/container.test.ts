@@ -1,7 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getSmsSenderOverride, resetSmsSender } from '@shop/core/sms';
 import { createDb } from '@shop/db';
-import { applyProcessOverrides, resetProcessOverrides, webDbOptions } from './container';
+import { AdminAuthService, UserSessionService } from '@shop/core/auth';
+import {
+  applyProcessOverrides,
+  getContainer,
+  resetProcessOverrides,
+  setContainer,
+  webDbOptions,
+  type Container,
+} from './container';
 import type { Env } from './env';
 
 /**
@@ -73,5 +81,43 @@ describe('webDbOptions', () => {
     } finally {
       void handle.close();
     }
+  });
+});
+
+describe('getContainer across bundles (#91)', () => {
+  afterEach(() => setContainer(undefined));
+
+  it("serves this bundle's own session services when another bundle built the shared container", async () => {
+    // Another copy of `@shop/core`, as a server-rendered page's bundle has: its classes and
+    // registries are not this one's.
+    vi.resetModules();
+    const theirs = await import('@shop/core/auth');
+    expect(theirs.UserSessionService).not.toBe(UserSessionService);
+    const redis = {} as Container['redis'];
+    const shared = {
+      redis,
+      userSessions: new theirs.UserSessionService(),
+      adminAuth: new theirs.AdminAuthService({ redis }),
+    } as Container;
+    setContainer(shared);
+
+    const ours = getContainer();
+
+    expect(ours.userSessions).toBeInstanceOf(UserSessionService);
+    expect(ours.adminAuth).toBeInstanceOf(AdminAuthService);
+    expect(ours.redis).toBe(redis);
+    expect(getContainer()).toBe(ours);
+  });
+
+  it("hands back the container itself when its services are this bundle's", () => {
+    const redis = {} as Container['redis'];
+    const shared = {
+      redis,
+      userSessions: new UserSessionService(),
+      adminAuth: new AdminAuthService({ redis }),
+    } as Container;
+    setContainer(shared);
+
+    expect(getContainer()).toBe(shared);
   });
 });

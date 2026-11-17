@@ -132,14 +132,49 @@ export function buildContainer(env: Env = loadEnv()): Container {
   };
 }
 
+/** The shared container with this module graph's own services (`ownServices`). */
+let local: { shared: Container; view: Container } | undefined;
+
+/**
+ * The container as this module graph should use it: the shared connections, with services
+ * built from this graph's own `@shop/core`.
+ *
+ * Next bundles route handlers and server-rendered pages (the admin layout, the landing page,
+ * OAuth) separately, each with its own copy of `@shop/core` and so its own port registries,
+ * while the container is shared through `globalThis`. A service reads the registry of the copy
+ * that built it: `UserSessionService` the user lookup, `AdminAuthService` the captcha verifier.
+ * Only the route copy has every domain installed (`handle.ts` imports `@shop/core/domains`).
+ * When a page built the container first after a cold start, every shopper token met a 401
+ * until the next restart, and the mini-program signed in again on each one (#91).
+ *
+ * Not fixed by importing the domains here: that put another copy of every domain into each
+ * route's bundle, and the web image no longer started within its heap.
+ */
+function ownServices(shared: Container): Container {
+  if (
+    shared.userSessions instanceof UserSessionService &&
+    shared.adminAuth instanceof AdminAuthService
+  ) {
+    return shared;
+  }
+  if (local?.shared !== shared) {
+    local = {
+      shared,
+      view: {
+        ...shared,
+        adminAuth: new AdminAuthService({ redis: shared.redis }),
+        userSessions: new UserSessionService(),
+      },
+    };
+  }
+  return local.view;
+}
+
 /** The memoised container. Every route handler goes through this. */
 export function getContainer(): Container {
   const global = globalThis as GlobalWithContainer;
-  const existing = global[CONTAINER_KEY];
-  if (existing) return existing;
-  const container = buildContainer();
-  global[CONTAINER_KEY] = container;
-  return container;
+  const shared = (global[CONTAINER_KEY] ??= buildContainer());
+  return ownServices(shared);
 }
 
 /** Test helper: install a container built by the harness. */
