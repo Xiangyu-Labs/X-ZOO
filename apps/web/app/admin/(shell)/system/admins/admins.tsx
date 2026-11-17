@@ -254,7 +254,6 @@ function initialValuesOf(row: AdminListItem) {
     account: row.account,
     name: row.name,
     ...(row.phone === null ? {} : { phone: row.phone }),
-    ...(row.avatar === null ? {} : { avatar: row.avatar }),
     enabled: row.enabled,
     roleIds: row.roleIds,
   };

@@ -3,6 +3,8 @@
 import { DatePicker, Space, Tag } from 'antd';
 import dayjs from 'dayjs';
 
+import { DISPLAY_TZ } from '@/admin/kit/instant';
+
 import { presetWindow, RANGE_PRESETS, type StatsRange } from './use-stats-range';
 
 /**
@@ -36,9 +38,12 @@ export function StatsRangePicker({ range }: { range: StatsRange }) {
         value={range.value}
         // Three years is the server's limit (`MAX_RANGE_DAYS`); refusing here
         // is friendlier than a 422, and the 422 still exists behind it.
-        disabledDate={(current) =>
-          current.isAfter(dayjs(), 'day') || current.isBefore(dayjs().subtract(3, 'year'), 'day')
-        }
+        disabledDate={(current) => {
+          const today = dayjs().tz(DISPLAY_TZ);
+          return (
+            current.isAfter(today, 'day') || current.isBefore(today.subtract(3, 'year'), 'day')
+          );
+        }}
         onChange={(value) => range.set(value?.[0] && value[1] ? [value[0], value[1]] : null)}
       />
     </Space>

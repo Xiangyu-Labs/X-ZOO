@@ -217,4 +217,36 @@ describe('商品评价', () => {
       expect(reply?.body).toEqual({ content: '感谢支持！' });
     });
   });
+
+  it('uses reviewAuthor fallback instead of null when confirming hide, and confirms before 批量隐藏', async () => {
+    const anonymousRow: AdminProductReview = {
+      ...row,
+      status: 'published',
+      authorNickname: null,
+    };
+    const calls = stubRoutes([
+      on(catalogAdminReviewBatchSetStatus, { updated: 1 }),
+      on(catalogAdminReviewList, { items: [anonymousRow], total: 1, page: 1, pageSize: 20 }),
+      on(catalogAdminReviewSetStatus, { ...anonymousRow, status: 'hidden' }),
+    ]);
+    renderAdmin(<ProductReviewsPage />, { identity: moderator });
+    await screen.findByText('面料很舒服');
+
+    await userEvent.click(screen.getByRole('button', { name: zhName('隐藏') }));
+    expect(await screen.findByText('隐藏「用户 #9」的评价？')).toBeInTheDocument();
+    expect(screen.queryByText(/null/)).toBeNull();
+
+    const boxes = screen.getAllByRole('checkbox');
+    await userEvent.click(boxes[boxes.length - 1] as HTMLElement);
+    await userEvent.click(await screen.findByRole('button', { name: zhName('批量隐藏') }));
+    const confirmText = await screen.findByText('确认隐藏选中的 1 条评价？');
+    expect(calls.some((call) => call.url.endsWith('/reviews/statuses'))).toBe(false);
+
+    const popup = confirmText.closest('.ant-popover') as HTMLElement;
+    await userEvent.click(within(popup).getByRole('button', { name: zhName('隐藏') }));
+    await waitFor(() => {
+      const batch = calls.find((call) => call.url.endsWith('/reviews/statuses'));
+      expect(batch?.body).toEqual({ reviewIds: ['5001'], status: 'hidden' });
+    });
+  });
 });

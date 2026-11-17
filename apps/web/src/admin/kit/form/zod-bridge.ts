@@ -21,7 +21,7 @@ export function fieldSchemaOf(schema: AnyObjectSchema, name: FieldName): z.ZodTy
 export function isFieldRequired(schema: AnyObjectSchema, name: FieldName): boolean {
   const field = fieldSchemaOf(schema, name);
   if (!field) return false;
-  return !field.safeParse(undefined).success;
+  return !field.safeParse(undefined).success && !field.safeParse(null).success;
 }
 
 /**

@@ -3,7 +3,7 @@
 import dayjs, { type Dayjs } from 'dayjs';
 import { useCallback, useMemo } from 'react';
 
-import { DISPLAY_TZ } from '@/admin/kit/instant';
+import { DISPLAY_TZ, pickerToInstant } from '@/admin/kit/instant';
 import { useNextUrlState, type TableUrlState } from '@/admin/kit/table/url-state';
 
 export interface StatsRange {
@@ -45,8 +45,8 @@ export function useStatsRange(urlState?: TableUrlState): StatsRange {
         return;
       }
       state.write({
-        from: next[0].tz(DISPLAY_TZ).startOf('day').toISOString(),
-        to: next[1].tz(DISPLAY_TZ).endOf('day').toISOString(),
+        from: pickerToInstant(next[0], 'startOfDay'),
+        to: pickerToInstant(next[1], 'endOfDay'),
       });
     },
     [state],

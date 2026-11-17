@@ -390,13 +390,16 @@ export async function adminRemark(
   const operator = operatorOf(ctx);
   const orderId = fromId(params.id);
 
+  const remark =
+    body.adminRemark === null || body.adminRemark.trim() === '' ? null : body.adminRemark;
+
   await ctx.withTx(async (tx) => {
-    const updated = await fulfilRepo.setAdminRemark(tx, { orderId, remark: body.adminRemark });
+    const updated = await fulfilRepo.setAdminRemark(tx, { orderId, remark });
     if (!updated.won) throw new DomainError('ORDER_NOT_FOUND');
     await repo.insertStatusLog(tx, {
       orderId,
       changeType: 'remark_updated',
-      message: body.adminRemark.slice(0, 512),
+      message: remark !== null ? remark.slice(0, 512) : '清空商家备注',
       ...operator,
     });
   });

@@ -197,10 +197,6 @@ export const UI_ISO_FILES: ReadonlyArray<{ file: string; why: string }> = [
   },
   { file: 'apps/web/src/admin/api/url.ts', why: 'a Date query parameter in the URL' },
   {
-    file: 'apps/web/src/admin/stats/use-stats-range.ts',
-    why: 'the picked range sent to the stats routes (Shanghai day bounds)',
-  },
-  {
     file: 'apps/web/src/admin/stats/stats-page.tsx',
     why: 'an instant handed to formatInstant, which renders it in Shanghai',
   },

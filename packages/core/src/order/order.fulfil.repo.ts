@@ -686,7 +686,7 @@ export async function workQueueCounts(db: DbOrTx): Promise<WorkQueueCounts> {
 
 export async function setAdminRemark(
   tx: Tx,
-  args: { orderId: number; remark: string },
+  args: { orderId: number; remark: string | null },
 ): Promise<ConditionalUpdateResult> {
   return conditionalUpdate(tx, orders, {
     where: and(eq(orders.id, args.orderId), isNull(orders.deletedAt)),

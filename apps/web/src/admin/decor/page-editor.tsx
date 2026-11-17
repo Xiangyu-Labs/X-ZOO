@@ -104,14 +104,16 @@ function Overlay({ children }: { children: ReactNode }) {
 export function DecorPageEditor({ id, previewUrl }: { id: string; previewUrl: string | null }) {
   const router = useRouter();
   const { listHref } = useListReturn('/admin/decor');
-  const detail = useRouteQuery(decorDocumentGet, { params: { id } });
+  const detail = useRouteQuery(decorDocumentGet, { params: { id } }, { refetchOnMount: 'always' });
   const [generation, setGeneration] = useState(0);
   const records = useMemo(() => createDecorRecordSource(), []);
   const canvas = useMemo(() => createAdminCanvasData(), []);
   // The document as it was when this editor session began; the query itself
   // keeps refreshing (after a save, a publish) for the status in the toolbar.
   const [loaded, setLoaded] = useState<DecorDocumentDetail | undefined>(undefined);
-  if (detail.data && (!loaded || loaded.id !== detail.data.id)) setLoaded(detail.data);
+  if (detail.data && detail.isFetchedAfterMount && (!loaded || loaded.id !== detail.data.id)) {
+    setLoaded(detail.data);
+  }
 
   if (!loaded) {
     return (
@@ -307,7 +309,10 @@ function EditorSession({
     let token = version ?? saved.version;
     if (version === undefined && dirty) {
       const next = await save({ then: { publish: publishNote } });
-      if (!next) return false;
+      if (!next) {
+        setPublishing(false);
+        return false;
+      }
       token = next;
     }
     try {
@@ -325,6 +330,7 @@ function EditorSession({
       void message.success(`已发布第 ${result.revision.number} 版`);
       return true;
     } catch (error) {
+      setPublishing(false);
       fail(error, { publish: publishNote });
       return false;
     }

@@ -168,6 +168,7 @@ export function renderControl(
           multiple={spec.multiple ?? false}
           leafOnly={spec.leafOnly ?? false}
           withParents={spec.withParents ?? false}
+          treeDefaultExpandAll={spec.treeDefaultExpandAll ?? false}
           placeholder={spec.placeholder ?? prompt(spec, '请选择') ?? '请选择'}
           disabled={off}
         />
@@ -221,6 +222,7 @@ export function renderControl(
           max={spec.max}
           min={spec.min ?? 0}
           emptyText={spec.emptyText ?? '暂无内容'}
+          isItemLocked={spec.isItemLocked}
           disabled={off}
         />
       );

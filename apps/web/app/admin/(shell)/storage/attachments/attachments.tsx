@@ -250,9 +250,18 @@ export function AttachmentsPage() {
                       type="link"
                       size="small"
                       onClick={() => {
+                        if (!navigator.clipboard?.writeText) {
+                          void message.error('当前环境不支持自动复制，请手动复制');
+                          return Promise.resolve();
+                        }
                         return navigator.clipboard
                           .writeText(absoluteUrl(row.url))
-                          .then(() => message.success('已复制链接'));
+                          .then(() => {
+                            void message.success('已复制链接');
+                          })
+                          .catch(() => {
+                            void message.error('复制失败，请手动复制');
+                          });
                       }}
                     >
                       复制链接
@@ -268,7 +277,10 @@ export function AttachmentsPage() {
                       title={`删除素材「${row.name}」？`}
                       description="已经引用它的商品或页面会跟着失效。"
                       invalidate={[storageAttachmentList, storageCategoryTree]}
-                      successMessage="已删除"
+                      onSuccess={(result) => {
+                        if (result.affected > 0) void message.success('已删除');
+                        else void message.warning('该素材已不存在');
+                      }}
                       permission="storage:attachment:delete"
                       buttonProps={{ type: 'link', size: 'small', danger: true }}
                     >

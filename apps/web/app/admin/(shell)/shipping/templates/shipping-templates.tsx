@@ -174,6 +174,7 @@ export function ShippingTemplatesPage() {
             label: '地区运费',
             help: '第一条是「默认全国」，其余按地区覆盖；同一地址命中多条时取最细的一条',
             addText: '添加地区规则',
+            isItemLocked: (raw: never) => (raw as unknown as ShippingTemplateRegion).isFallback,
             newItem: () => ({
               isFallback: false,
               cityIds: [],
@@ -195,6 +196,7 @@ export function ShippingTemplatesPage() {
                       value={item.cityIds}
                       onChange={(cityIds) => update({ cityIds })}
                       placeholder="选择省 / 市 / 区"
+                      disabled={helpers.disabled}
                     />
                   )}
                   <Space wrap size={8}>
@@ -203,24 +205,28 @@ export function ShippingTemplatesPage() {
                       min={0}
                       value={item.firstUnit}
                       onChange={(value) => update({ firstUnit: value ?? 0 })}
+                      disabled={helpers.disabled}
                       style={{ width: 90 }}
                     />
                     <span>运费</span>
                     <MoneyInput
                       value={item.firstPrice}
                       onChange={(value) => update({ firstPrice: value ?? '' })}
+                      disabled={helpers.disabled}
                     />
                     <span>续</span>
                     <InputNumber
                       min={0}
                       value={item.additionalUnit}
                       onChange={(value) => update({ additionalUnit: value ?? 0 })}
+                      disabled={helpers.disabled}
                       style={{ width: 90 }}
                     />
                     <span>运费</span>
                     <MoneyInput
                       value={item.additionalPrice}
                       onChange={(value) => update({ additionalPrice: value ?? '' })}
+                      disabled={helpers.disabled}
                     />
                   </Space>
                   <Typography.Text type="secondary">
@@ -249,6 +255,7 @@ export function ShippingTemplatesPage() {
                     value={item.cityIds}
                     onChange={(cityIds) => update({ cityIds })}
                     placeholder="选择包邮地区"
+                    disabled={helpers.disabled}
                   />
                   <Space wrap size={8}>
                     <span>满</span>
@@ -256,6 +263,7 @@ export function ShippingTemplatesPage() {
                       min={0}
                       value={item.minUnits}
                       onChange={(value) => update({ minUnits: value })}
+                      disabled={helpers.disabled}
                       style={{ width: 110 }}
                       placeholder="不限"
                     />
@@ -263,6 +271,7 @@ export function ShippingTemplatesPage() {
                     <MoneyInput
                       value={item.minAmount ?? undefined}
                       onChange={(value) => update({ minAmount: value ? value : null })}
+                      disabled={helpers.disabled}
                     />
                   </Space>
                 </Space>

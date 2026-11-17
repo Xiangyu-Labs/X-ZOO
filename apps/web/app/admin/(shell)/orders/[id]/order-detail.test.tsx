@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   orderAdminDetail,
+  orderAdminRemark,
   orderAdminShip,
   orderAdminTimeline,
   orderAdminUpdateAddress,
@@ -316,6 +317,58 @@ describe('订单详情', () => {
       expect(
         await screen.findByText('已发起售后，本次不退款（¥0.00），无需原路退回'),
       ).toBeInTheDocument();
+    });
+
+    it('hides 确认发起 while refundable items fail to load, and shows it after retry', async () => {
+      let attempt = 0;
+      stubRoutes([
+        on(orderAdminDetail, completed),
+        on(orderAdminTimeline, { items: [] }),
+        on(expressCompanyPicker, expressCompanyListExample),
+        on(refundAdminApplicable, () => {
+          attempt += 1;
+          if (attempt === 1) {
+            return respondWithError(404, { code: 'REFUND_ORDER_NOT_FOUND', message: '订单不存在' });
+          }
+          return refundableItemsExample;
+        }),
+      ]);
+      renderAdmin(<OrderDetailPage id="9001" />, { identity: reviewer });
+
+      await userEvent.click(await screen.findByRole('button', { name: zhName('发起售后') }));
+      const dialog = await screen.findByRole('dialog');
+      expect(await within(dialog).findByText('订单不存在')).toBeInTheDocument();
+      expect(within(dialog).queryByRole('button', { name: zhName('确认发起') })).toBeNull();
+
+      await userEvent.click(within(dialog).getByRole('button', { name: zhName('重试') }));
+      expect(
+        await within(dialog).findByRole('button', { name: zhName('确认发起') }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('displays Chinese platform label and allows clearing 商家备注', async () => {
+    const remarked = { ...adminOrderDetailExample, adminRemark: '旧商家备注' };
+    const calls = stubRoutes([
+      on(orderAdminDetail, remarked),
+      on(orderAdminTimeline, { items: [] }),
+      on(expressCompanyPicker, expressCompanyListExample),
+      on(orderAdminRemark, { ...remarked, adminRemark: null }),
+    ]);
+    renderAdmin(<OrderDetailPage id="9001" />, { identity: staff });
+
+    expect(await screen.findByText('微信小程序')).toBeInTheDocument();
+    expect(screen.queryByText('wechat-mini')).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: zhName('备注') }));
+    const dialog = await screen.findByRole('dialog');
+    const textarea = within(dialog).getByLabelText('备注');
+    await userEvent.clear(textarea);
+    await userEvent.click(within(dialog).getByRole('button', { name: zhName('保存') }));
+
+    await waitFor(() => {
+      const post = calls.find((call) => call.routeId === orderAdminRemark.id);
+      expect(post?.body).toEqual({ adminRemark: null });
     });
   });
 });

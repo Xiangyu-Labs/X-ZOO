@@ -40,6 +40,7 @@ import { ApiError } from '@/admin/api/errors';
 import { LoadFailure } from '@/admin/kit/load-failure';
 import { useRouteMutation, useRouteQuery } from '@/admin/api/hooks';
 import { useCan } from '@/admin/session/session-provider';
+import type { TreeOption } from '@/admin/kit/form/select-fields';
 import type { FieldSpec, SelectOption } from '@/admin/kit/form/types';
 import { ZodForm } from '@/admin/kit/form/zod-form';
 import { useLeaveGuard } from '@/admin/kit/leave-guard';
@@ -90,6 +91,7 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
   // to press into a 403 — and without the option lists it has no right to.
   const can = useCan();
   const mayWrite = can('catalog:product:write');
+  const mayReadCategories = mayWrite || can('catalog:category:read');
   // The server blanks 成本价 for a role that may neither edit nor export; an
   // empty box would read as "no cost recorded", so the column goes instead.
   const showCost = mayWrite || can('catalog:product:export');
@@ -156,7 +158,8 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
   useSaveShortcut(save, mayWrite);
 
   // Drives the spec/SKU controls and the mode-dependent fields below.
-  const specMode = Form.useWatch<boolean | undefined>('specMode', form) ?? false;
+  const specModeRaw = Form.useWatch<boolean | undefined>('specMode', form);
+  const specMode = specModeRaw ?? false;
   const kind = (Form.useWatch<ProductKind | undefined>('kind', form) ?? 'physical') as ProductKind;
   const specs = (Form.useWatch<ProductSpecInput[] | undefined>('specs', form) ??
     []) as ProductSpecInput[];
@@ -185,6 +188,20 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
   useEffect(() => {
     if (purchaseLimitMode === 'none') form.setFieldValue('purchaseLimitQuantity', undefined);
   }, [purchaseLimitMode, form]);
+
+  useEffect(() => {
+    if (specModeRaw !== false) return;
+    const currentSpecs = (form.getFieldValue('specs') as ProductSpecInput[] | undefined) ?? [];
+    if (currentSpecs.length > 0) form.setFieldValue('specs', []);
+    const currentSkus = (form.getFieldValue('skus') as ProductSkuInput[] | undefined) ?? [];
+    if (
+      currentSkus.length > 1 ||
+      (currentSkus[0] !== undefined && Object.keys(currentSkus[0].specValues).length > 0)
+    ) {
+      const first = currentSkus[0] ?? blankSku();
+      form.setFieldValue('skus', [{ ...first, specValues: {}, isDefault: true }]);
+    }
+  }, [specModeRaw, form]);
 
   const labelOptions: SelectOption[] = (labels.data?.items ?? []).map((row) => ({
     label: row.name,
@@ -226,6 +243,15 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
     [form],
   );
 
+  const fallbackCategoryTree = useMemo<TreeOption[]>(
+    () =>
+      (detail.data?.categoryIds ?? []).map((id, index) => ({
+        value: id,
+        title: detail.data?.categoryNames[index] ?? `#${id}`,
+      })),
+    [detail.data],
+  );
+
   const fields = useMemo(
     (): FieldSpec<Extract<keyof AdminProductForm, string>>[] => {
       const base = buildFields({
@@ -238,6 +264,8 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
         kind,
         showCost,
         setSpecs,
+        mayReadCategories,
+        fallbackCategoryTree,
       });
       const promotion: FieldSpec<Extract<keyof AdminProductForm, string>> = {
         kind: 'custom',
@@ -436,6 +464,8 @@ function buildFields({
   kind,
   showCost,
   setSpecs,
+  mayReadCategories,
+  fallbackCategoryTree,
 }: {
   labelOptions: SelectOption[];
   protectionOptions: SelectOption[];
@@ -446,6 +476,8 @@ function buildFields({
   kind: ProductKind;
   showCost: boolean;
   setSpecs: (next: ProductSpecInput[]) => void;
+  mayReadCategories: boolean;
+  fallbackCategoryTree: TreeOption[];
 }): FieldSpec<Extract<keyof AdminProductForm, string>>[] {
   return [
     {
@@ -516,8 +548,9 @@ function buildFields({
       label: '商品分类',
       span: 12,
       multiple: true,
-      loadOptions: loadCategoryTreeOptions,
-      cacheKey: CATEGORY_TREE_CACHE_KEY,
+      ...(mayReadCategories
+        ? { loadOptions: loadCategoryTreeOptions, cacheKey: CATEGORY_TREE_CACHE_KEY }
+        : { treeData: fallbackCategoryTree }),
       help: '至少一个；分类决定前台的入口和优惠券的适用范围',
     },
     {

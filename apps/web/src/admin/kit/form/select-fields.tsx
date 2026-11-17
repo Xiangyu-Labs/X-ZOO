@@ -33,6 +33,8 @@ export interface TreeSelectFieldProps {
    * coupon's 指定分类 — where a product filed under the parent itself counts too.
    */
   withParents?: boolean | undefined;
+  /** Expand every tree node on open. Default `false` so large trees (e.g. 3,200+ cities) stay fast. */
+  treeDefaultExpandAll?: boolean | undefined;
   id?: string | undefined;
 }
 
@@ -56,6 +58,7 @@ export function TreeSelectField({
   allowClear = true,
   leafOnly = false,
   withParents = false,
+  treeDefaultExpandAll = false,
   id,
 }: TreeSelectFieldProps) {
   const loaded = useQuery({
@@ -79,7 +82,7 @@ export function TreeSelectField({
       loading={loaded.isPending && Boolean(loadOptions)}
       treeNodeFilterProp="title"
       showSearch
-      treeDefaultExpandAll
+      treeDefaultExpandAll={treeDefaultExpandAll}
       {...(multiple ? { multiple: true as const, treeCheckable: true as const } : {})}
       {...(multiple && withParents ? { showCheckedStrategy: TreeSelect.SHOW_ALL } : {})}
     />
@@ -116,6 +119,8 @@ export interface CascaderFieldProps {
   /** Allow stopping at a province instead of requiring a district. */
   changeOnSelect?: boolean | undefined;
   allowClear?: boolean | undefined;
+  /** Expand every tree node on open. Default `false` so large trees (e.g. 3,200+ cities) stay fast. */
+  treeDefaultExpandAll?: boolean | undefined;
   id?: string | undefined;
 }
 

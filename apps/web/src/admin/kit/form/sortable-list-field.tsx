@@ -44,6 +44,8 @@ export interface SortableListFieldProps<T> {
   min?: number | undefined;
   disabled?: boolean | undefined;
   emptyText?: string | undefined;
+  /** Rows returning `true` cannot be deleted or dragged out of position. */
+  isItemLocked?: ((item: T, index: number) => boolean) | undefined;
 }
 
 /**
@@ -71,8 +73,14 @@ export function SortableListField<T>({
   min = 0,
   disabled = false,
   emptyText = '暂无内容',
+  isItemLocked,
 }: SortableListFieldProps<T>) {
   const items = value ?? [];
+
+  const isLocked = (index: number): boolean => {
+    const item = items[index];
+    return item !== undefined && (isItemLocked?.(item, index) ?? false);
+  };
 
   // dnd-kit needs an id per row. Sub-items are plain data with no id of their
   // own, so the position is the id: it is stable for the length of a drag,
@@ -90,6 +98,7 @@ export function SortableListField<T>({
     const from = Number(active.id);
     const to = Number(over.id);
     if (!Number.isInteger(from) || !Number.isInteger(to)) return;
+    if (isLocked(from) || isLocked(to)) return;
     onChange?.(arrayMove(items, from, to));
   };
 
@@ -100,11 +109,13 @@ export function SortableListField<T>({
   };
 
   const removeAt = (index: number): void => {
+    if (isLocked(index)) return;
     onChange?.(items.filter((_item, i) => i !== index));
   };
 
   const canAdd = !disabled && newItem !== undefined && (max === undefined || items.length < max);
-  const canRemove = (index: number): boolean => !disabled && items.length > min && index >= 0;
+  const canRemove = (index: number): boolean =>
+    !disabled && !isLocked(index) && items.length > min && index >= 0;
 
   return (
     <div>
@@ -128,6 +139,7 @@ export function SortableListField<T>({
                   key={index}
                   id={String(index)}
                   disabled={disabled}
+                  locked={isLocked(index)}
                   onRemove={canRemove(index) ? () => removeAt(index) : undefined}
                 >
                   {renderItem(item, {
@@ -162,17 +174,20 @@ export function SortableListField<T>({
 function SortableRow({
   id,
   disabled,
+  locked,
   onRemove,
   children,
 }: {
   id: string;
   disabled: boolean;
+  locked: boolean;
   onRemove?: (() => void) | undefined;
   children: ReactNode;
 }) {
+  const dragDisabled = disabled || locked;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
-    disabled,
+    disabled: dragDisabled,
   });
 
   return (
@@ -192,12 +207,12 @@ function SortableRow({
       }}
     >
       <span
-        {...attributes}
-        {...listeners}
+        {...(dragDisabled ? {} : { ...attributes, ...listeners })}
         aria-label="拖动排序"
         style={{
-          cursor: disabled ? 'not-allowed' : 'grab',
+          cursor: dragDisabled ? 'not-allowed' : 'grab',
           color: 'var(--ant-color-text-quaternary)',
+          opacity: locked ? 0.35 : 1,
         }}
       >
         <HolderOutlined />

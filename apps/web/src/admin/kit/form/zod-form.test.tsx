@@ -462,3 +462,51 @@ describe('<ZodForm> sections', () => {
     expect(cards[1]).toContainElement(screen.getByLabelText('运费'));
   });
 });
+
+describe('<ZodForm> nullish select clearing', () => {
+  const nullishSchema = z.object({
+    name: z.string().min(1),
+    categoryId: z.string().nullish(),
+    extraId: z.string().nullish(),
+  });
+  const nullishFields: FieldSpec[] = [
+    { kind: 'text', name: 'name', label: '名称' },
+    {
+      kind: 'select',
+      name: 'categoryId',
+      label: '分类',
+      options: [
+        { label: '分类一', value: '1' },
+        { label: '分类二', value: '2' },
+      ],
+    },
+    {
+      kind: 'select',
+      name: 'extraId',
+      label: '扩展分类',
+      options: [{ label: '扩展一', value: '10' }],
+    },
+  ];
+
+  it('sends null when a .nullish() select is cleared, while leaving untouched ones omitted', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    renderAdmin(
+      <ZodForm
+        schema={nullishSchema as never}
+        fields={nullishFields}
+        initialValues={{ name: '标签', categoryId: '1' } as never}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    const clearIcon = document.querySelector('.ant-select-clear') as HTMLElement;
+    expect(clearIcon).not.toBeNull();
+    await user.click(clearIcon);
+    await user.click(submit());
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0]?.[0]).toEqual({ name: '标签', categoryId: null });
+    expect(onSubmit.mock.calls[0]?.[0]).not.toHaveProperty('extraId');
+  });
+});
