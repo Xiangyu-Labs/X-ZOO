@@ -81,6 +81,8 @@ export interface ActivityListFilters {
   productId?: number | undefined;
   /** A storefront list shows only what a shopper may see, at this instant. */
   visibleAt?: Date | undefined;
+  /** Exclude activities whose underlying product is off-shelf or soft-deleted. */
+  sellableProductOnly?: boolean | undefined;
   /** Only these activities (a DIY block's manual pick). Additive: omitted means no id filter. */
   ids?: readonly number[] | undefined;
   sortBy?: string | undefined;
@@ -116,6 +118,10 @@ function activityWhere(filters: ActivityListFilters): SQL | undefined {
     parts.push(lte(presaleActivities.startAt, filters.visibleAt));
     parts.push(gt(presaleActivities.endAt, filters.visibleAt));
   }
+  if (filters.sellableProductOnly) {
+    parts.push(eq(products.status, 'on_shelf'));
+    parts.push(isNull(products.deletedAt));
+  }
   return and(...parts);
 }
 
@@ -137,7 +143,11 @@ export async function listActivities(
     .limit(filters.limit)
     .offset(filters.offset);
 
-  const [totalRow] = await db.select({ value: count() }).from(presaleActivities).where(where);
+  const [totalRow] = await db
+    .select({ value: count() })
+    .from(presaleActivities)
+    .innerJoin(products, eq(products.id, presaleActivities.productId))
+    .where(where);
 
   return {
     rows: rows.map((row) => ({ ...row.activity, productName: row.productName })),
@@ -145,12 +155,24 @@ export async function listActivities(
   };
 }
 
-export async function findActivity(db: DbOrTx, id: number): Promise<ActivityRow | null> {
+export async function findActivity(
+  db: DbOrTx,
+  id: number,
+  options?: { sellableProductOnly?: boolean },
+): Promise<ActivityRow | null> {
   const [row] = await db
     .select({ activity: presaleActivities, productName: products.name })
     .from(presaleActivities)
     .innerJoin(products, eq(products.id, presaleActivities.productId))
-    .where(and(eq(presaleActivities.id, id), isNull(presaleActivities.deletedAt)))
+    .where(
+      and(
+        eq(presaleActivities.id, id),
+        isNull(presaleActivities.deletedAt),
+        ...(options?.sellableProductOnly
+          ? [eq(products.status, 'on_shelf'), isNull(products.deletedAt)]
+          : []),
+      ),
+    )
     .limit(1);
   return row ? { ...row.activity, productName: row.productName } : null;
 }

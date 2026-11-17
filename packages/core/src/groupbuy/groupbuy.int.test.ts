@@ -15,6 +15,7 @@ import {
 } from '@shop/db/schema/groupbuy';
 import { orderItems, orders } from '@shop/db/schema/order';
 import { refunds } from '@shop/db/schema/refund';
+import { shippingTemplates as shippingTemplatesTable } from '@shop/db/schema/shipping';
 import { userAddresses, users } from '@shop/db/schema/user';
 import { createTestCtx, type TestCtx } from '@shop/testing';
 import { startFakeOaServer, type FakeOaServer } from '@shop/testing/wechat';
@@ -1374,6 +1375,50 @@ describe('the storefront surface', () => {
     // Masked even for the leader: a poster is made to be passed on (RISK-D-010).
     expect(poster.leaderNickname).toBe('小*');
   });
+
+  it('hides activities whose underlying product is off-shelf or soft-deleted', async () => {
+    const offShelf = await makeActivity();
+    const deleted = await makeActivity();
+    const live = await makeActivity();
+    const leader = await makeUser();
+    await placeOrder({ userId: leader, fixture: offShelf });
+
+    await harness.ctx.db
+      .update(products)
+      .set({ status: 'off_shelf' })
+      .where(eq(products.id, offShelf.productId));
+    await harness.ctx.db
+      .update(products)
+      .set({ deletedAt: harness.clock.now() })
+      .where(eq(products.id, deleted.productId));
+
+    const listed = await service.list(harness.as(anonymousActor), {
+      page: 1,
+      pageSize: 20,
+    } as never);
+    expect(listed.total).toBe(1);
+    expect(listed.items.map((item) => item.activityId)).toEqual([String(live.activityId)]);
+
+    const cards = await service.cardsFor(harness.as(anonymousActor), [
+      String(offShelf.activityId),
+      String(deleted.activityId),
+      String(live.activityId),
+    ]);
+    expect(cards.map((card) => card.activityId)).toEqual([String(live.activityId)]);
+
+    for (const hidden of [offShelf, deleted]) {
+      await expect(
+        service.detail(harness.as(anonymousActor), { id: String(hidden.activityId) }),
+      ).rejects.toMatchObject({ code: 'GROUPBUY_ACTIVITY_NOT_FOUND' });
+      await expect(
+        service.openGroups(
+          harness.as(anonymousActor),
+          { id: String(hidden.activityId) },
+          { page: 1, pageSize: 20 },
+        ),
+      ).rejects.toMatchObject({ code: 'GROUPBUY_ACTIVITY_NOT_FOUND' });
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1628,6 +1673,42 @@ describe('the admin surface', () => {
     );
 
     expect(edited.perOrderQuantity).toBe(PER_ORDER_UNLIMITED);
+  });
+
+  it('refuses a missing or soft-deleted shippingTemplateId on create', async () => {
+    const fixture = await makeActivity();
+    await harness.ctx.db
+      .update(groupbuyActivities)
+      .set({ status: 'ended' })
+      .where(eq(groupbuyActivities.id, fixture.activityId));
+    const [deletedTpl] = await harness.ctx.db
+      .insert(shippingTemplatesTable)
+      .values({ name: '已删运费模板', chargeMode: 'quantity', deletedAt: harness.clock.now() })
+      .returning({ id: shippingTemplatesTable.id });
+
+    const admin = asAdmin([
+      'groupbuy:activity:read',
+      'groupbuy:activity:write',
+      'catalog:product:write',
+    ]);
+    await expect(
+      service.adminActivityCreate(admin, {
+        productId: String(fixture.productId),
+        title: '带已删运费模板的拼团',
+        sliderImages: [],
+        status: 'draft',
+        price: '59.00',
+        seatsRequired: 2,
+        groupTtlSeconds: 3600,
+        stock: 10,
+        perOrderQuantity: 1,
+        shippingTemplateId: String(deletedTpl!.id),
+        startAt: '2026-06-01T00:00:00.000Z',
+        endAt: '2026-07-01T00:00:00.000Z',
+        sortOrder: 0,
+        skus: [{ skuId: String(fixture.skuId), price: '59.00', stock: 10, isEnabled: true }],
+      }),
+    ).rejects.toMatchObject({ code: 'SHIPPING_TEMPLATE_NOT_FOUND' });
   });
 
   describe('editing while orders move the stock', () => {

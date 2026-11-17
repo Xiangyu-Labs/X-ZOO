@@ -492,6 +492,13 @@ describe('trade', () => {
     expect(tile(page, 'paidOrderCount').value).toBe(0);
     expect(line(page, '商品退款金额')).toEqual([0, 0, 0]);
   });
+
+  it('keeps refunds hidden by the buyer inside tradeStats', async () => {
+    await harness.ctx.db.update(refunds).set({ hiddenByUserAt: at(NOW) });
+    const page = await stats.tradeStats(harness.ctx, WINDOW);
+    expect(tile(page, 'refundAmount').value).toBe(145);
+    expect(tile(page, 'revenue').value).toBe(505);
+  });
 });
 
 // ---------------------------------------------------------------------------

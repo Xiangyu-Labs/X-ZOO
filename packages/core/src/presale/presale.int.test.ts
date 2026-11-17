@@ -8,6 +8,7 @@ import { wechatIdentities } from '@shop/db/schema/wechat';
 import { presaleActivities, presaleActivitySkus, presaleOrders } from '@shop/db/schema/presale';
 import { orderItems, orders } from '@shop/db/schema/order';
 import { refunds } from '@shop/db/schema/refund';
+import { shippingTemplates as shippingTemplatesTable } from '@shop/db/schema/shipping';
 import { users } from '@shop/db/schema/user';
 import type { Tx } from '@shop/db';
 import { createTestCtx, type TestCtx } from '@shop/testing';
@@ -138,6 +139,7 @@ async function makeActivity(
     .values({
       name: `明前龙井${sequence}`,
       imageUrl: 'https://example.test/p.png',
+      status: 'on_shelf',
       // `products_freight_source` insists a `template` product names a template.
       freightMode: 'free',
       price: '88.00',
@@ -1030,6 +1032,29 @@ describe('the admin surface', () => {
     expect(after.sku).toEqual({ stock: 20, sales: 1 });
   });
 
+  it('refuses a missing or soft-deleted shippingTemplateId on create', async () => {
+    const fixture = await makeActivity();
+    await harness.ctx.db
+      .update(presaleActivities)
+      .set({ status: 'ended' })
+      .where(eq(presaleActivities.id, fixture.activityId));
+    const [deletedTpl] = await harness.ctx.db
+      .insert(shippingTemplatesTable)
+      .values({ name: '已删运费模板', chargeMode: 'quantity', deletedAt: harness.clock.now() })
+      .returning({ id: shippingTemplatesTable.id });
+
+    await expect(
+      service.adminActivityCreate(
+        asAdmin(ADMIN),
+        form({
+          productId: String(fixture.productId),
+          shippingTemplateId: String(deletedTpl!.id),
+          skus: [{ skuId: String(fixture.skuId), price: '49.00', stock: 5, isEnabled: true }],
+        }) as never,
+      ),
+    ).rejects.toMatchObject({ code: 'SHIPPING_TEMPLATE_NOT_FOUND' });
+  });
+
   describe('editing while orders move the stock', () => {
     // The form was opened at 10; a shopper paid for one since, so the rows say 9.
     async function soldOneSinceTheFormOpened() {
@@ -1312,6 +1337,39 @@ describe('the storefront surface', () => {
     await expect(
       service.detail(asUser(await makeUser()), { id: String(fixture.activityId) }),
     ).rejects.toMatchObject({ code: 'PRESALE_ACTIVITY_NOT_FOUND' });
+  });
+
+  it('hides campaigns whose underlying product is off-shelf or soft-deleted', async () => {
+    const offShelf = await makeActivity();
+    const deleted = await makeActivity();
+    const live = await makeActivity();
+
+    await harness.ctx.db
+      .update(products)
+      .set({ status: 'off_shelf' })
+      .where(eq(products.id, offShelf.productId));
+    await harness.ctx.db
+      .update(products)
+      .set({ deletedAt: harness.clock.now() })
+      .where(eq(products.id, deleted.productId));
+
+    const buyer = asUser(await makeUser());
+    const listed = await service.list(buyer, { page: 1, pageSize: 20 } as never);
+    expect(listed.total).toBe(1);
+    expect(listed.items.map((item) => item.activityId)).toEqual([String(live.activityId)]);
+
+    const cards = await service.cardsFor(buyer, [
+      String(offShelf.activityId),
+      String(deleted.activityId),
+      String(live.activityId),
+    ]);
+    expect(cards.map((card) => card.activityId)).toEqual([String(live.activityId)]);
+
+    for (const hidden of [offShelf, deleted]) {
+      await expect(service.detail(buyer, { id: String(hidden.activityId) })).rejects.toMatchObject({
+        code: 'PRESALE_ACTIVITY_NOT_FOUND',
+      });
+    }
   });
 });
 

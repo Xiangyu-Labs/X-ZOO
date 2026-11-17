@@ -949,6 +949,41 @@ describe('PAYC-003 — repeated taps', () => {
     expect(again.outTradeNo).toBe(started.outTradeNo);
     expect(gateway.transactions.size).toBe(1);
   });
+
+  it('refuses to reuse a closing attempt', async () => {
+    const started = await startedPayment();
+    const id = await attemptId(started.orderId);
+    await harness.ctx.db
+      .update(paymentAttempts)
+      .set({ status: 'closing' })
+      .where(eq(paymentAttempts.id, id!));
+
+    await expect(
+      service.startPayment(racer(started.userId), {
+        orderId: started.orderId,
+        channel: 'wechat_mini',
+        openid: 'oFakeOpenid',
+      }),
+    ).rejects.toMatchObject({ code: 'PAYMENT_ATTEMPT_CONFLICT' });
+  });
+
+  it('keeps an attempt unknown when reconciliation receives SUCCESS without a transactionId', async () => {
+    const started = await startedPayment();
+    gateway.setTradeState(started.outTradeNo, 'SUCCESS');
+    const tx = gateway.transactions.get(started.outTradeNo)!;
+    const realTransactionId = tx.transactionId;
+    tx.transactionId = '';
+
+    const id = await attemptId(started.orderId);
+    expect(await service.reconcileAttempt(racer(), id!)).toBe('unknown');
+    expect((await orderRow(started.orderId)).status).toBe('pending_payment');
+
+    // When the real callback arrives with the real transaction_id, it settles cleanly without false duplicate auto-refund.
+    tx.transactionId = realTransactionId;
+    await notify(gateway.signTransactionNotification({ outTradeNo: started.outTradeNo }));
+    expect((await orderRow(started.orderId)).status).toBe('paid');
+    expect(await exceptionRows()).toEqual([]);
+  });
 });
 
 describe('PAYC-004 — the attempt is immutable', () => {

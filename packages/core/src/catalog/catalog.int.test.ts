@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { productReviews, productSkus, productVirtualCards } from '@shop/db/schema/catalog';
+import { couponTemplates } from '@shop/db/schema/coupon';
+import { shippingTemplates } from '@shop/db/schema/shipping';
 import { productEvents } from '@shop/db/schema/stats';
 import { attachments } from '@shop/db/schema/storage';
 import { effects as effectsTable } from '@shop/db/schema/system';
@@ -428,6 +430,111 @@ describe('products', () => {
     expect(Number(edited.skus[0]!.id)).toBe(skuId);
     expect(edited.skus[0]!.price).toBe('89.00');
     expect(edited.skus[0]!.sales).toBe(4);
+  });
+
+  it('rejects missing, soft-deleted or duplicate references instead of 500ing', async () => {
+    const categoryId = await makeCategory(asAdmin());
+    const [deletedTpl] = await harness.ctx.db
+      .insert(shippingTemplates)
+      .values({ name: '已删运费模板', chargeMode: 'quantity', deletedAt: new Date(NOW) })
+      .returning({ id: shippingTemplates.id });
+
+    await expect(
+      service.adminProductCreate(
+        asAdmin(),
+        productForm({
+          categoryIds: [categoryId],
+          freightMode: 'template',
+          shippingTemplateId: String(deletedTpl!.id),
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'SHIPPING_TEMPLATE_NOT_FOUND' });
+
+    await expect(
+      service.adminProductCreate(
+        asAdmin(),
+        productForm({
+          categoryIds: [categoryId],
+          recommendedProductIds: ['999999'],
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'CATALOG_PRODUCT_NOT_FOUND' });
+
+    const [deletedCoupon] = await harness.ctx.db
+      .insert(couponTemplates)
+      .values({
+        name: '已删赠券',
+        scope: 'all_products',
+        claimMode: 'order_gift',
+        status: 'active',
+        discountAmount: '5.00',
+        minSpend: '10.00',
+        validityMode: 'days_after_claim',
+        validDays: 7,
+        isUnlimitedSupply: true,
+        deletedAt: new Date(NOW),
+      })
+      .returning({ id: couponTemplates.id });
+
+    await expect(
+      service.adminProductCreate(
+        asAdmin(),
+        productForm({
+          categoryIds: [categoryId],
+          giftCouponIds: [String(deletedCoupon!.id)],
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'COUPON_TEMPLATE_NOT_FOUND' });
+
+    await expect(
+      service.adminProductCreate(
+        asAdmin(),
+        productForm({
+          categoryIds: [categoryId],
+          params: [{ name: '材质', value: '纯棉', templateId: '999999', sortOrder: 0 }],
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'CATALOG_PARAM_TEMPLATE_NOT_FOUND' });
+
+    const existing = await makeProduct(asAdmin(), {
+      categoryIds: [categoryId],
+      specMode: true,
+      specs: [{ name: '尺码', values: [{ value: 'M' }] }],
+      skus: [
+        {
+          skuCode: 'TAKEN-SKU-01',
+          specValues: { 尺码: 'M' },
+          price: '99.00',
+          stock: 10,
+          isDefault: true,
+          isVisible: true,
+          sortOrder: 0,
+        },
+      ],
+    });
+    expect(existing.skus[0]!.skuCode).toBe('TAKEN-SKU-01');
+
+    await expect(
+      service.adminProductCreate(
+        asAdmin(),
+        productForm({
+          categoryIds: [categoryId],
+          specMode: true,
+          specs: [{ name: '尺码', values: [{ value: 'L' }] }],
+          skus: [
+            {
+              skuCode: 'TAKEN-SKU-01',
+              specValues: { 尺码: 'L' },
+              price: '99.00',
+              stock: 10,
+              isDefault: true,
+              isVisible: true,
+              sortOrder: 0,
+            },
+          ],
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'CATALOG_SKU_CODE_TAKEN' });
   });
 
   describe('editing while orders move the stock', () => {
@@ -1477,6 +1584,65 @@ describe('virtual cards', () => {
     );
     expect(result.voided).toBe(1);
     expect(result.stock).toBe(0);
+  });
+
+  it('syncs stock on every affected SKU when voiding cards on a multi-SKU card product', async () => {
+    const categoryId = await makeCategory(asAdmin());
+    const product = await makeProduct(asAdmin(), {
+      categoryIds: [categoryId],
+      kind: 'virtual_card',
+      specMode: true,
+      specs: [{ name: '面额', values: [{ value: '50' }, { value: '100' }] }],
+      skus: [
+        {
+          specValues: { 面额: '50' },
+          price: '50.00',
+          stock: 0,
+          isDefault: true,
+          isVisible: true,
+          sortOrder: 0,
+        },
+        {
+          specValues: { 面额: '100' },
+          price: '100.00',
+          stock: 0,
+          isDefault: false,
+          isVisible: true,
+          sortOrder: 1,
+        },
+      ],
+    });
+    const skuA = Number(product.skus[0]!.id);
+    const skuB = Number(product.skus[1]!.id);
+
+    // Import SKU A first, then SKU B so latest cards belong to SKU B.
+    await service.adminVirtualCardImport(
+      asAdmin(),
+      { id: product.id },
+      { skuId: String(skuA), cards: [{ cardNo: 'A-1' }, { cardNo: 'A-2' }] },
+    );
+    await service.adminVirtualCardImport(
+      asAdmin(),
+      { id: product.id },
+      { skuId: String(skuB), cards: [{ cardNo: 'B-1' }, { cardNo: 'B-2' }] },
+    );
+
+    const skuACards = await harness.ctx.db
+      .select({ id: productVirtualCards.id })
+      .from(productVirtualCards)
+      .where(eq(productVirtualCards.skuId, skuA));
+
+    const voidResult = await service.adminVirtualCardVoid(
+      asAdmin(),
+      { id: product.id },
+      { cardIds: [String(skuACards[0]!.id)] },
+    );
+    expect(voidResult).toEqual({ voided: 1, stock: 3 });
+
+    const detail = await service.adminProductDetail(asAdmin(), { id: product.id });
+    expect(detail.skus.find((s) => Number(s.id) === skuA)!.stock).toBe(1);
+    expect(detail.skus.find((s) => Number(s.id) === skuB)!.stock).toBe(2);
+    expect(detail.stock).toBe(3);
   });
 });
 

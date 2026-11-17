@@ -31,6 +31,7 @@ import { hashPassword } from '../auth/password';
 import * as coupon from '../coupon';
 import { requireAdminId, type Ctx } from '../kernel/context';
 import { DomainError } from '../kernel/errors';
+import { isUniqueViolation } from '../kernel/pg-errors';
 import { fromId, toId, toIdOrNull } from '../kernel/ids';
 import { storefrontAuthConfig } from './storefront-auth.config';
 import {
@@ -839,16 +840,4 @@ function rethrowNameTaken(code: string): (error: unknown) => never {
     if (isUniqueViolation(error)) throw new DomainError(code, { cause: error });
     throw error;
   };
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  for (
-    let current = error, depth = 0;
-    current !== null && current !== undefined && depth < 5;
-    depth += 1
-  ) {
-    if ((current as { code?: unknown }).code === '23505') return true;
-    current = (current as { cause?: unknown }).cause;
-  }
-  return false;
 }

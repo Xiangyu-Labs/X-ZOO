@@ -156,6 +156,9 @@ export const refunds = pgTable(
     cancelledAt: instant(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
+    /** The buyer hid the finished request from their own list. */
+    hiddenByUserAt: instant(),
+    /** Admin/system soft delete. */
     deletedAt: deletedAt(),
   },
   (t) => [

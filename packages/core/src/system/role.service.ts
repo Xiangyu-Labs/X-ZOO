@@ -8,6 +8,7 @@ import type {
 } from '@shop/contracts/system/schemas';
 import type { Ctx } from '../kernel/context';
 import { DomainError } from '../kernel/errors';
+import { isUniqueViolation } from '../kernel/pg-errors';
 import { fromId, toId } from '../kernel/ids';
 import { createAdminSessionStore } from '../auth/admin-session.store';
 import * as authAdminRepo from '../auth/admin.repo';
@@ -251,10 +252,4 @@ export function permissionTree(): PermissionTree {
 
 export async function permissionTreeRoute(_ctx: Ctx): Promise<PermissionTree> {
   return permissionTree();
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  const code = (error as { code?: unknown } | null)?.code;
-  const causeCode = (error as { cause?: { code?: unknown } } | null)?.cause?.code;
-  return code === '23505' || causeCode === '23505';
 }

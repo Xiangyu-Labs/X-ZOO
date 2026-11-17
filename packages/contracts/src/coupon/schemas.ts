@@ -105,7 +105,7 @@ export const couponTemplateForm = z
      * one-click toggle from the list; this is the considered one from the form.
      */
     status: couponTemplateStatus.default('draft'),
-    discountAmount: money,
+    discountAmount: money.refine((value) => value !== '0.00', '优惠金额必须大于 0'),
     minSpend: money.default('0.00'),
     validityMode: couponValidityMode,
     /** `fixed_window` only. */

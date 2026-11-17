@@ -13,6 +13,7 @@ import type {
 import type { Ctx } from '../kernel/context';
 import { requireAdminId } from '../kernel/context';
 import { DomainError } from '../kernel/errors';
+import { isUniqueViolation } from '../kernel/pg-errors';
 import { fromId, toId } from '../kernel/ids';
 import { createAdminSessionStore } from '../auth/admin-session.store';
 import * as authAdminRepo from '../auth/admin.repo';
@@ -358,13 +359,6 @@ export async function profileChangePassword(
   const revokedSessions = await sessions(ctx).revokeAllForAdmin(id);
   ctx.logger.info({ adminId: id, revokedSessions }, 'admin changed own password');
   return { revokedSessions };
-}
-
-/** PostgreSQL `23505`, whatever driver wrapper it arrives in. */
-function isUniqueViolation(error: unknown): boolean {
-  const code = (error as { code?: unknown; cause?: { code?: unknown } } | null)?.code;
-  const causeCode = (error as { cause?: { code?: unknown } } | null)?.cause?.code;
-  return code === '23505' || causeCode === '23505';
 }
 
 export { toListItem as toAdminListItem };

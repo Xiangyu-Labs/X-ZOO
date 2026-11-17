@@ -41,6 +41,7 @@ import { toId, toIdOrNull } from '../kernel/ids';
 import type { Ctx } from '../kernel/context';
 import { recordEffect } from '../effects/index';
 import { cancelOrder } from '../order';
+import { assertLiveTemplate } from '../shipping';
 import type { AccountCancelledListener } from '../user';
 import { groupbuyConfig } from './groupbuy.config';
 import { settleGroup } from './groupbuy.jobs';
@@ -114,6 +115,9 @@ export async function adminActivityCreate(
 ): Promise<GroupbuyActivityDetail> {
   return ctx.withTx(async (tx) => {
     await guardProductPromotionWrite(ctx, tx, Number(body.productId), 'groupbuy');
+    if (body.shippingTemplateId !== undefined) {
+      await assertLiveTemplate(tx, Number(body.shippingTemplateId));
+    }
     await assertSkusBelongToProduct(tx, body);
     const now = ctx.clock.now();
     const row = await repo.insertActivity(tx, {
@@ -155,6 +159,9 @@ export async function adminActivityUpdate(
     // `ended` is terminal (see `adminActivitySetStatus`): the form cannot re-open it either.
     if (locked.status === 'ended' && body.status !== 'ended') {
       throw new DomainError('GROUPBUY_ACTIVITY_ENDED');
+    }
+    if (body.shippingTemplateId !== undefined) {
+      await assertLiveTemplate(tx, Number(body.shippingTemplateId));
     }
     await assertSkusBelongToProduct(tx, body);
     const skus = skuValues(body);
@@ -407,6 +414,7 @@ export async function list(ctx: Ctx, query: GroupbuyListQuery): Promise<Paged<Gr
   const now = ctx.clock.now();
   const { rows, total } = await repo.listActivities(ctx.db, {
     visibleAt: now,
+    sellableProductOnly: true,
     productId: query.productId === undefined ? undefined : Number(query.productId),
     sortBy: 'sortOrder',
     sortOrder: 'desc',
@@ -441,6 +449,7 @@ export async function cardsFor(
   const now = ctx.clock.now();
   const { rows } = await repo.listActivities(ctx.db, {
     visibleAt: now,
+    sellableProductOnly: true,
     ids: wanted,
     productId: options.productId === undefined ? undefined : Number(options.productId),
     limit: wanted.length,
@@ -523,7 +532,7 @@ export async function banners(
 export async function detail(ctx: Ctx, input: { id: string }): Promise<GroupbuyDetail> {
   const id = Number(input.id);
   const now = ctx.clock.now();
-  const activity = await repo.findActivity(ctx.db, id);
+  const activity = await repo.findActivity(ctx.db, id, { sellableProductOnly: true });
   if (!activity) throw new DomainError('GROUPBUY_ACTIVITY_NOT_FOUND');
 
   const [skus, forming, description] = await Promise.all([
@@ -572,7 +581,7 @@ export async function openGroups(
   query: PageQuery,
 ): Promise<Paged<GroupbuyOpenGroup>> {
   const activityId = Number(input.id);
-  const activity = await repo.findActivity(ctx.db, activityId);
+  const activity = await repo.findActivity(ctx.db, activityId, { sellableProductOnly: true });
   if (!activity) throw new DomainError('GROUPBUY_ACTIVITY_NOT_FOUND');
   const { rows, total } = await repo.listOpenGroups(ctx.db, {
     activityId,

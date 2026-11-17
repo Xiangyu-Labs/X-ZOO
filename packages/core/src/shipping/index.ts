@@ -38,6 +38,7 @@ export function registerShippingDomain(): void {
 
 export * as expressCompanies from './shipping.express.service';
 export * as templates from './shipping.template.service';
+export { assertLiveTemplate } from './shipping.template.service';
 export { trial as freightTrial } from './shipping.freight.trial';
 export { cityTree, resetCityTreeCache } from './shipping.city.service';
 export { freightPort, registerShippingFreightPort } from './shipping.freight.port';

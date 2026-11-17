@@ -33,6 +33,7 @@ import { orderStateMachine } from './order.state-machine';
  */
 
 const VIRTUAL_DELIVERY = 'order.auto-deliver';
+const PAID_ORDER_STATUSES = new Set(['paid', 'shipped', 'received', 'completed']);
 
 // ---------------------------------------------------------------------------
 // the paid hook
@@ -112,32 +113,44 @@ export async function autoDeliver(ctx: Ctx, orderId: number): Promise<AutoDelive
   const outcome = await ctx.withTx(async (tx): Promise<AutoDeliverOutcome> => {
     const order = await repo.lockOrder(tx, orderId);
     if (!order) return empty;
-    // A refund can beat delivery to the order. Nothing to hand over then.
-    if (order.status !== 'paid') return empty;
+    // A refund or cancel can beat delivery to the order. Nothing to hand over then.
+    // Orders already moved to `shipped`/`received`/`completed` by fast manual
+    // fulfilment still owe their gift coupons.
+    if (!PAID_ORDER_STATUSES.has(order.status)) return empty;
     // RISK-D-011: a 拼团 order waits for its team; the team's success calls this again.
     if (!(await readyToShip(tx, order))) return empty;
 
-    // The idempotence gate. The ledger replays, and the two writes below
-    // (shipped_quantity, claimed cards) are not things to do twice.
-    const already = await repo.countStatusLogs(tx, { orderId, changeType: 'virtual_delivered' });
-    if (already > 0) return empty;
-
     const lines = await fulfilRepo.lockLineProgress(tx, orderId);
-    const auto = lines.filter(
-      (line) =>
-        (line.productKind === 'virtual_card' || line.productKind === 'virtual_coupon') &&
-        rules.outstandingOf(line) > 0,
-    );
 
     // Gift coupons: the products bought plus every active 满额赠券 template.
-    // Idempotent through `user_coupons_order_gift_uq`, so a replay grants
-    // nothing more.
+    // Idempotent through `user_coupons_order_gift_uq`, so a replay (or a run
+    // after fast manual shipping) grants nothing twice and never swallows gifts.
     const { granted } = await grantOrderGifts(tx, ctx, {
       userId: order.userId,
       orderId,
       productIds: [...new Set(lines.map((line) => line.productId))],
       paidAmount: order.paidAmount === null ? Money.ZERO : Money.parse(order.paidAmount),
     });
+
+    if (order.status !== 'paid') {
+      return { ...empty, couponsGranted: granted };
+    }
+
+    // The idempotence gate for virtual fulfilment. Only system auto-delivery
+    // counts here: manual `virtual_manual` shipments also log `virtual_delivered`
+    // (`operatorKind = 'admin'`) and must not block a mixed order's cards.
+    const already = await repo.countStatusLogs(tx, {
+      orderId,
+      changeType: 'virtual_delivered',
+      operatorKind: 'system',
+    });
+    if (already > 0) return { ...empty, couponsGranted: granted };
+
+    const auto = lines.filter(
+      (line) =>
+        (line.productKind === 'virtual_card' || line.productKind === 'virtual_coupon') &&
+        rules.outstandingOf(line) > 0,
+    );
 
     if (auto.length === 0) {
       return { ...empty, couponsGranted: granted };

@@ -307,6 +307,77 @@ describe('运费模板', () => {
     await expect(templates.detail(harness.ctx, { id: created.id })).rejects.toBeInstanceOf(
       DomainError,
     );
+    await expect(
+      templates.assertLiveTemplate(harness.ctx.db, Number(created.id)),
+    ).rejects.toMatchObject({ code: 'SHIPPING_TEMPLATE_NOT_FOUND' });
+  });
+
+  it('refuses overlapping or duplicate cityIds with SHIPPING_REGION_OVERLAP', async () => {
+    await expect(
+      templates.create(
+        harness.ctx,
+        form({
+          regions: [
+            {
+              isFallback: false,
+              cityIds: ['330000', '330000'],
+              firstUnit: 1,
+              firstPrice: '5.00',
+              additionalUnit: 0,
+              additionalPrice: '0.00',
+            },
+            {
+              isFallback: true,
+              cityIds: [],
+              firstUnit: 1,
+              firstPrice: '10.00',
+              additionalUnit: 0,
+              additionalPrice: '0.00',
+            },
+          ],
+        }),
+      ),
+    ).rejects.toMatchObject({
+      code: 'SHIPPING_REGION_OVERLAP',
+      details: { cityIds: ['330000'] },
+    });
+
+    await expect(
+      templates.create(
+        harness.ctx,
+        form({
+          regions: [
+            {
+              isFallback: false,
+              cityIds: ['330000'],
+              firstUnit: 1,
+              firstPrice: '5.00',
+              additionalUnit: 0,
+              additionalPrice: '0.00',
+            },
+            {
+              isFallback: false,
+              cityIds: ['330000', '110000'],
+              firstUnit: 1,
+              firstPrice: '8.00',
+              additionalUnit: 0,
+              additionalPrice: '0.00',
+            },
+            {
+              isFallback: true,
+              cityIds: [],
+              firstUnit: 1,
+              firstPrice: '10.00',
+              additionalUnit: 0,
+              additionalPrice: '0.00',
+            },
+          ],
+        }),
+      ),
+    ).rejects.toMatchObject({
+      code: 'SHIPPING_REGION_OVERLAP',
+      details: { cityIds: ['330000'] },
+    });
   });
 });
 

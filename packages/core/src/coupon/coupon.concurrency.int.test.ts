@@ -406,6 +406,53 @@ describe('COUPON-008 — one user tapping 领取 twice', () => {
     expect(await walletRows()).toHaveLength(1);
     expect((await templateRow(templateId)).remainingCount).toBe(99);
   });
+
+  it('grants every order gift without silent drops when distinct orders for the same user settle concurrently', async () => {
+    const templateId = await makeTemplate({
+      claimMode: 'order_gift',
+      perUserLimit: 4,
+      totalCount: 100,
+      remainingCount: 100,
+    });
+    const userId = await makeUser();
+    const orderIds = await Promise.all(Array.from({ length: 4 }, () => makeOrder(userId)));
+
+    const report = await runConcurrently(4, (index) => {
+      const ctx = racer(userId);
+      return withTx(ctx.db, (tx) =>
+        service.grantOrderGifts(tx, ctx, {
+          userId,
+          orderId: orderIds[index]!,
+          productIds: [],
+          paidAmount: Money.parse('500.00'),
+        }),
+      );
+    });
+
+    expect(report.rejected).toEqual([]);
+    expect(report.fulfilled.map((r) => r.granted)).toEqual([1, 1, 1, 1]);
+    expect((await walletRows()).map((r) => r.claimSlot).sort()).toEqual([1, 2, 3, 4]);
+    expect((await templateRow(templateId)).remainingCount).toBe(96);
+  });
+
+  it('grants every coupon when concurrent adminGrant calls target the same user with perUserLimit > 1', async () => {
+    const templateId = await makeTemplate({
+      claimMode: 'admin_grant',
+      perUserLimit: null,
+      totalCount: 100,
+      remainingCount: 100,
+    });
+    const userId = await makeUser();
+
+    const report = await runConcurrently(4, () =>
+      service.adminGrant(racer(1), { id: String(templateId) }, { userIds: [String(userId)] }),
+    );
+
+    expect(report.rejected).toEqual([]);
+    expect(report.fulfilled.map((r) => r.granted)).toEqual([1, 1, 1, 1]);
+    expect((await walletRows()).map((r) => r.claimSlot).sort()).toEqual([1, 2, 3, 4]);
+    expect((await templateRow(templateId)).remainingCount).toBe(96);
+  });
 });
 
 // ---------------------------------------------------------------------------

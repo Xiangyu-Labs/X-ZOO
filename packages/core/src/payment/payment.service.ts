@@ -287,6 +287,11 @@ function reuse(
   userId: number,
   payableAmount: string,
 ): repo.AttemptRow {
+  if (existing.status === 'closing') {
+    throw new DomainError('PAYMENT_ATTEMPT_CONFLICT', {
+      details: { outTradeNo: existing.outTradeNo, status: existing.status },
+    });
+  }
   const same =
     existing.channel === input.channel &&
     existing.mchId === runtime.mchId &&
@@ -1182,6 +1187,13 @@ export async function reconcileAttempt(
   }
 
   if (remote.tradeState === 'SUCCESS' || remote.tradeState === 'REFUND') {
+    const transactionId = stringOrNull(remote.transactionId);
+    if (transactionId === null) {
+      await ctx.withTx((tx) =>
+        repo.markAttemptUnknown(tx, attempt.id, 'query unknown: no transaction_id'),
+      );
+      return 'unknown';
+    }
     const totalFen = positiveFen(remote.totalFen);
     if (totalFen === null) {
       // A verified answer that does not say how much: nothing to book and
@@ -1194,7 +1206,7 @@ export async function reconcileAttempt(
     const settled = await ctx.withTx(async (tx) => {
       const locked = await repo.lockAttemptByOutTradeNo(tx, attempt.outTradeNo);
       const outcome = await settlePayment(tx, ctx, locked, {
-        transactionId: remote.transactionId ?? attempt.outTradeNo,
+        transactionId,
         totalFen,
         payerTotalFen: wholeFen(remote.payerTotalFen),
         payerOpenid: remote.openid,
@@ -1273,6 +1285,11 @@ export async function refundException(
   exceptionId: number,
   options: { note?: string; operatorAdminId?: number | null } = {},
 ): Promise<repo.ExceptionRow> {
+  // Check configuration *before* claiming `refunding`, otherwise an unconfigured
+  // shop commits `status = 'refunding'` and locks the row out of retry.
+  const runtime = await paymentRuntime(ctx);
+  if (!runtime.client.configured) throw new DomainError('PAYMENT_NOT_CONFIGURED');
+
   const claimed = await ctx.withTx(async (tx) => {
     const row = await repo.lockException(tx, exceptionId);
     if (!row) throw new DomainError('PAYMENT_EXCEPTION_NOT_FOUND');
@@ -1298,9 +1315,6 @@ export async function refundException(
   if (row.status === 'refunded' || row.status === 'ignored') return row;
   if (row.refundNo === null) throw new DomainError('PAYMENT_EXCEPTION_NOT_ACTIONABLE');
 
-  const runtime = await paymentRuntime(ctx);
-  if (!runtime.client.configured) throw new DomainError('PAYMENT_NOT_CONFIGURED');
-
   const amount = Money.parse(row.paidAmount);
   try {
     const refund = await runtime.client.createRefund({
@@ -1312,24 +1326,22 @@ export async function refundException(
       reason: '异常支付原路退回',
     });
 
-    const settled = refund.status === 'SUCCESS';
-    const status = exceptionStatusOf(refund.status);
-    const problem = status === 'refund_failed' ? endedProblem(refund.status) : null;
+    const outcome = resolveExceptionRefundSettlement(ctx, row, {
+      gatewayStatus: refund.status,
+      refundFen: positiveFen(refund.refundFen),
+      outRefundNo: refund.outRefundNo,
+      refundId: refund.refundId,
+    });
     return await ctx.withTx(async (tx) => {
       const { won } = await repo.settleException(tx, row.id, {
-        status,
+        status: outcome.status,
         at: ctx.clock.now(),
-        refundRequest: {
-          outRefundNo: refund.outRefundNo,
-          refundId: refund.refundId,
-          status: refund.status,
-          refundFen: refund.refundFen,
-          ...(problem ?? {}),
-        },
+        refundRequest: outcome.refundRequest,
       });
       // Only the caller that moved the row books the money: a settled row
       // (somebody else got there) already has its flow.
-      if (settled && won) await writeExceptionFlow(tx, ctx, row, refund.refundId);
+      if (outcome.status === 'refunded' && won)
+        await writeExceptionFlow(tx, ctx, row, refund.refundId);
       const fresh = await repo.findException(tx, row.id);
       return fresh ?? row;
     });
@@ -1415,56 +1427,112 @@ export async function recheckException(ctx: Ctx, exceptionId: number): Promise<r
     return fresh ?? row;
   }
 
+  const outcome = resolveExceptionRefundSettlement(ctx, row, {
+    gatewayStatus: refund.status,
+    refundFen: positiveFen(refund.refundFen),
+    outRefundNo: refund.outRefundNo,
+    refundId: refund.refundId,
+  });
+
   return ctx.withTx(async (tx) => {
-    const status = exceptionStatusOf(refund.status);
     const { won } = await repo.settleException(tx, row.id, {
-      status,
+      status: outcome.status,
       at: ctx.clock.now(),
-      refundRequest: {
-        outRefundNo: refund.outRefundNo,
-        status: refund.status,
-        ...(status === 'refund_failed' ? endedProblem(refund.status) : {}),
-      },
+      refundRequest: outcome.refundRequest,
     });
-    if (status === 'refunded' && won) await writeExceptionFlow(tx, ctx, row, refund.refundId);
+    if (outcome.status === 'refunded' && won)
+      await writeExceptionFlow(tx, ctx, row, refund.refundId);
     const fresh = await repo.findException(tx, row.id);
     return fresh ?? row;
   });
 }
 
-/**
- * Applies a refund notification that belongs to a **payment exception** rather
- * than to an after-sales request.
- *
- * The refund webhook lives in the refund domain (it is the one that knows about
- * `refunds` rows), but exception refunds are minted here under their own `X`
- * number, so the webhook hands anything it cannot match back to this function.
- * Runs inside the webhook's transaction, which already holds the callback row,
- * so the duplicate-delivery defence is the caller's and this only has to be a
- * conditional update.
- */
 export async function applyExceptionRefundNotification(
   tx: Tx,
   ctx: Ctx,
-  args: { refundNo: string; status: string; gatewayRefundId: string | null },
+  args: {
+    refundNo: string;
+    status: string;
+    gatewayRefundId: string | null;
+    refundFen: number | null;
+  },
 ): Promise<string | null> {
   const row = await repo.lockExceptionByRefundNo(tx, args.refundNo);
   if (!row) return null;
   if (row.status === 'refunded' || row.status === 'ignored') return 'ignored: already settled';
 
-  const status = exceptionStatusOf(args.status);
+  const outcome = resolveExceptionRefundSettlement(ctx, row, {
+    gatewayStatus: args.status,
+    refundFen: args.refundFen,
+    outRefundNo: args.refundNo,
+    refundId: args.gatewayRefundId,
+    source: 'notify',
+  });
 
   const { won } = await repo.settleException(tx, row.id, {
-    status,
+    status: outcome.status,
     at: ctx.clock.now(),
-    refundRequest: {
-      outRefundNo: args.refundNo,
-      status: args.status,
-      source: 'notify',
-      ...(status === 'refund_failed' ? endedProblem(args.status) : {}),
-    },
+    refundRequest: outcome.refundRequest,
   });
   if (!won) return 'ignored: not in refunding';
-  if (status === 'refunded') await writeExceptionFlow(tx, ctx, row, args.gatewayRefundId);
-  return `exception ${row.id}: ${status}`;
+  if (outcome.status === 'refunded') await writeExceptionFlow(tx, ctx, row, args.gatewayRefundId);
+  return `exception ${row.id}: ${outcome.status}`;
+}
+
+function resolveExceptionRefundSettlement(
+  ctx: Ctx,
+  row: repo.ExceptionRow,
+  args: {
+    gatewayStatus: string;
+    refundFen: number | null;
+    outRefundNo: string;
+    refundId: string | null;
+    source?: string;
+  },
+): {
+  status: 'refunded' | 'refund_unknown' | 'refund_failed';
+  refundRequest: Record<string, unknown>;
+} {
+  const expectedFen = Money.parse(row.paidAmount).fen;
+  if (args.gatewayStatus === 'SUCCESS' && args.refundFen !== expectedFen) {
+    const summary =
+      args.refundFen === null
+        ? `网关未给出退款金额，异常单金额 ${row.paidAmount}，待人工核对`
+        : `网关退款金额 ${Money.fromFen(args.refundFen).toString()} 与异常单金额 ${row.paidAmount} 不符，待人工核对`;
+    ctx.logger.error(
+      {
+        exceptionId: row.id,
+        outRefundNo: args.outRefundNo,
+        expectedFen,
+        refundFen: args.refundFen,
+      },
+      'exception refund amount mismatch; left for manual check',
+    );
+    return {
+      status: 'refund_unknown',
+      refundRequest: {
+        outRefundNo: args.outRefundNo,
+        ...(args.refundId === null ? {} : { refundId: args.refundId }),
+        status: args.gatewayStatus,
+        refundFen: args.refundFen,
+        expectedFen,
+        ...(args.source === undefined ? {} : { source: args.source }),
+        error: `amount_mismatch: notified ${args.refundFen ?? 'none'} fen, expected ${expectedFen} fen`,
+        summary,
+      },
+    };
+  }
+  const status = exceptionStatusOf(args.gatewayStatus);
+  const problem = status === 'refund_failed' ? endedProblem(args.gatewayStatus) : null;
+  return {
+    status,
+    refundRequest: {
+      outRefundNo: args.outRefundNo,
+      ...(args.refundId === null ? {} : { refundId: args.refundId }),
+      status: args.gatewayStatus,
+      ...(args.refundFen === null ? {} : { refundFen: args.refundFen }),
+      ...(args.source === undefined ? {} : { source: args.source }),
+      ...(problem ?? {}),
+    },
+  };
 }

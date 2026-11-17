@@ -2,6 +2,7 @@ import type { DbOrTx } from '@shop/db';
 import type { Ctx } from '../kernel/context';
 import { DomainError } from '../kernel/errors';
 import { toId } from '../kernel/ids';
+import { Money } from '../kernel/money';
 import { registerFreightPort, type FreightLine, type FreightQuote } from '../order/ports';
 import { orderConfig } from '../order';
 import {
@@ -151,5 +152,5 @@ async function loadTemplates(
 
 /** `money` columns are `'12.34'` strings; the engine counts in 分. */
 function fen(value: string): number {
-  return Math.round(Number(value) * 100);
+  return Money.parse(value).valueOfFen();
 }

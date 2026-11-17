@@ -75,6 +75,33 @@ export interface FreightComputation {
   undeliverable: { skuId: number; templateId: number }[];
 }
 
+const MICRO_PER_UNIT = 1_000_000n;
+
+function thresholdToMicro(value: number): bigint {
+  // Region & free-rule thresholds are `numeric(12,2)`, so `value * 100` is an exact safe integer.
+  return BigInt(Math.round(value * 100)) * 10_000n;
+}
+
+function unitsToMicro(units: number): bigint {
+  return BigInt(Math.round(units * 1_000_000));
+}
+
+function lineToMicro(line: FreightInputLine, mode: ChargeMode): bigint {
+  switch (mode) {
+    case 'quantity':
+      return BigInt(Math.round(line.quantity)) * MICRO_PER_UNIT;
+    case 'weight':
+      return BigInt(Math.round(line.weight)) * 1_000n;
+    case 'volume':
+      return BigInt(Math.round(line.volume));
+  }
+}
+
+function ceilDiv(numerator: bigint, denominator: bigint): number {
+  if (numerator <= 0n) return 0;
+  return Number((numerator + denominator - 1n) / denominator);
+}
+
 /**
  * How much of the template's charging unit one line contributes.
  *
@@ -120,17 +147,38 @@ export function isFreeByRule(
   units: number,
   amountFen: number,
 ): boolean {
+  return isFreeByRuleMicro(template, cityPath, unitsToMicro(units), amountFen);
+}
+
+function isFreeByRuleMicro(
+  template: FreightTemplateRules,
+  cityPath: readonly number[],
+  microUnits: bigint,
+  amountFen: number,
+): boolean {
   if (!template.hasFreeRules) return false;
   for (const rule of template.freeRules) {
     const covered = cityPath.some((cityId) => rule.cityIds.has(cityId));
     if (!covered) continue;
     // A rule requires *both* thresholds (units and amount); a NULL threshold is
     // stored as "unused" and counts as met.
-    if (rule.minUnits !== null && units < rule.minUnits) continue;
+    if (rule.minUnits !== null && microUnits < thresholdToMicro(rule.minUnits)) continue;
     if (rule.minAmountFen !== null && amountFen < rule.minAmountFen) continue;
     return true;
   }
   return false;
+}
+
+/** Number of continuation lots charged above `firstUnit` (0 when within firstUnit or no rule). */
+export function continuationCount(region: FreightRegion, units: number): number {
+  return continuationCountMicro(region, unitsToMicro(units));
+}
+
+function continuationCountMicro(region: FreightRegion, microUnits: bigint): number {
+  const firstMicro = thresholdToMicro(region.firstUnit);
+  const addMicro = thresholdToMicro(region.additionalUnit);
+  if (microUnits <= firstMicro || addMicro <= 0n) return 0;
+  return ceilDiv(microUnits - firstMicro, addMicro);
 }
 
 /**
@@ -140,27 +188,34 @@ export function isFreeByRule(
  * make a bigger cart ship free.
  */
 export function firstAndContinuation(region: FreightRegion, units: number): number {
-  if (units <= region.firstUnit) return region.firstPriceFen;
-  if (region.additionalUnit <= 0) return region.firstPriceFen;
-  const extra = Math.ceil((units - region.firstUnit) / region.additionalUnit);
+  return firstAndContinuationMicro(region, unitsToMicro(units));
+}
+
+function firstAndContinuationMicro(region: FreightRegion, microUnits: bigint): number {
+  const extra = continuationCountMicro(region, microUnits);
   return region.firstPriceFen + extra * region.additionalPriceFen;
 }
 
 /** The group pays continuations only — what every template but one pays in an arrangement. */
 export function continuationOnly(region: FreightRegion, units: number): number {
-  if (region.additionalUnit <= 0) return 0;
-  return Math.ceil(units / region.additionalUnit) * region.additionalPriceFen;
+  return continuationOnlyMicro(region, unitsToMicro(units));
+}
+
+function continuationOnlyMicro(region: FreightRegion, microUnits: bigint): number {
+  const addMicro = thresholdToMicro(region.additionalUnit);
+  if (addMicro <= 0n) return 0;
+  return ceilDiv(microUnits, addMicro) * region.additionalPriceFen;
 }
 
 interface GroupLine {
   index: number;
-  units: number;
+  microUnits: bigint;
 }
 
 interface Group {
   templateId: number;
   region: FreightRegion;
-  units: number;
+  microUnits: bigint;
   amountFen: number;
   lines: GroupLine[];
 }
@@ -210,19 +265,19 @@ export function computeFreight(input: {
     const region = regionFor(template.regions, input.cityPath);
     if (region === null) continue;
     const existing = groups.get(line.templateId);
-    const units = unitsOf(line, template.chargeMode);
+    const microUnits = lineToMicro(line, template.chargeMode);
     if (existing === undefined) {
       groups.set(line.templateId, {
         templateId: line.templateId,
         region,
-        units,
+        microUnits,
         amountFen: line.amountFen,
-        lines: [{ index: line.index, units }],
+        lines: [{ index: line.index, microUnits }],
       });
     } else {
-      existing.units += units;
+      existing.microUnits += microUnits;
       existing.amountFen += line.amountFen;
-      existing.lines.push({ index: line.index, units });
+      existing.lines.push({ index: line.index, microUnits });
     }
   }
   if (undeliverable.length > 0) {
@@ -234,7 +289,7 @@ export function computeFreight(input: {
   for (const group of groups.values()) {
     const template = input.templates.get(group.templateId);
     if (template === undefined) continue;
-    if (isFreeByRule(template, input.cityPath, group.units, group.amountFen)) continue;
+    if (isFreeByRuleMicro(template, input.cityPath, group.microUnits, group.amountFen)) continue;
     charged.push(group);
   }
 
@@ -244,10 +299,10 @@ export function computeFreight(input: {
     let best: { total: number; leader: Group } | null = null;
     for (const leader of charged) {
       if (leader.region.firstPriceFen !== maxFirst) continue;
-      let total = firstAndContinuation(leader.region, leader.units);
+      let total = firstAndContinuationMicro(leader.region, leader.microUnits);
       for (const other of charged) {
         if (other === leader) continue;
-        total += continuationOnly(other.region, other.units);
+        total += continuationOnlyMicro(other.region, other.microUnits);
       }
       if (best === null || total > best.total) best = { total, leader };
     }
@@ -255,8 +310,8 @@ export function computeFreight(input: {
       for (const group of charged) {
         const amount =
           group === best.leader
-            ? firstAndContinuation(group.region, group.units)
-            : continuationOnly(group.region, group.units);
+            ? firstAndContinuationMicro(group.region, group.microUnits)
+            : continuationOnlyMicro(group.region, group.microUnits);
         attribute(group, amount, perLine);
       }
     }
@@ -277,7 +332,7 @@ export function computeFreight(input: {
  */
 function attribute(group: Group, amountFen: number, perLine: number[]): void {
   if (group.lines.length === 0 || amountFen === 0) return;
-  const total = group.units;
+  const total = group.microUnits;
   let assigned = 0;
   group.lines.forEach((line, position) => {
     if (position === group.lines.length - 1) {
@@ -285,9 +340,9 @@ function attribute(group: Group, amountFen: number, perLine: number[]): void {
       return;
     }
     const share =
-      total <= 0
+      total <= 0n
         ? Math.floor(amountFen / group.lines.length)
-        : Math.floor((amountFen * line.units) / total);
+        : Number((BigInt(amountFen) * line.microUnits) / total);
     perLine[line.index] = (perLine[line.index] ?? 0) + share;
     assigned += share;
   });

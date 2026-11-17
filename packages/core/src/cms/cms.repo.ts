@@ -2,6 +2,7 @@ import type { DbOrTx } from '@shop/db';
 import { articleCategories, articleContents, articles } from '@shop/db/schema/cms';
 import { and, asc, count, desc, eq, ilike, inArray, isNull, or, sql, type SQL } from 'drizzle-orm';
 import { containsPattern } from '../kernel/like';
+import { isUniqueViolation } from '../kernel/pg-errors';
 
 /**
  * The only file in the CMS domain that touches Drizzle tables
@@ -324,11 +325,5 @@ export async function findArticlesByIds(db: DbOrTx, ids: number[]): Promise<Arti
  * chain is walked (same helper shape as `shipping.repo.ts`).
  */
 export function isDuplicateSlug(error: unknown): boolean {
-  for (let current: unknown = error, depth = 0; current !== null && depth < 5; depth += 1) {
-    const candidate = current as { code?: string; constraint?: string; cause?: unknown };
-    if (candidate.code === '23505') return candidate.constraint === 'articles_slug_uq';
-    if (typeof candidate.cause !== 'object' || candidate.cause === null) return false;
-    current = candidate.cause;
-  }
-  return false;
+  return isUniqueViolation(error, 'articles_slug_uq');
 }

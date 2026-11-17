@@ -451,6 +451,27 @@ export async function findRefund(db: DbOrTx, id: number): Promise<RefundRow | nu
   return rows[0] ?? null;
 }
 
+/** Shopper-facing lookup: excludes rows the buyer hid from their own list. */
+export async function findMyRefund(
+  db: DbOrTx,
+  id: number,
+  userId: number,
+): Promise<RefundRow | null> {
+  const rows = await db
+    .select()
+    .from(refunds)
+    .where(
+      and(
+        eq(refunds.id, id),
+        eq(refunds.userId, userId),
+        isNull(refunds.hiddenByUserAt),
+        isNull(refunds.deletedAt),
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 export async function findRefundByOutRefundNo(
   db: DbOrTx,
   outRefundNo: string,
@@ -672,10 +693,12 @@ export async function hideRefund(
     where: and(
       eq(refunds.id, id),
       eq(refunds.userId, userId),
+      isNull(refunds.hiddenByUserAt),
+      isNull(refunds.deletedAt),
       // Not `failed`: the merchant can still retry it (REFUND-017).
       inArray(refunds.status, ['rejected', 'succeeded', 'cancelled']),
     ),
-    set: { deletedAt: at },
+    set: { hiddenByUserAt: at },
   });
 }
 
@@ -744,6 +767,7 @@ export async function listMyRefunds(
 ): Promise<{ rows: RefundListRow[]; total: number }> {
   const where = allOf(
     eq(refunds.userId, filter.userId),
+    isNull(refunds.hiddenByUserAt),
     isNull(refunds.deletedAt),
     filter.state === 'all' ? undefined : inArray(refunds.status, [...STATE_STATUSES[filter.state]]),
   );

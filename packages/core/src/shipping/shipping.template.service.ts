@@ -6,6 +6,7 @@ import type {
   ShippingTemplateListQuery,
   ShippingTemplateOptions,
 } from '@shop/contracts/shipping/schemas';
+import type { DbOrTx } from '@shop/db';
 import type { Ctx } from '../kernel/context';
 import { DomainError } from '../kernel/errors';
 import { fromId, toId } from '../kernel/ids';
@@ -152,8 +153,16 @@ function head(body: ShippingTemplateForm): repo.TemplateValues {
   };
 }
 
+/** Guard for products and marketing campaigns pointing at a live shipping template. */
+export async function assertLiveTemplate(db: DbOrTx, templateId: number): Promise<void> {
+  if ((await repo.findTemplate(db, templateId)) === null) {
+    throw new DomainError('SHIPPING_TEMPLATE_NOT_FOUND');
+  }
+}
+
 /**
- * Turns the form into child rows, and refuses ids the city table does not have.
+ * Turns the form into child rows, refuses overlapping region cities, and
+ * refuses ids the city table does not have.
  *
  * Every city the form mentions is checked in one query rather than per rule:
  * the region picker sends whole provinces, so a template can name several
@@ -175,12 +184,30 @@ async function parseChildren(
     additionalUnit: region.additionalUnit.toFixed(2),
     additionalPrice: region.additionalPrice,
   }));
+
+  const seenRegionCities = new Set<number>();
+  const overlappingRegionCities: number[] = [];
+  for (const region of regions) {
+    for (const cityId of region.cityIds) {
+      if (seenRegionCities.has(cityId)) {
+        overlappingRegionCities.push(cityId);
+      } else {
+        seenRegionCities.add(cityId);
+      }
+    }
+  }
+  if (overlappingRegionCities.length > 0) {
+    throw new DomainError('SHIPPING_REGION_OVERLAP', {
+      details: { cityIds: [...new Set(overlappingRegionCities)].map(toId) },
+    });
+  }
+
   const freeRules = body.freeRules.map((rule) => ({
-    cityIds: rule.cityIds.map(fromId),
+    cityIds: [...new Set(rule.cityIds.map(fromId))],
     minUnits: rule.minUnits === null ? null : rule.minUnits.toFixed(2),
     minAmount: rule.minAmount,
   }));
-  const noDeliveryCityIds = body.noDeliveryCityIds.map(fromId);
+  const noDeliveryCityIds = [...new Set(body.noDeliveryCityIds.map(fromId))];
 
   const mentioned = [
     ...regions.flatMap((region) => region.cityIds),

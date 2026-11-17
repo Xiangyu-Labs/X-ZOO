@@ -31,6 +31,7 @@ import { allOf, conditionalUpdate, type ConditionalUpdateResult } from '../kerne
 import { hasOpenRefund } from './order.repo';
 import type { OrderStatus } from './ports';
 import { containsPattern } from '../kernel/like';
+import { isUniqueViolation } from '../kernel/pg-errors';
 
 /**
  * Every Drizzle statement fulfilment owns. `order.repo.ts` keeps the checkout
@@ -840,12 +841,7 @@ export async function insertInvoice(
 const OPEN_INVOICE_CONSTRAINT = 'order_invoices_open_uq';
 
 export function isOpenInvoiceConflict(error: unknown): boolean {
-  for (let current = error, depth = 0; current && depth < 5; depth += 1) {
-    const candidate = current as { code?: unknown; constraint?: unknown; cause?: unknown };
-    if (candidate.code === '23505' && candidate.constraint === OPEN_INVOICE_CONSTRAINT) return true;
-    current = candidate.cause;
-  }
-  return false;
+  return isUniqueViolation(error, OPEN_INVOICE_CONSTRAINT);
 }
 
 export async function transitionInvoice(

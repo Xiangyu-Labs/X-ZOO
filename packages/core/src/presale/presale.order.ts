@@ -109,7 +109,7 @@ export const presaleKindHandler: OrderKindHandler = {
     if (activityId === null) throw validationFailed({ field: 'kindMeta.activityId' });
     const now = ctx.clock.now();
 
-    const activity = await repo.findActivity(tx, activityId);
+    const activity = await repo.findActivity(tx, activityId, { sellableProductOnly: true });
     if (!activity) throw new DomainError('PRESALE_ACTIVITY_NOT_FOUND');
     assertFullPayment(activity);
     assertActivityOpen(activity, now);

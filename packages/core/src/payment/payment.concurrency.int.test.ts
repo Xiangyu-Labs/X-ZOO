@@ -9,7 +9,7 @@ import {
   paymentExceptions,
 } from '@shop/db/schema/payment';
 import { admins } from '@shop/db/schema/auth';
-import { effects as effectsTable } from '@shop/db/schema/system';
+import { configValues, effects as effectsTable } from '@shop/db/schema/system';
 import { users } from '@shop/db/schema/user';
 import {
   createTestCtx,
@@ -24,6 +24,7 @@ import {
 import { drainEffects, resetEffectHandlers } from '../effects';
 import type { Actor, Ctx } from '../kernel/context';
 import { DomainError } from '../kernel/errors';
+import { Money } from '../kernel/money';
 import * as order from '../order';
 import { registerCatalogDomain } from '../catalog';
 import { registerOrderStateMachine, resetOrderPorts } from '../order/ports';
@@ -621,6 +622,7 @@ describe('PAY-011 — a late callback after the payment was closed', () => {
         refundNo: pending.refundNo!,
         status: 'SUCCESS',
         gatewayRefundId: '50000abc',
+        refundFen: Money.parse(pending.paidAmount).fen,
       }),
     );
     expect(outcome).toBe(`exception ${pending.id}: refunded`);
@@ -706,6 +708,52 @@ describe('PAY-011 — a late callback after the payment was closed', () => {
     await expect(adminRecheckException(clerk, { id: String(pending.id) })).rejects.toMatchObject({
       code: 'FORBIDDEN',
     });
+  });
+
+  it('does not leave the exception stuck in refunding when payment gateway is not configured', async () => {
+    const started = await startedPayment();
+    await cancelOrder(racer(started.userId), started.orderId);
+    gateway.setTradeState(started.outTradeNo, 'SUCCESS');
+    await notify(gateway.signTransactionNotification({ outTradeNo: started.outTradeNo }));
+    const exception = (await exceptionRows())[0]!;
+
+    await harness.ctx.db.delete(configValues);
+    await harness.ctx.config.invalidate(paymentConfig.group);
+
+    await expect(
+      adminRefundException(handler(), { id: String(exception.id) }),
+    ).rejects.toMatchObject({
+      code: 'PAYMENT_NOT_CONFIGURED',
+    });
+    const after = (await exceptionRows())[0]!;
+    expect(after.status).toBe('open');
+    expect(after.refundNo).toBeNull();
+  });
+
+  it('refuses to settle exception refund on amount mismatch across recheck and callback', async () => {
+    // 1) recheck
+    const pending = await refundLeftProcessing();
+    gateway.markRefunded(pending.refundNo!, 'SUCCESS');
+    gateway.refunds.get(pending.refundNo!)!.refundFen = 1;
+
+    const rechecked = await adminRecheckException(handler(), { id: String(pending.id) });
+    expect(rechecked.status).toBe('refund_unknown');
+    expect(rechecked.lastError).toContain('amount_mismatch');
+    expect(rechecked.lastErrorSummary).toContain('金额');
+    expect(await flowRows('exception_refund')).toEqual([]);
+
+    // 2) notification callback
+    const outcome = await harness.ctx.withTx((tx) =>
+      service.applyExceptionRefundNotification(tx, harness.ctx, {
+        refundNo: pending.refundNo!,
+        status: 'SUCCESS',
+        gatewayRefundId: '50000mismatch',
+        refundFen: 1,
+      }),
+    );
+    expect(outcome).toBe(`exception ${pending.id}: refund_unknown`);
+    expect((await exceptionRows()).find((e) => e.id === pending.id)!.status).toBe('refund_unknown');
+    expect(await flowRows('exception_refund')).toEqual([]);
   });
 });
 

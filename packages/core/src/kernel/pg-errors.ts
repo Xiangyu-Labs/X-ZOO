@@ -71,3 +71,10 @@ export function foreignKeyViolationOf(error: unknown): ForeignKeyViolation | nul
     table: pg.table,
   };
 }
+
+/** Whether `error` is a PostgreSQL `23505` unique-index violation (optionally naming one constraint). */
+export function isUniqueViolation(error: unknown, constraint?: string): boolean {
+  const pg = pgErrorOf(error);
+  if (!pg || pg.code !== PG_UNIQUE_VIOLATION) return false;
+  return constraint === undefined || pg.constraint === constraint;
+}

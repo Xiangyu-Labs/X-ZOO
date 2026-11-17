@@ -35,6 +35,7 @@ import {
   sql,
   type SQL,
 } from 'drizzle-orm';
+import { isUniqueViolation as isPgUniqueViolation } from '../kernel/pg-errors';
 import { conditionalUpdate, type ConditionalUpdateResult } from '../kernel/tx';
 import { containsPattern } from '../kernel/like';
 
@@ -78,6 +79,8 @@ export interface ActivityListFilters {
   productId?: number | undefined;
   /** A storefront list shows only what a shopper may see, at this instant. */
   visibleAt?: Date | undefined;
+  /** Exclude activities whose underlying product is off-shelf or soft-deleted. */
+  sellableProductOnly?: boolean | undefined;
   /** Only these activities (a DIY block's manual pick). Additive: omitted means no id filter. */
   ids?: readonly number[] | undefined;
   sortBy?: string | undefined;
@@ -114,6 +117,10 @@ function activityWhere(filters: ActivityListFilters): SQL | undefined {
     parts.push(lte(groupbuyActivities.startAt, filters.visibleAt));
     parts.push(gt(groupbuyActivities.endAt, filters.visibleAt));
   }
+  if (filters.sellableProductOnly) {
+    parts.push(eq(products.status, 'on_shelf'));
+    parts.push(isNull(products.deletedAt));
+  }
   return and(...parts);
 }
 
@@ -135,7 +142,11 @@ export async function listActivities(
     .limit(filters.limit)
     .offset(filters.offset);
 
-  const [totalRow] = await db.select({ value: count() }).from(groupbuyActivities).where(where);
+  const [totalRow] = await db
+    .select({ value: count() })
+    .from(groupbuyActivities)
+    .innerJoin(products, eq(products.id, groupbuyActivities.productId))
+    .where(where);
 
   return {
     rows: rows.map((row) => ({ ...row.activity, productName: row.productName })),
@@ -143,12 +154,24 @@ export async function listActivities(
   };
 }
 
-export async function findActivity(db: DbOrTx, id: number): Promise<ActivityRow | null> {
+export async function findActivity(
+  db: DbOrTx,
+  id: number,
+  options?: { sellableProductOnly?: boolean },
+): Promise<ActivityRow | null> {
   const [row] = await db
     .select({ activity: groupbuyActivities, productName: products.name })
     .from(groupbuyActivities)
     .innerJoin(products, eq(products.id, groupbuyActivities.productId))
-    .where(and(eq(groupbuyActivities.id, id), isNull(groupbuyActivities.deletedAt)))
+    .where(
+      and(
+        eq(groupbuyActivities.id, id),
+        isNull(groupbuyActivities.deletedAt),
+        ...(options?.sellableProductOnly
+          ? [eq(products.status, 'on_shelf'), isNull(products.deletedAt)]
+          : []),
+      ),
+    )
     .limit(1);
   return row ? { ...row.activity, productName: row.productName } : null;
 }
@@ -1026,7 +1049,7 @@ export async function insertMember(
  * `GROUPBUY_ALREADY_IN_GROUP` rather than a 500.
  */
 export function isUniqueViolation(error: unknown): boolean {
-  return (error as { code?: string } | null)?.code === '23505';
+  return isPgUniqueViolation(error);
 }
 
 /** Each order's seat and its team, for 我的订单 (one read for a page of orders). */

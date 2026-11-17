@@ -1371,17 +1371,20 @@ export async function listVirtualCards(
 export async function voidVirtualCards(
   tx: Tx,
   args: { productId: number; cardIds: readonly number[]; now: Date },
-): Promise<number> {
-  if (args.cardIds.length === 0) return 0;
-  const { affected } = await conditionalUpdate(tx, productVirtualCards, {
-    where: and(
-      eq(productVirtualCards.productId, args.productId),
-      inArray(productVirtualCards.id, [...args.cardIds]),
-      eq(productVirtualCards.state, 'unclaimed'),
-    ),
-    set: { state: 'void', updatedAt: args.now },
-  });
-  return affected;
+): Promise<number[]> {
+  if (args.cardIds.length === 0) return [];
+  const rows = await tx
+    .update(productVirtualCards)
+    .set({ state: 'void', updatedAt: args.now })
+    .where(
+      and(
+        eq(productVirtualCards.productId, args.productId),
+        inArray(productVirtualCards.id, [...args.cardIds]),
+        eq(productVirtualCards.state, 'unclaimed'),
+      ),
+    )
+    .returning({ skuId: productVirtualCards.skuId });
+  return rows.map((r) => r.skuId);
 }
 
 export async function countUnclaimedCards(db: DbOrTx, skuId: number): Promise<number> {
@@ -1429,6 +1432,27 @@ export async function existingLabelIds(db: DbOrTx, ids: readonly number[]): Prom
     .select({ id: productLabels.id })
     .from(productLabels)
     .where(and(inArray(productLabels.id, [...ids]), liveLabel()));
+  return new Set(rows.map((r) => r.id));
+}
+
+export async function existingProductIds(db: DbOrTx, ids: readonly number[]): Promise<Set<number>> {
+  if (ids.length === 0) return new Set();
+  const rows = await db
+    .select({ id: products.id })
+    .from(products)
+    .where(and(inArray(products.id, [...ids]), liveProduct()));
+  return new Set(rows.map((r) => r.id));
+}
+
+export async function existingParamTemplateIds(
+  db: DbOrTx,
+  ids: readonly number[],
+): Promise<Set<number>> {
+  if (ids.length === 0) return new Set();
+  const rows = await db
+    .select({ id: productParamTemplates.id })
+    .from(productParamTemplates)
+    .where(inArray(productParamTemplates.id, [...ids]));
   return new Set(rows.map((r) => r.id));
 }
 
