@@ -32,6 +32,8 @@ export const demoWidgetForm = z.object({
   categoryId: z.string().optional(),
   area: z.array(z.string()).optional(),
   tags: z.array(z.string()).default([]),
+  /** The `remoteSelect` demo: options are fetched per keyword, not a fixed list. */
+  tagIds: z.array(z.string()).default([]),
   channel: z.enum(['h5', 'mini', 'oa']).default('h5'),
   image: z.string().optional(),
   gallery: z.array(z.string()).default([]),

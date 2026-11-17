@@ -37,9 +37,11 @@ import {
 } from '@shop/contracts/groupbuy/groupbuy.admin.contract';
 import { ProductPromotionField } from './product-promotion-field';
 import { ApiError } from '@/admin/api/errors';
+import { callRoute } from '@/admin/api/call-route';
 import { LoadFailure } from '@/admin/kit/load-failure';
 import { useRouteMutation, useRouteQuery } from '@/admin/api/hooks';
 import { useCan } from '@/admin/session/session-provider';
+import type { RemoteSelectOption } from '@/admin/kit/form/remote-select';
 import type { TreeOption } from '@/admin/kit/form/select-fields';
 import type { FieldSpec, SelectOption } from '@/admin/kit/form/types';
 import { ZodForm } from '@/admin/kit/form/zod-form';
@@ -64,6 +66,33 @@ import { ParamEditor, SkuMatrixEditor, SpecEditor, blankSku } from './product-sk
 
 /** Its own chunk: the storefront blocks it draws with are not needed below `xl`. */
 const ProductPreview = dynamic(() => import('./product-preview'), { ssr: false });
+
+/** A picker searches these by name; the first page is enough to browse. */
+const PICKER_PAGE_SIZE = 50;
+
+async function loadLabelOptions(keyword: string): Promise<RemoteSelectOption[]> {
+  const page = await callRoute(catalogAdminLabelList, {
+    query: {
+      page: 1,
+      pageSize: PICKER_PAGE_SIZE,
+      isEnabled: 'true',
+      ...(keyword === '' ? {} : { keyword }),
+    },
+  });
+  return page.items.map((row) => ({ label: row.name, value: row.id }));
+}
+
+async function loadProtectionOptions(keyword: string): Promise<RemoteSelectOption[]> {
+  const page = await callRoute(catalogAdminProtectionList, {
+    query: {
+      page: 1,
+      pageSize: PICKER_PAGE_SIZE,
+      isEnabled: 'true',
+      ...(keyword === '' ? {} : { keyword }),
+    },
+  });
+  return page.items.map((row) => ({ label: row.title, value: row.id }));
+}
 
 /**
  * 新建 / 编辑商品 — one component for both, because they are one form.
@@ -105,8 +134,9 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
     { enabled: productId !== undefined, refetchOnMount: 'always' },
   );
 
-  // The three taxonomies the form offers as options: the first 100 enabled,
-  // which is the list cap and more than any shop has.
+  // The three taxonomies the form offers as options. The first page seeds the
+  // names of values already chosen; the pickers themselves search the server
+  // (`remoteSelect`), so a 101st label is still reachable.
   const labels = useRouteQuery(
     catalogAdminLabelList,
     { query: { page: 1, pageSize: 100, isEnabled: 'true' } },
@@ -203,11 +233,11 @@ export function ProductEditorPage({ productId }: { productId?: string | undefine
     }
   }, [specModeRaw, form]);
 
-  const labelOptions: SelectOption[] = (labels.data?.items ?? []).map((row) => ({
+  const labelOptions: RemoteSelectOption[] = (labels.data?.items ?? []).map((row) => ({
     label: row.name,
     value: row.id,
   }));
-  const protectionOptions: SelectOption[] = (protections.data?.items ?? []).map((row) => ({
+  const protectionOptions: RemoteSelectOption[] = (protections.data?.items ?? []).map((row) => ({
     label: row.title,
     value: row.id,
   }));
@@ -467,8 +497,8 @@ function buildFields({
   mayReadCategories,
   fallbackCategoryTree,
 }: {
-  labelOptions: SelectOption[];
-  protectionOptions: SelectOption[];
+  labelOptions: RemoteSelectOption[];
+  protectionOptions: RemoteSelectOption[];
   shippingTemplateOptions: SelectOption[];
   templates: readonly { id: string; name: string; suggestedValues: string | null }[];
   specs: readonly ProductSpecInput[];
@@ -554,23 +584,27 @@ function buildFields({
       help: '至少一个；分类决定前台的入口和优惠券的适用范围',
     },
     {
-      kind: 'select',
+      kind: 'remoteSelect',
       name: 'labelIds',
       section: '基本信息',
       label: '商品标签',
       span: 12,
       mode: 'multiple',
-      options: labelOptions,
+      loadOptions: loadLabelOptions,
+      cacheKey: 'catalog.labels.enabled',
+      knownOptions: labelOptions,
       allowClear: true,
     },
     {
-      kind: 'select',
+      kind: 'remoteSelect',
       name: 'protectionIds',
       section: '基本信息',
       label: '保障服务',
       span: 12,
       mode: 'multiple',
-      options: protectionOptions,
+      loadOptions: loadProtectionOptions,
+      cacheKey: 'catalog.protections.enabled',
+      knownOptions: protectionOptions,
       allowClear: true,
     },
 

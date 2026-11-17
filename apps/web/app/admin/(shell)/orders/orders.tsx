@@ -83,10 +83,17 @@ const FILTERS: FilterSpec[] = [
 
 export function OrdersPage() {
   // The tab lives in the URL next to the filters and the page, so 返回列表
-  // from an order lands on the same screen.
+  // from an order lands on the same screen. Following the URL is also what
+  // makes the sidebar's /admin/orders leave a non-default tab: the menu writes
+  // no query string, and the component stays mounted.
   const urlState = useNextUrlState();
-  const initial = urlState.read('tab');
-  const [tab, setTab] = useState<TabKey>(isTab(initial) ? initial : 'all');
+  const urlTab = urlState.read('tab');
+  const [tab, setTab] = useState<TabKey>(isTab(urlTab) ? urlTab : 'all');
+  const [seenUrlTab, setSeenUrlTab] = useState(urlTab);
+  if (urlTab !== seenUrlTab) {
+    setSeenUrlTab(urlTab);
+    setTab(isTab(urlTab) ? urlTab : 'all');
+  }
   const [shipTarget, setShipTarget] = useState<OrderShipTarget | null>(null);
   const changeTab = (next: TabKey): void => {
     setTab(next);

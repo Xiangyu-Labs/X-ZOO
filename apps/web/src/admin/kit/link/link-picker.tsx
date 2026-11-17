@@ -64,6 +64,14 @@ const SEARCHABLE: Record<'product' | 'category' | 'article', string> = {
   article: '文章',
 };
 
+/** The tab a value belongs to, when the caller offers it. */
+function initialTab(
+  value: LinkValue | undefined,
+  allow: readonly LinkTargetType[],
+): LinkTargetType {
+  return value !== undefined && allow.includes(value.type) ? value.type : (allow[0] ?? 'page');
+}
+
 /**
  * Picks an in-app storefront link: a built-in page, a product, a category, an
  * article, or a hand-typed URL. Returns `{ type, label, url }`.
@@ -80,11 +88,35 @@ export function LinkPicker({
   value,
 }: LinkPickerProps) {
   const source = useLinkSource();
-  const [tab, setTab] = useState<LinkTargetType>(allow[0] ?? 'page');
+  const [tab, setTab] = useState<LinkTargetType>(initialTab(value, allow));
   const [keyword, setKeyword] = useState('');
   const [page, setPage] = useState(1);
   const [customUrl, setCustomUrl] = useState(value?.type === 'custom' ? value.url : '');
   const [customLabel, setCustomLabel] = useState(value?.type === 'custom' ? value.label : '');
+
+  /**
+   * Re-opening starts from the row being edited, not from whatever the last
+   * visit left behind. A picker that keeps the previous record's custom URL
+   * hands the operator the wrong link with the right-looking form.
+   *
+   * Adjusted during render rather than in an effect — React's own "resetting
+   * state when a prop changes" pattern, the same one `SkuPicker` uses. The
+   * signature is compared rather than the object because a form can hand in a
+   * fresh value object on every render.
+   */
+  const signature =
+    value === undefined ? '' : `${value.type}\u0000${value.label}\u0000${value.url}`;
+  const [seen, setSeen] = useState({ open, signature });
+  if (open !== seen.open || (open && signature !== seen.signature)) {
+    setSeen({ open, signature });
+    if (open) {
+      setTab(initialTab(value, allow));
+      setKeyword('');
+      setPage(1);
+      setCustomUrl(value?.type === 'custom' ? value.url : '');
+      setCustomLabel(value?.type === 'custom' ? value.label : '');
+    }
+  }
 
   const pages = useQuery({
     queryKey: ['kit.links.pages'],

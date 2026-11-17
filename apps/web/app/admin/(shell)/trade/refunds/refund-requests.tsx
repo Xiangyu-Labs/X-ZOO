@@ -3,6 +3,12 @@
 import { Alert, Button, Descriptions, Space, Table, Tag, Timeline, Typography } from 'antd';
 import type { ReactNode } from 'react';
 import {
+  orderAdminDetail,
+  orderAdminList,
+  orderAdminStatistics,
+  orderAdminTimeline,
+} from '@shop/contracts/order/order.admin.contract';
+import {
   refundAdminApprove,
   refundAdminDetail,
   refundAdminList,
@@ -92,7 +98,11 @@ import { REFUND_KIND, REFUND_RETURN_STAGE, REFUND_STATUS, optionsOf } from '../t
  * may not, because redirecting goods is not a review decision.
  *
  * Every action refreshes the list *and* the open drawer (`REFRESHES`), so the
- * drawer never shows the status from before the operator's own click.
+ * drawer never shows the status from before the operator's own click. A
+ * decision also changes the order it belongs to — its 售后状态, its timeline
+ * and the list's 售后中 counter — so those cached reads go too; they are named
+ * inline, because the admin-permissions guard reads an `invalidate={[…]}` as a
+ * cache key and the other way round as a page that reads them.
  */
 const REFRESHES = [refundAdminList, refundAdminDetail] as const;
 
@@ -306,7 +316,13 @@ export function RefundRequestsPage() {
           params: { id: approveModal.record?.id ?? '' },
           body: approveBody(values),
         })}
-        invalidate={REFRESHES}
+        invalidate={[
+          ...REFRESHES,
+          orderAdminDetail,
+          orderAdminTimeline,
+          orderAdminList,
+          orderAdminStatistics,
+        ]}
         successMessage="已同意"
         okText="确认同意"
         header={
@@ -355,7 +371,13 @@ export function RefundRequestsPage() {
         ]}
         route={refundAdminReject}
         toInput={(values) => ({ params: { id: rejectModal.record?.id ?? '' }, body: values })}
-        invalidate={REFRESHES}
+        invalidate={[
+          ...REFRESHES,
+          orderAdminDetail,
+          orderAdminTimeline,
+          orderAdminList,
+          orderAdminStatistics,
+        ]}
         successMessage={rejectModal.record?.status === 'failed' ? '已关闭' : '已拒绝'}
         okText={rejectModal.record?.status === 'failed' ? '确认关闭' : '确认拒绝'}
         header={
@@ -393,7 +415,13 @@ export function RefundRequestsPage() {
         ]}
         route={refundAdminWithdraw}
         toInput={(values) => ({ params: { id: withdrawModal.record?.id ?? '' }, body: values })}
-        invalidate={REFRESHES}
+        invalidate={[
+          ...REFRESHES,
+          orderAdminDetail,
+          orderAdminTimeline,
+          orderAdminList,
+          orderAdminStatistics,
+        ]}
         successMessage="已撤销"
         okText="确认撤销"
         okDanger
@@ -536,7 +564,13 @@ function RefundActions({
           input={{ params: { id: row.id }, body: {} }}
           title="确认已收到退货？"
           description="确认后立即向微信发起退款。"
-          invalidate={REFRESHES}
+          invalidate={[
+            ...REFRESHES,
+            orderAdminDetail,
+            orderAdminTimeline,
+            orderAdminList,
+            orderAdminStatistics,
+          ]}
           successMessage="已确认收货"
           buttonProps={inDrawer ? { type: 'primary' } : look}
         >
@@ -552,7 +586,13 @@ function RefundActions({
           input={{ params: { id: row.id } }}
           title="重新处理这笔退款？"
           description="使用原有的商户退款单号，不会重复退款；商品已发出的无法重试。"
-          invalidate={REFRESHES}
+          invalidate={[
+            ...REFRESHES,
+            orderAdminDetail,
+            orderAdminTimeline,
+            orderAdminList,
+            orderAdminStatistics,
+          ]}
           onSuccess={(detail) => tellOutcome(refundRetryOutcome(detail))}
           buttonProps={look}
         >

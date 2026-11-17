@@ -43,6 +43,19 @@ const AREA_TREE = [
   },
 ];
 
+/** The `remoteSelect` demo: a server's answer for one keyword, not a fixed list. */
+const DEMO_TAG_IDS = [
+  { label: '新品', value: 'new' },
+  { label: '热卖', value: 'hot' },
+  { label: '推荐', value: 'rec' },
+  { label: '清仓', value: 'clearance' },
+  { label: '预售', value: 'presale' },
+];
+
+async function loadDemoTagIds(keyword: string) {
+  return DEMO_TAG_IDS.filter((tag) => tag.label.includes(keyword));
+}
+
 /**
  * One field of every kind the kit ships, against the demo contract's body
  * schema. Copy a line out of here when building a real page.
@@ -117,6 +130,16 @@ export const demoFields: FieldSpec<Extract<keyof DemoWidgetForm, string>>[] = [
       { label: '热卖', value: 'hot' },
       { label: '推荐', value: 'rec' },
     ],
+  },
+  {
+    kind: 'remoteSelect',
+    name: 'tagIds',
+    label: '标签（服务端搜索）',
+    span: 24,
+    mode: 'multiple',
+    loadOptions: loadDemoTagIds,
+    cacheKey: 'dev.demoTagIds',
+    help: 'Options are fetched per keyword — this is what a list too long for one page uses.',
   },
 
   { kind: 'date', name: 'publishedAt', label: '上架时间', showTime: true, span: 12 },

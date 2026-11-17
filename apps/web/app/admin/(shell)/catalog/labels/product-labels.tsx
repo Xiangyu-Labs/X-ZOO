@@ -21,8 +21,10 @@ import {
 } from '@shop/contracts/catalog/schemas';
 
 import { useRouteMutation, useRouteQuery } from '@/admin/api/hooks';
+import { callRoute } from '@/admin/api/call-route';
 import { ConfirmButton } from '@/admin/kit/confirm-button';
 import { ModalForm, useFormModal } from '@/admin/kit/form/modal-form';
+import type { RemoteSelectOption } from '@/admin/kit/form/remote-select';
 import { PageContainer } from '@/admin/kit/page-container';
 import { StatusTag } from '@/admin/kit/status-tag';
 import { actionsColumn, idColumn, instantColumn, textColumn } from '@/admin/kit/table/columns';
@@ -35,6 +37,14 @@ import {
   labelCategoryFields,
   labelFields,
 } from '../catalog-enums';
+
+/** A picker searches the categories by name; the rest of the list is reachable. */
+async function loadCategoryOptions(keyword: string): Promise<RemoteSelectOption[]> {
+  const page = await callRoute(catalogAdminLabelCategoryList, {
+    query: { page: 1, pageSize: 50, ...(keyword === '' ? {} : { keyword }) },
+  });
+  return page.items.map((row) => ({ label: row.name, value: row.id }));
+}
 
 /**
  * 商品标签 and 标签分类, two tabs on one page.
@@ -74,12 +84,12 @@ export function ProductLabelsPage() {
 function LabelsTable() {
   const modal = useFormModal<ProductLabel>();
 
-  // 100 is the whole list in every shop that has ever existed; the picker is a
-  // select, not a search.
+  // The first page seeds the names of the categories already chosen; the
+  // picker searches the rest instead of stopping at the list cap.
   const categories = useRouteQuery(catalogAdminLabelCategoryList, {
     query: { page: 1, pageSize: 100 },
   });
-  const categoryOptions = (categories.data?.items ?? []).map((row) => ({
+  const categoryOptions: RemoteSelectOption[] = (categories.data?.items ?? []).map((row) => ({
     label: row.name,
     value: row.id,
   }));
@@ -97,10 +107,12 @@ function LabelsTable() {
         filters={[
           { kind: 'text', name: 'keyword', label: '标签名称' },
           {
-            kind: 'select',
+            kind: 'remoteSelect',
             name: 'categoryId',
             label: '标签分类',
-            options: categoryOptions,
+            loadOptions: loadCategoryOptions,
+            cacheKey: 'catalog.labelCategories',
+            knownOptions: categoryOptions,
           },
           { kind: 'select', name: 'isEnabled', label: '状态', options: BOOL_OPTIONS },
         ]}
@@ -204,7 +216,7 @@ function LabelsTable() {
         title={modal.record ? `编辑标签：${modal.record.name}` : '新建标签'}
         columns={2}
         schema={productLabelForm}
-        fields={labelFields(categoryOptions)}
+        fields={labelFields(categoryOptions, loadCategoryOptions)}
         initialValues={modal.record ? labelValuesOf(modal.record) : undefined}
         route={modal.record ? catalogAdminLabelUpdate : catalogAdminLabelCreate}
         toInput={(values) =>

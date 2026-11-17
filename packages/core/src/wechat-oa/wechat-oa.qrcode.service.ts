@@ -2,6 +2,7 @@ import type {
   WechatQrcode,
   WechatQrcodeCategory,
   WechatQrcodeCategoryForm,
+  WechatQrcodeCategoryListQuery,
   WechatQrcodeForm,
   WechatQrcodeListQuery,
   WechatQrcodeScan,
@@ -54,10 +55,17 @@ interface Paged<T> {
  */
 export async function listCategories(
   ctx: Ctx,
-  query: { page: number; pageSize: number },
+  query: WechatQrcodeCategoryListQuery,
 ): Promise<Paged<WechatQrcodeCategory>> {
   requirePermission(ctx, wechatOaPermissions['qrcode:read']);
-  const rows = await repo.listQrcodeCategories(ctx.db);
+  const all = await repo.listQrcodeCategories(ctx.db);
+  const keyword = query.keyword?.toLowerCase();
+  // Filtering before the slice keeps `total` the count of what the picker can
+  // actually show, the same as every other paged list.
+  const rows =
+    keyword === undefined || keyword === ''
+      ? all
+      : all.filter((row) => row.name.toLowerCase().includes(keyword));
   const offset = (query.page - 1) * query.pageSize;
   return {
     items: rows.slice(offset, offset + query.pageSize).map((row) => ({

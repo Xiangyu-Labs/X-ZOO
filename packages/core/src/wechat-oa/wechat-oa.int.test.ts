@@ -743,6 +743,15 @@ describe('channel QR codes', () => {
     ]);
   });
 
+  it('filters categories by name before paging them', async () => {
+    const ground = await qrcode.createCategory(ctx(), { name: '地推', sortOrder: 0 });
+    await qrcode.createCategory(ctx(), { name: '线上投放', sortOrder: 1 });
+
+    const found = await qrcode.listCategories(ctx(), { page: 1, pageSize: 20, keyword: '地推' });
+    expect(found.items.map((item) => item.id)).toEqual([ground.id]);
+    expect(found.total).toBe(1);
+  });
+
   it('reports scans per day and masks the openid', async () => {
     const code = await qrcode.create(ctx(), { name: '海报', scene: 'CH_STAT', expireSeconds: 0 });
     await handleEvent(harness.ctx, {
@@ -846,6 +855,23 @@ describe('the material library', () => {
     const attachmentId = await seedAttachment();
     const medium = await media.upload(ctx(), { attachmentId, kind: 'image', isPermanent: false });
     expect(medium.expiresAt).toBe(new Date(Date.parse(NOW) + 3 * 86_400_000).toISOString());
+  });
+
+  it('searches material by its WeChat media id', async () => {
+    const first = await media.upload(ctx(), {
+      attachmentId: await seedAttachment(),
+      kind: 'image',
+      isPermanent: true,
+    });
+    await media.upload(ctx(), {
+      attachmentId: await seedAttachment(),
+      kind: 'image',
+      isPermanent: true,
+    });
+
+    const found = await media.list(ctx(), { page: 1, pageSize: 20, keyword: first.mediaId });
+    expect(found.items.map((item) => item.mediaId)).toEqual([first.mediaId]);
+    expect(found.total).toBe(1);
   });
 
   it('refuses a MIME type or a size WeChat would refuse, before uploading', async () => {

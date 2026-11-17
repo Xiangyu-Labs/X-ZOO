@@ -322,7 +322,9 @@ export const userGroupForm = z.object({
 });
 export type UserGroupForm = z.infer<typeof userGroupForm>;
 
-export const userGroupListQuery = pageQuery.extend(sortQuery(['id', 'name', 'sortOrder']).shape);
+export const userGroupListQuery = pageQuery
+  .extend({ keyword: z.string().trim().max(64).optional() })
+  .extend(sortQuery(['id', 'name', 'sortOrder']).shape);
 export const pagedUserGroups = paged(userGroup);
 
 export const userLabelCategory = z.object({
@@ -339,9 +341,9 @@ export const userLabelCategoryForm = z.object({
 });
 export type UserLabelCategoryForm = z.infer<typeof userLabelCategoryForm>;
 
-export const userLabelCategoryListQuery = pageQuery.extend(
-  sortQuery(['id', 'name', 'sortOrder']).shape,
-);
+export const userLabelCategoryListQuery = pageQuery
+  .extend({ keyword: z.string().trim().max(64).optional() })
+  .extend(sortQuery(['id', 'name', 'sortOrder']).shape);
 export const pagedUserLabelCategories = paged(userLabelCategory);
 
 export const userLabel = z.object({

@@ -24,6 +24,7 @@ import {
   textColumn,
 } from '@/admin/kit/table/columns';
 import { CrudTable } from '@/admin/kit/table/crud-table';
+import { useMemoryUrlState } from '@/admin/kit/table/url-state';
 import { Can } from '@/admin/session/can';
 
 import { ActivityStatusTag } from '../activity-window';
@@ -185,83 +186,97 @@ function ActivityOrdersDrawer({
       title={activity ? `拼团订单：${activity.title}` : '拼团订单'}
       destroyOnHidden
     >
-      {activity ? (
-        <CrudTable
-          route={groupbuyAdminActivityOrders}
-          params={{ id: activity.id }}
-          urlPrefix="orders"
-          scrollX={1100}
-          filters={[
-            {
-              kind: 'select',
-              name: 'groupStatus',
-              label: '拼团状态',
-              options: optionsOf(GROUPBUY_GROUP_STATUS),
-            },
-            {
-              kind: 'select',
-              name: 'paid',
-              label: '支付',
-              options: [
-                { label: '已支付', value: 'true' },
-                { label: '未支付', value: 'false' },
-              ],
-            },
-          ]}
-          rowKey="orderId"
-          columns={[
-            textColumn<GroupbuyActivityOrder>({
-              title: '订单号',
-              dataIndex: 'orderNo',
-              width: 200,
-            }),
-            idColumn<GroupbuyActivityOrder>({ title: '所属团', dataIndex: 'groupId' }),
-            {
-              title: '用户',
-              key: 'nickname',
-              // No nickname: never set, or blanked on 注销. The team drawer says the same.
-              render: (_value: unknown, row: GroupbuyActivityOrder) =>
-                row.nickname ?? `用户 #${row.userId}`,
-            },
-            enumColumn<GroupbuyActivityOrder, GroupbuyActivityOrder['role']>({
-              title: '身份',
-              dataIndex: 'role',
-              map: GROUPBUY_MEMBER_ROLE,
-              width: 90,
-            }),
-            {
-              title: '份数',
-              key: 'quantity',
-              width: 80,
-              render: (_value: unknown, row: GroupbuyActivityOrder) => row.quantity,
-            },
-            moneyColumn<GroupbuyActivityOrder>({ title: '应付', dataIndex: 'payableAmount' }),
-            {
-              title: '支付',
-              key: 'paid',
-              width: 90,
-              render: (_value: unknown, row: GroupbuyActivityOrder) =>
-                row.paid ? '已支付' : <Typography.Text type="secondary">未支付</Typography.Text>,
-            },
-            enumColumn<GroupbuyActivityOrder, GroupbuyActivityOrder['memberStatus']>({
-              title: '成员状态',
-              dataIndex: 'memberStatus',
-              map: GROUPBUY_MEMBER_STATUS,
-            }),
-            enumColumn<GroupbuyActivityOrder, GroupbuyActivityOrder['groupStatus']>({
-              title: '拼团状态',
-              dataIndex: 'groupStatus',
-              map: GROUPBUY_GROUP_STATUS,
-            }),
-            instantColumn<GroupbuyActivityOrder>({ title: '下单时间', dataIndex: 'createdAt' }),
-            actionsColumn<GroupbuyActivityOrder>({
-              width: 90,
-              fixed: false,
-              render: (row) => <Link href={`/admin/orders/${row.orderId}`}>订单详情</Link>,
-            }),
-          ]}
-        />
-      ) : null}
+      {activity ? <ActivityOrders key={activity.id} activity={activity} /> : null}
     </Drawer>
+  );
+}
+
+/**
+ * The drawer's own list: paging and filters are this record's, in memory.
+ *
+ * They used to live in the page URL under `orders.*`, so opening another
+ * activity inherited the previous one's page and filters; the URL also kept
+ * them after the drawer closed. A drawer opened from one row has nothing to
+ * share, so its state belongs to the component that is unmounted with it.
+ */
+function ActivityOrders({ activity }: { activity: GroupbuyActivityListItem }) {
+  const urlState = useMemoryUrlState();
+
+  return (
+    <CrudTable
+      route={groupbuyAdminActivityOrders}
+      params={{ id: activity.id }}
+      urlState={urlState}
+      scrollX={1100}
+      filters={[
+        {
+          kind: 'select',
+          name: 'groupStatus',
+          label: '拼团状态',
+          options: optionsOf(GROUPBUY_GROUP_STATUS),
+        },
+        {
+          kind: 'select',
+          name: 'paid',
+          label: '支付',
+          options: [
+            { label: '已支付', value: 'true' },
+            { label: '未支付', value: 'false' },
+          ],
+        },
+      ]}
+      rowKey="orderId"
+      columns={[
+        textColumn<GroupbuyActivityOrder>({
+          title: '订单号',
+          dataIndex: 'orderNo',
+          width: 200,
+        }),
+        idColumn<GroupbuyActivityOrder>({ title: '所属团', dataIndex: 'groupId' }),
+        {
+          title: '用户',
+          key: 'nickname',
+          // No nickname: never set, or blanked on 注销. The team drawer says the same.
+          render: (_value: unknown, row: GroupbuyActivityOrder) =>
+            row.nickname ?? `用户 #${row.userId}`,
+        },
+        enumColumn<GroupbuyActivityOrder, GroupbuyActivityOrder['role']>({
+          title: '身份',
+          dataIndex: 'role',
+          map: GROUPBUY_MEMBER_ROLE,
+          width: 90,
+        }),
+        {
+          title: '份数',
+          key: 'quantity',
+          width: 80,
+          render: (_value: unknown, row: GroupbuyActivityOrder) => row.quantity,
+        },
+        moneyColumn<GroupbuyActivityOrder>({ title: '应付', dataIndex: 'payableAmount' }),
+        {
+          title: '支付',
+          key: 'paid',
+          width: 90,
+          render: (_value: unknown, row: GroupbuyActivityOrder) =>
+            row.paid ? '已支付' : <Typography.Text type="secondary">未支付</Typography.Text>,
+        },
+        enumColumn<GroupbuyActivityOrder, GroupbuyActivityOrder['memberStatus']>({
+          title: '成员状态',
+          dataIndex: 'memberStatus',
+          map: GROUPBUY_MEMBER_STATUS,
+        }),
+        enumColumn<GroupbuyActivityOrder, GroupbuyActivityOrder['groupStatus']>({
+          title: '拼团状态',
+          dataIndex: 'groupStatus',
+          map: GROUPBUY_GROUP_STATUS,
+        }),
+        instantColumn<GroupbuyActivityOrder>({ title: '下单时间', dataIndex: 'createdAt' }),
+        actionsColumn<GroupbuyActivityOrder>({
+          width: 90,
+          fixed: false,
+          render: (row) => <Link href={`/admin/orders/${row.orderId}`}>订单详情</Link>,
+        }),
+      ]}
+    />
   );
 }

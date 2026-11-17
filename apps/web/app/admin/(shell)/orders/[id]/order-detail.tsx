@@ -21,6 +21,7 @@ import {
   orderAdminDetail,
   orderAdminList,
   orderAdminRemark,
+  orderAdminStatistics,
   orderAdminTimeline,
   orderAdminUpdateAddress,
 } from '@shop/contracts/order/order.admin.contract';
@@ -40,6 +41,7 @@ import { errorMessage, useRouteQuery } from '@/admin/api';
 import { ConfirmButton } from '@/admin/kit/confirm-button';
 import { DescriptionsCard } from '@/admin/kit/descriptions-card';
 import { InstantText } from '@/admin/kit/instant-text';
+import { LoadFailure } from '@/admin/kit/load-failure';
 import { ModalForm, useFormModal } from '@/admin/kit/form/modal-form';
 import { MoneyText } from '@/admin/kit/money-text';
 import { PageContainer } from '@/admin/kit/page-container';
@@ -105,7 +107,13 @@ const CLIENT_PLATFORM_LABELS: Record<ClientPlatform, string> = {
 
 export function OrderDetailPage({ id }: { id: string }) {
   const order = useRouteQuery(orderAdminDetail, { params: { id } });
-  const timeline = useRouteQuery(orderAdminTimeline, { params: { id } });
+  const timeline = useRouteQuery(
+    orderAdminTimeline,
+    { params: { id } },
+    // The card below carries its own failure banner; a toast as well would
+    // say the same thing twice on every visit to a deleted order.
+    { presentError: false },
+  );
   const remarkModal = useFormModal<AdminOrderDetail>();
   const priceModal = useFormModal<AdminOrderDetail>();
   const addressModal = useFormModal<AdminOrderDetail>();
@@ -117,7 +125,8 @@ export function OrderDetailPage({ id }: { id: string }) {
   const canReadProducts = can(catalogAdminProductDetail.permission);
 
   const data = order.data;
-  const invalidate = [orderAdminDetail, orderAdminTimeline, orderAdminList];
+  // 确认收货 moves 待收货; the list's work queue reads the same counters.
+  const invalidate = [orderAdminDetail, orderAdminTimeline, orderAdminList, orderAdminStatistics];
 
   if (order.isError) {
     return (
@@ -342,28 +351,32 @@ export function OrderDetailPage({ id }: { id: string }) {
             loading={timeline.isPending}
             style={{ marginTop: 16 }}
           >
-            <Timeline
-              items={(timeline.data?.items ?? []).map((entry) => ({
-                color: entry.changeType.startsWith('refund') ? 'red' : 'blue',
-                children: (
-                  <Space direction="vertical" size={0}>
-                    <Space size={8}>
-                      <Typography.Text strong>{CHANGE_TYPE[entry.changeType]}</Typography.Text>
-                      <StatusTag value={entry.operatorKind} map={OPERATOR_KIND} />
-                      {entry.operatorName ? (
-                        <Typography.Text type="secondary">{entry.operatorName}</Typography.Text>
+            {timeline.isError ? (
+              <LoadFailure error={timeline.error} onRetry={() => timeline.refetch()} />
+            ) : (
+              <Timeline
+                items={(timeline.data?.items ?? []).map((entry) => ({
+                  color: entry.changeType.startsWith('refund') ? 'red' : 'blue',
+                  children: (
+                    <Space direction="vertical" size={0}>
+                      <Space size={8}>
+                        <Typography.Text strong>{CHANGE_TYPE[entry.changeType]}</Typography.Text>
+                        <StatusTag value={entry.operatorKind} map={OPERATOR_KIND} />
+                        {entry.operatorName ? (
+                          <Typography.Text type="secondary">{entry.operatorName}</Typography.Text>
+                        ) : null}
+                      </Space>
+                      {entry.message ? (
+                        <Typography.Text type="secondary">{entry.message}</Typography.Text>
                       ) : null}
+                      <Typography.Text type="secondary">
+                        <InstantText value={entry.createdAt} />
+                      </Typography.Text>
                     </Space>
-                    {entry.message ? (
-                      <Typography.Text type="secondary">{entry.message}</Typography.Text>
-                    ) : null}
-                    <Typography.Text type="secondary">
-                      <InstantText value={entry.createdAt} />
-                    </Typography.Text>
-                  </Space>
-                ),
-              }))}
-            />
+                  ),
+                }))}
+              />
+            )}
           </Card>
         </Col>
 

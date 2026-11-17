@@ -29,16 +29,18 @@ export function ProductStatsPage() {
       loading={isPending}
       metricColumns={4}
       chartTitle="商品趋势"
-      actions={
-        <StatsExportButton
-          route={statsProductExport}
-          query={range.query}
-          permission="stats:product:export"
-          label="导出商品统计"
-        />
-      }
     >
-      <ProductRankingTable query={range.query} />
+      <ProductRankingTable
+        query={range.query}
+        extra={({ sortBy, limit }) => (
+          <StatsExportButton
+            route={statsProductExport}
+            query={{ ...range.query, sortBy, limit }}
+            permission="stats:product:export"
+            label="导出商品统计"
+          />
+        )}
+      />
     </StatsPageFrame>
   );
 }

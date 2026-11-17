@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  boundContracts,
+  boundContractsByMethod,
+  ctxRouteIds,
   declaresForceDynamic,
   exportedMethods,
   isMutating,
+  methodBodies,
   namesAuditTarget,
   paramsOf,
   shapeOf,
@@ -77,5 +81,57 @@ describe('the small predicates', () => {
     expect(namesAuditTarget('// ctx.audit is written by handle()')).toBe(false);
     expect(namesAuditTarget('/* no ctx.audit(target) here: nothing is written */')).toBe(false);
     expect(namesAuditTarget('const audited = true;')).toBe(false);
+  });
+});
+
+describe('boundContracts', () => {
+  it('reads the contract each handle() call names', () => {
+    const source = [
+      'export const GET = handle(couponAdminList, (ctx) => list(ctx));',
+      'export const POST = handle(couponAdminCreate, (ctx) => create(ctx));',
+    ].join('\n');
+    expect(boundContracts(source)).toEqual(['couponAdminList', 'couponAdminCreate']);
+  });
+
+  it('does not count a handle() that only appears in a comment', () => {
+    const source = [
+      '// handle(couponAdminList, …) used to be here',
+      'export const GET = handle(orderAdminList, (ctx) => list(ctx));',
+    ].join('\n');
+    expect(boundContracts(source)).toEqual(['orderAdminList']);
+  });
+});
+
+describe('methodBodies', () => {
+  const twoWrites = [
+    'export const PUT = handle(userLabelUpdate, async (ctx, { params, body }) => {',
+    '  ctx.audit(`user-label:${params.id}`);',
+    '  return update(ctx, params, body);',
+    '});',
+    'export const DELETE = handle(userLabelDelete, async (ctx, { params }) => {',
+    '  return remove(ctx, params);',
+    '});',
+  ].join('\n');
+
+  it('slices each exported method, so a sibling’s audit does not count', () => {
+    const bodies = methodBodies(twoWrites);
+    expect(Object.keys(bodies).sort()).toEqual(['DELETE', 'PUT']);
+    expect(namesAuditTarget(bodies.PUT ?? '')).toBe(true);
+    expect(namesAuditTarget(bodies.DELETE ?? '')).toBe(false);
+  });
+
+  it('associates each method with its own handle() binding', () => {
+    expect(boundContractsByMethod(twoWrites)).toEqual({
+      PUT: 'userLabelUpdate',
+      DELETE: 'userLabelDelete',
+    });
+  });
+});
+
+describe('ctxRouteIds', () => {
+  it('reads the route id a bare handler passes to ctxFor', () => {
+    expect(ctxRouteIds("verifyUrl(ctxFor(request, 'wechatOa.webhookVerify'), query);")).toEqual([
+      'wechatOa.webhookVerify',
+    ]);
   });
 });

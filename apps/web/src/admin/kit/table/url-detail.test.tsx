@@ -39,6 +39,16 @@ describe('NOTIF-008 — a ?detail= link opens that record on the list page', () 
     expect(replace).toHaveBeenCalledWith('/admin/trade/refunds?status=pending', { scroll: false });
   });
 
+  it('closes when the URL drops the parameter, so the back button is a close', () => {
+    search = new URLSearchParams('detail=12');
+    const { result, rerender } = renderHook(() => useUrlDetailId());
+    expect(result.current[0]).toBe('12');
+
+    search = new URLSearchParams();
+    rerender();
+    expect(result.current[0]).toBeNull();
+  });
+
   it('without the parameter the page opens closed, and a row click touches no URL', () => {
     const { result } = renderHook(() => useUrlDetailId());
     expect(result.current[0]).toBeNull();

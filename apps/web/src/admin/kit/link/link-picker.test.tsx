@@ -49,4 +49,45 @@ describe('LinkPicker', () => {
       url: '/pages/goods/goods_list/index?cid=1',
     });
   });
+
+  it('re-opens on the row being edited, not on the previous record', async () => {
+    const stub = createStubLinkSource();
+    const source: LinkSource = {
+      listPages: vi.fn(stub.listPages),
+      listTargets: vi.fn(stub.listTargets),
+    };
+    const view = renderAdmin(
+      <LinkSourceProvider source={source}>
+        <LinkPicker
+          open
+          onClose={() => {}}
+          onSelect={() => {}}
+          allow={['custom']}
+          value={{ type: 'custom', label: '旧链接', url: '/old' }}
+        />
+      </LinkSourceProvider>,
+    );
+    expect(await screen.findByDisplayValue('/old')).toBeInTheDocument();
+
+    view.rerender(
+      <LinkSourceProvider source={source}>
+        <LinkPicker open={false} onClose={() => {}} onSelect={() => {}} allow={['custom']} />
+      </LinkSourceProvider>,
+    );
+    view.rerender(
+      <LinkSourceProvider source={source}>
+        <LinkPicker
+          open
+          onClose={() => {}}
+          onSelect={() => {}}
+          allow={['custom']}
+          value={{ type: 'custom', label: '新链接', url: '/new' }}
+        />
+      </LinkSourceProvider>,
+    );
+
+    expect(await screen.findByDisplayValue('/new')).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('/old')).toBeNull();
+    expect(screen.getByDisplayValue('新链接')).toBeInTheDocument();
+  });
 });

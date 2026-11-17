@@ -106,11 +106,26 @@ export async function listLabels(query: DecorRecordQuery): Promise<DecorRecordPa
 }
 
 export async function resolveLabels(ids: readonly string[]): Promise<DecorRecord[]> {
-  // No by-id route for labels; the list is small and one page holds it.
-  const page = await callRoute(catalogAdminLabelList, { query: { page: 1, pageSize: 100 } });
-  const byId = new Map(page.items.map((label) => [label.id, label.name]));
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return [];
+  // No by-id route for labels, so page the label list until every stored id is
+  // found. One page used to be the whole lookup: a block naming a label past
+  // the 100th rendered its raw id.
+  const wanted = new Set(unique);
+  const found = new Map<string, string>();
+  const PAGE_SIZE = 100;
+  for (let page = 1; ; page += 1) {
+    const result = await callRoute(catalogAdminLabelList, {
+      query: { page, pageSize: PAGE_SIZE },
+    });
+    for (const label of result.items) {
+      if (wanted.has(label.id)) found.set(label.id, label.name);
+    }
+    if (found.size === wanted.size || result.items.length === 0) break;
+    if (page * PAGE_SIZE >= result.total) break;
+  }
   return ids.flatMap((id) => {
-    const name = byId.get(id);
+    const name = found.get(id);
     return name === undefined ? [] : [{ id, name }];
   });
 }

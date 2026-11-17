@@ -12,6 +12,7 @@ import {
   Pagination,
   Skeleton,
   Space,
+  Spin,
   Table,
   Typography,
 } from 'antd';
@@ -111,6 +112,9 @@ export interface CrudTableProps<R extends AnyRouteDef, T = PagedItemOf<R>> {
 
 const DEFAULT_SORT_KEYS = { field: 'sortBy', order: 'sortOrder' } as const;
 
+/** The contract's `pageQuery` refuses more; a hand-edited URL is not a 422. */
+const MAX_PAGE_SIZE = 100;
+
 /** What a column without a `width` is given when the table works out its scroll width. */
 const UNSIZED_COLUMN_WIDTH = 140;
 const SELECTION_COLUMN_WIDTH = 48;
@@ -200,7 +204,7 @@ function CrudTableInner<R extends AnyRouteDef, T>({
   const { read, write } = urlState;
 
   const urlPage = toPositiveInt(read(key('page')), 1);
-  const pageSize = toPositiveInt(read(key('pageSize')), defaultPageSize);
+  const pageSize = Math.min(toPositiveInt(read(key('pageSize')), defaultPageSize), MAX_PAGE_SIZE);
 
   // A page number belongs to the list it was chosen on. When the page swaps
   // what the table lists (a status tab passes `fixedQuery`), page 3 of 待发货
@@ -385,6 +389,23 @@ function CrudTableInner<R extends AnyRouteDef, T>({
         />
       ) : null}
 
+      {/* `keepPreviousData` keeps the last page on screen while the next one
+          loads — and also after that request failed. Without this banner the
+          operator reads yesterday's rows as today's answer. */}
+      {result.isError && data !== undefined ? (
+        <Alert
+          type="error"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message={errorMessage(result.error, '刷新失败，显示的是上次加载的内容')}
+          action={
+            <Button size="small" onClick={() => result.refetch()}>
+              重试
+            </Button>
+          }
+        />
+      ) : null}
+
       {renderCard ? (
         <>
           {selectable && pageRows.length > 0 ? (
@@ -406,17 +427,19 @@ function CrudTableInner<R extends AnyRouteDef, T>({
           ) : pageRows.length === 0 ? (
             <Empty description={emptyText ?? '暂无数据'} />
           ) : (
-            <Flex vertical gap={12}>
-              {pageRows.map((row) => (
-                <div key={String(keyOf(row))}>
-                  {renderCard(row, {
-                    selected: selectedRowKeys.includes(keyOf(row)),
-                    selectable,
-                    toggle: () => toggleRow(row),
-                  })}
-                </div>
-              ))}
-            </Flex>
+            <Spin spinning={result.isFetching} style={{ width: '100%' }}>
+              <Flex vertical gap={12}>
+                {pageRows.map((row) => (
+                  <div key={String(keyOf(row))}>
+                    {renderCard(row, {
+                      selected: selectedRowKeys.includes(keyOf(row)),
+                      selectable,
+                      toggle: () => toggleRow(row),
+                    })}
+                  </div>
+                ))}
+              </Flex>
+            </Spin>
           )}
 
           {data !== undefined && data.total > 0 ? (
@@ -445,7 +468,7 @@ function CrudTableInner<R extends AnyRouteDef, T>({
           bordered={bordered}
           columns={columns}
           dataSource={data?.items ?? []}
-          loading={result.isFetching && !data}
+          loading={result.isFetching}
           {...defined({ expandable })}
           onChange={handleTableChange}
           locale={{

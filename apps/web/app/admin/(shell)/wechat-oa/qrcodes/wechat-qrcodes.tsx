@@ -17,9 +17,11 @@ import {
 } from '@shop/contracts/wechat-oa/schemas';
 
 import { useRouteQuery } from '@/admin/api/hooks';
+import { callRoute } from '@/admin/api/call-route';
 import { ConfirmButton } from '@/admin/kit/confirm-button';
 import { ModalForm, useFormModal } from '@/admin/kit/form/modal-form';
-import type { FieldSpec, SelectOption } from '@/admin/kit/form/types';
+import type { RemoteSelectOption } from '@/admin/kit/form/remote-select';
+import type { FieldSpec } from '@/admin/kit/form/types';
 import { PageContainer } from '@/admin/kit/page-container';
 import { statusOptions } from '@/admin/kit/status-tag';
 import {
@@ -38,6 +40,14 @@ import { QrcodeStatisticDrawer } from '@/admin/wechat-oa/qrcode-statistic-drawer
 import { QRCODE_STATUS, REPLY_TYPE, replyBodyFields } from '../wechat-oa-enums';
 
 type FormKey = Extract<keyof WechatQrcodeForm, string>;
+
+/** The category picker searches names on the server; the list is paged, a select is not. */
+async function loadCategoryOptions(keyword: string): Promise<RemoteSelectOption[]> {
+  const page = await callRoute(wechatOaQrcodeCategoryList, {
+    query: { page: 1, pageSize: 50, ...(keyword === '' ? {} : { keyword }) },
+  });
+  return page.items.map((item) => ({ value: item.id, label: item.name }));
+}
 /** The create form's keys minus the two a channel code can never change. */
 type EditKey = Exclude<FormKey, 'scene' | 'expireSeconds'>;
 
@@ -58,7 +68,7 @@ export function WechatQrcodesPage() {
   const categories = useRouteQuery(wechatOaQrcodeCategoryList, {
     query: { page: 1, pageSize: 100 },
   });
-  const categoryOptions: SelectOption[] = (categories.data?.items ?? []).map((item) => ({
+  const categoryOptions: RemoteSelectOption[] = (categories.data?.items ?? []).map((item) => ({
     value: item.id,
     label: item.name,
   }));
@@ -73,10 +83,12 @@ export function WechatQrcodesPage() {
         filters={[
           { kind: 'text', name: 'keyword', label: '关键词', placeholder: '名称或场景值' },
           {
-            kind: 'select',
+            kind: 'remoteSelect',
             name: 'categoryId',
             label: '分类',
-            options: categoryOptions,
+            loadOptions: loadCategoryOptions,
+            cacheKey: 'wechat-oa.qrcodeCategories',
+            knownOptions: categoryOptions,
           },
           { kind: 'select', name: 'status', label: '状态', options: statusOptions(QRCODE_STATUS) },
         ]}
@@ -184,7 +196,17 @@ export function WechatQrcodesPage() {
           title={`编辑：${editing.name}`}
           columns={2}
           schema={wechatQrcodeForm.omit({ scene: true, expireSeconds: true })}
-          fields={editFields(categoryOptions)}
+          fields={editFields(categoryOptions, [
+            ...categoryOptions,
+            ...(editing.categoryId
+              ? [
+                  {
+                    value: editing.categoryId,
+                    label: editing.categoryName ?? `#${editing.categoryId}`,
+                  },
+                ]
+              : []),
+          ])}
           initialValues={{
             name: editing.name,
             ...(editing.categoryId === null ? {} : { categoryId: editing.categoryId }),
@@ -216,15 +238,20 @@ export function WechatQrcodesPage() {
 }
 
 /** The label and the filing, which both forms have. */
-function labelFields(categoryOptions: SelectOption[]): FieldSpec<EditKey>[] {
+function labelFields(
+  categoryOptions: readonly RemoteSelectOption[],
+  knownOptions: readonly RemoteSelectOption[] = categoryOptions,
+): FieldSpec<EditKey>[] {
   return [
     { kind: 'text', name: 'name', label: '名称', span: 12, maxLength: 100 },
     {
-      kind: 'select',
+      kind: 'remoteSelect',
       name: 'categoryId',
       label: '分类',
       span: 12,
-      options: categoryOptions,
+      loadOptions: loadCategoryOptions,
+      cacheKey: 'wechat-oa.qrcodeCategories',
+      knownOptions,
       placeholder: '不分类',
     },
   ];
@@ -244,12 +271,15 @@ const greetingFields: FieldSpec<EditKey>[] = [
 ];
 
 /** Label, filing and greeting — everything the code's identity does not depend on. */
-function editFields(categoryOptions: SelectOption[]): FieldSpec<EditKey>[] {
-  return [...labelFields(categoryOptions), ...greetingFields];
+function editFields(
+  categoryOptions: readonly RemoteSelectOption[],
+  knownOptions: readonly RemoteSelectOption[] = categoryOptions,
+): FieldSpec<EditKey>[] {
+  return [...labelFields(categoryOptions, knownOptions), ...greetingFields];
 }
 
 /** The same, plus the two fields that can only ever be set once. */
-function createFields(categoryOptions: SelectOption[]): FieldSpec<FormKey>[] {
+function createFields(categoryOptions: readonly RemoteSelectOption[]): FieldSpec<FormKey>[] {
   return [
     ...labelFields(categoryOptions),
     {

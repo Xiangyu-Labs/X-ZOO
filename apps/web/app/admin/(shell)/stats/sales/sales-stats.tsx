@@ -66,14 +66,14 @@ export function SalesStatsPage() {
           defaultSort="paidAmount"
           defaultLimit={10}
           title="商品销售排行"
-          extra={
+          extra={({ sortBy, limit }) => (
             <StatsExportButton
               route={statsProductExport}
-              query={{ ...range.query, sortBy: 'paidAmount', limit: 100 }}
+              query={{ ...range.query, sortBy, limit }}
               permission="stats:product:export"
               label="导出商品排行"
             />
-          }
+          )}
         />
       </Can>
     </StatsPageFrame>

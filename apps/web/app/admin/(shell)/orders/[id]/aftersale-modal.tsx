@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import {
   orderAdminDetail,
   orderAdminList,
+  orderAdminStatistics,
   orderAdminTimeline,
 } from '@shop/contracts/order/order.admin.contract';
 import {
@@ -212,7 +213,7 @@ export function AftersaleModal({
         params: { id: orderId },
         body: aftersaleBody(values),
       })}
-      invalidate={REFRESHES}
+      invalidate={[...REFRESHES, orderAdminStatistics]}
       onSuccess={(detail) => tellOutcome(aftersaleOutcome(detail))}
       okText="确认发起"
       header={data ? <AftersaleHeader applicable={data} /> : null}

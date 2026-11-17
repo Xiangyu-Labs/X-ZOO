@@ -232,6 +232,24 @@ export function SkuPicker({
             type="error"
             showIcon
             message={errorMessage(products.error, '商品加载失败，请重试')}
+            action={
+              <Button size="small" onClick={() => products.refetch()}>
+                重试
+              </Button>
+            }
+          />
+        ) : null}
+
+        {productId !== undefined && detail.isError ? (
+          <Alert
+            type="error"
+            showIcon
+            message={errorMessage(detail.error, '规格加载失败，请重试')}
+            action={
+              <Button size="small" onClick={() => detail.refetch()}>
+                重试
+              </Button>
+            }
           />
         ) : null}
 
@@ -239,7 +257,9 @@ export function SkuPicker({
           rowKey="id"
           size="small"
           dataSource={rows}
-          loading={products.isFetching}
+          // With a fixed product the rows come from the detail route, so its
+          // fetch is the one the table is waiting for.
+          loading={productId === undefined ? products.isFetching : detail.isFetching}
           locale={{ emptyText: <Empty description="没有匹配的商品" /> }}
           pagination={
             productId === undefined
@@ -258,6 +278,17 @@ export function SkuPicker({
             expandedRowRender: () =>
               detail.isPending ? (
                 <Spin size="small" />
+              ) : detail.isError ? (
+                <Alert
+                  type="error"
+                  showIcon
+                  message={errorMessage(detail.error, '规格加载失败，请重试')}
+                  action={
+                    <Button size="small" onClick={() => detail.refetch()}>
+                      重试
+                    </Button>
+                  }
+                />
               ) : skuRows.length === 0 ? (
                 <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="该商品没有规格" />
               ) : (

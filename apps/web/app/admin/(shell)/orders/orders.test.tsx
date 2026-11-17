@@ -149,6 +149,23 @@ describe('订单列表', () => {
     });
   });
 
+  it('follows the URL back to 全部 when the menu link drops the tab', async () => {
+    navigation.search = 'tab=refunding';
+    stubApi();
+    const view = renderAdmin(<OrdersPage />, { identity: staff });
+    await screen.findByText(adminOrderListItemExample.orderNo);
+    expect(screen.getByRole('tab', { selected: true })).toHaveTextContent(zhName('售后中'));
+
+    // The sidebar's /admin/orders carries no query string; the page stays
+    // mounted, so the tab has to come back from the URL.
+    navigation.search = '';
+    view.rerender(<OrdersPage />);
+
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { selected: true })).toHaveTextContent(zhName('全部')),
+    );
+  });
+
   it('售后中 asks for orders with an open refund, not a refund-status roll-up', async () => {
     navigation.search = 'tab=refunding';
     const calls = stubApi();

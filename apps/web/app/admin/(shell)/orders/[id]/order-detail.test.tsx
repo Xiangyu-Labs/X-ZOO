@@ -5,6 +5,7 @@ import {
   orderAdminDetail,
   orderAdminRemark,
   orderAdminShip,
+  orderAdminShipmentTracking,
   orderAdminTimeline,
   orderAdminUpdateAddress,
   orderAdminUpdateShipment,
@@ -12,6 +13,7 @@ import {
 import {
   adminOrderDetailExample,
   shipmentExample,
+  shipmentTrackingExample,
   type AdminOrderDetail,
 } from '@shop/contracts/order/order.fulfil.schemas';
 import {
@@ -34,16 +36,28 @@ const staff = {
   permissions: ['order:order:read', 'order:order:write', 'order:shipment:write'],
 };
 
-function stubApi(order: AdminOrderDetail | 'missing' = adminOrderDetailExample): StubCall[] {
+function stubApi(
+  order: AdminOrderDetail | 'missing' = adminOrderDetailExample,
+  { timelineFails = false, trackingFails = false } = {},
+): StubCall[] {
   return stubRoutes([
     on(orderAdminDetail, () =>
       order === 'missing'
         ? respondWithError(404, { code: 'ORDER_NOT_FOUND', message: '订单不存在' })
         : order,
     ),
-    on(orderAdminTimeline, { items: [] }),
+    on(orderAdminTimeline, () =>
+      timelineFails
+        ? respondWithError(500, { code: 'INTERNAL', message: '操作记录加载失败' })
+        : { items: [] },
+    ),
     on(expressCompanyPicker, expressCompanyListExample),
     on(orderAdminShip, shipmentExample),
+    on(orderAdminShipmentTracking, () =>
+      trackingFails
+        ? respondWithError(404, { code: 'ORDER_SHIPMENT_NOT_FOUND', message: '发货单不存在' })
+        : { ...shipmentTrackingExample, available: false, state: 'unknown' as const, traces: [] },
+    ),
     on(orderAdminUpdateShipment, shipmentExample),
     on(orderAdminUpdateAddress, order === 'missing' ? adminOrderDetailExample : order),
     on(cityTreePublic, cityTreeExample),
@@ -84,6 +98,29 @@ describe('订单详情', () => {
     expect(await screen.findByText('订单加载失败')).toBeInTheDocument();
     expect(screen.getByText('订单不存在')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: zhName('重试') })).toBeInTheDocument();
+  });
+
+  it('says the operation log failed to load instead of showing an empty card', async () => {
+    stubApi(adminOrderDetailExample, { timelineFails: true });
+    renderAdmin(<OrderDetailPage id="9001" />, { identity: staff });
+
+    expect(await screen.findByText('操作记录加载失败')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: zhName('重试') })).toBeInTheDocument();
+  });
+
+  it('says the courier feed failed instead of claiming none is configured', async () => {
+    const user = userEvent.setup();
+    stubApi(
+      { ...adminOrderDetailExample, status: 'shipped', shipments: [shipmentExample] },
+      { trackingFails: true },
+    );
+    renderAdmin(<OrderDetailPage id="9001" />, { identity: staff });
+
+    await user.click(await screen.findByRole('button', { name: '查物流' }));
+
+    expect(await screen.findByText('发货单不存在')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: zhName('重试') })).toBeInTheDocument();
+    expect(screen.queryByText('未接入物流查询')).toBeNull();
   });
 
   it('names the tab after the order and links what the viewer may open', async () => {

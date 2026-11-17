@@ -26,6 +26,12 @@ const SORTS: { value: ProductRankingSort; label: string; money?: boolean }[] = [
  * by 支付金额 is a different set of products from the top 20 by 浏览量, so
  * re-sorting rows already fetched would quietly answer a different question.
  */
+/** What the ranking is showing now; the export beside it must ask for the same rows. */
+export interface ProductRankingState {
+  sortBy: ProductRankingSort;
+  limit: number;
+}
+
 export function ProductRankingTable({
   query,
   defaultSort = 'paidAmount',
@@ -39,7 +45,12 @@ export function ProductRankingTable({
   defaultLimit?: number;
   title?: string;
   controls?: boolean;
-  extra?: React.ReactNode;
+  /**
+   * The card's actions. A function receives the ranking the table is showing,
+   * so 导出 downloads the same sort and window as the rows on screen instead of
+   * a hard-coded one.
+   */
+  extra?: React.ReactNode | ((state: ProductRankingState) => React.ReactNode);
 }) {
   const [sortBy, setSortBy] = useState<ProductRankingSort>(defaultSort);
   const [limit, setLimit] = useState(defaultLimit);
@@ -70,7 +81,7 @@ export function ProductRankingTable({
               />
             </>
           ) : null}
-          {extra}
+          {typeof extra === 'function' ? extra({ sortBy, limit }) : extra}
         </Space>
       }
     >

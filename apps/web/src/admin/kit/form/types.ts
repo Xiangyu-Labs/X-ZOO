@@ -80,6 +80,21 @@ export type FieldSpec<N extends string = string> =
       showSearch?: boolean | undefined;
     })
   | (FieldBase<N> & {
+      /** Options come from the server for each typed keyword — no 100-row cap. */
+      kind: 'remoteSelect';
+      loadOptions: (
+        keyword: string,
+      ) => Promise<readonly import('./remote-select').RemoteSelectOption[]>;
+      cacheKey: string;
+      /** Labels for values already chosen; see `RemoteSelectProps.knownOptions`. */
+      knownOptions?: readonly import('./remote-select').RemoteSelectOption[] | undefined;
+      /** `false` skips the request, for a control whose options the role may not read. */
+      active?: boolean | undefined;
+      mode?: 'multiple' | undefined;
+      placeholder?: string | undefined;
+      allowClear?: boolean | undefined;
+    })
+  | (FieldBase<N> & {
       kind: 'radio';
       options: readonly SelectOption[];
       optionType?: 'default' | 'button' | undefined;

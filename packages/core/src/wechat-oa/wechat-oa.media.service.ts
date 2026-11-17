@@ -63,6 +63,7 @@ export async function list(ctx: Ctx, query: WechatMediaListQuery): Promise<Paged
   requirePermission(ctx, wechatOaPermissions['media:read']);
   const { rows, total } = await repo.listMedia(ctx.db, {
     ...(query.kind === undefined ? {} : { kind: query.kind }),
+    keyword: query.keyword,
     offset: (query.page - 1) * query.pageSize,
     limit: query.pageSize,
   });

@@ -20,12 +20,22 @@ import {
 } from '@shop/contracts/user/schemas';
 
 import { useRouteQuery } from '@/admin/api/hooks';
+import { callRoute } from '@/admin/api/call-route';
 import { ConfirmButton } from '@/admin/kit/confirm-button';
 import { ModalForm, useFormModal } from '@/admin/kit/form/modal-form';
+import type { RemoteSelectOption } from '@/admin/kit/form/remote-select';
 import { PageContainer } from '@/admin/kit/page-container';
 import { actionsColumn, idColumn, instantColumn, textColumn } from '@/admin/kit/table/columns';
 import { CrudTable } from '@/admin/kit/table/crud-table';
 import { Can } from '@/admin/session/can';
+
+/** The category picker searches names on the server instead of stopping at 100. */
+async function loadCategoryOptions(keyword: string): Promise<RemoteSelectOption[]> {
+  const page = await callRoute(userLabelCategoryList, {
+    query: { page: 1, pageSize: 50, ...(keyword === '' ? {} : { keyword }) },
+  });
+  return page.items.map((category) => ({ value: category.id, label: category.name }));
+}
 
 /**
  * 用户标签 and their categories, on one screen.
@@ -62,7 +72,7 @@ export function UserLabelsPage() {
 function LabelsTable() {
   const modal = useFormModal<UserLabel>();
   const categories = useRouteQuery(userLabelCategoryList, { query: { page: 1, pageSize: 100 } });
-  const categoryOptions = (categories.data?.items ?? []).map((category) => ({
+  const categoryOptions: RemoteSelectOption[] = (categories.data?.items ?? []).map((category) => ({
     value: category.id,
     label: category.name,
   }));
@@ -81,7 +91,14 @@ function LabelsTable() {
         }
         filters={[
           { kind: 'text', name: 'keyword', label: '名称' },
-          { kind: 'select', name: 'categoryId', label: '分类', options: categoryOptions },
+          {
+            kind: 'remoteSelect',
+            name: 'categoryId',
+            label: '分类',
+            loadOptions: loadCategoryOptions,
+            cacheKey: 'user.labelCategories',
+            knownOptions: categoryOptions,
+          },
         ]}
         columns={[
           idColumn<UserLabel>({ sortable: true }),
@@ -142,10 +159,22 @@ function LabelsTable() {
         fields={[
           { kind: 'text', name: 'name', label: '名称', maxLength: 64 },
           {
-            kind: 'select',
+            kind: 'remoteSelect',
             name: 'categoryId',
             label: '分类',
-            options: categoryOptions,
+            loadOptions: loadCategoryOptions,
+            cacheKey: 'user.labelCategories',
+            knownOptions: [
+              ...categoryOptions,
+              ...(modal.record?.categoryId
+                ? [
+                    {
+                      value: modal.record.categoryId,
+                      label: modal.record.categoryName ?? `#${modal.record.categoryId}`,
+                    },
+                  ]
+                : []),
+            ],
             required: false,
             help: '可以不选，未分类的标签照样能用',
           },

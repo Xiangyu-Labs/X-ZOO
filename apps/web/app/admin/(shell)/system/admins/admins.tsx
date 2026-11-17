@@ -19,9 +19,11 @@ import {
 } from '@shop/contracts/system/schemas';
 
 import { useRouteMutation, useRouteQuery } from '@/admin/api/hooks';
+import { callRoute } from '@/admin/api/call-route';
 import { ConfirmAction } from '@/admin/kit/confirm-action';
 import { ConfirmButton } from '@/admin/kit/confirm-button';
 import { ModalForm, useFormModal } from '@/admin/kit/form/modal-form';
+import type { RemoteSelectOption } from '@/admin/kit/form/remote-select';
 import type { FieldSpec } from '@/admin/kit/form/types';
 import { PageContainer } from '@/admin/kit/page-container';
 import { StatusTag } from '@/admin/kit/status-tag';
@@ -34,6 +36,14 @@ const ENABLED = {
   true: { label: '启用', color: 'success' },
   false: { label: '停用', color: 'default' },
 } as const;
+
+/** 身份 names for the picker; a shop has few, but the route pages anyway. */
+async function loadRoleOptions(keyword: string): Promise<RemoteSelectOption[]> {
+  const page = await callRoute(systemRoleList, {
+    query: { page: 1, pageSize: 50, ...(keyword === '' ? {} : { keyword }) },
+  });
+  return page.items.map((role) => ({ value: role.id, label: role.name }));
+}
 
 /**
  * 管理员.
@@ -56,7 +66,7 @@ export function AdminsPage() {
     { query: { page: 1, pageSize: 100 } },
     { enabled: mayReadRoles },
   );
-  const roleOptions = (roles.data?.items ?? []).map((role) => ({
+  const roleOptions: RemoteSelectOption[] = (roles.data?.items ?? []).map((role) => ({
     value: role.id,
     label: role.name,
   }));
@@ -90,11 +100,19 @@ export function AdminsPage() {
     },
     { kind: 'text', name: 'phone', label: '手机号' },
     {
-      kind: 'select',
+      kind: 'remoteSelect',
       name: 'roleIds',
       label: '身份',
       mode: 'multiple',
-      options: roleOptions,
+      loadOptions: loadRoleOptions,
+      cacheKey: 'system.roles',
+      knownOptions: [
+        ...roleOptions,
+        ...(modal.record?.roleIds ?? []).map((id, index) => ({
+          value: id,
+          label: modal.record?.roleNames[index] ?? `#${id}`,
+        })),
+      ],
       help: mayReadRoles
         ? '超级管理员不受身份限制，拥有全部权限'
         : '没有查看身份的权限，无法选择身份',
@@ -121,7 +139,16 @@ export function AdminsPage() {
             ],
           },
           ...(mayReadRoles
-            ? [{ kind: 'select' as const, name: 'roleId', label: '身份', options: roleOptions }]
+            ? [
+                {
+                  kind: 'remoteSelect' as const,
+                  name: 'roleId',
+                  label: '身份',
+                  loadOptions: loadRoleOptions,
+                  cacheKey: 'system.roles',
+                  knownOptions: roleOptions,
+                },
+              ]
             : []),
         ]}
         toolbar={
