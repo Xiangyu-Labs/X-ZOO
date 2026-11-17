@@ -393,23 +393,26 @@ function Detail({
                 className="product__promotion-original"
               />
             ) : null}
+          </View>
+          {/* 已售 sits under the countdown, so the price side is no taller than it needs to be. */}
+          <View className="product__promotion-side">
+            <View className="product__promotion-countdown">
+              <Text>距结束剩</Text>
+              <Countdown
+                endsAt={activity.endAt}
+                format="dhms"
+                variant="boxed"
+                onEnd={() => {
+                  setActivityVersion((value) => value + 1);
+                  return reload();
+                }}
+              />
+            </View>
             {product.salesDisplay > 0 ? (
               <Text className="product__promotion-sales">
                 已售 {formatSales(product.salesDisplay)}
               </Text>
             ) : null}
-          </View>
-          <View>
-            <Text>距结束剩</Text>
-            <Countdown
-              endsAt={activity.endAt}
-              format="dhms"
-              variant="boxed"
-              onEnd={() => {
-                setActivityVersion((value) => value + 1);
-                return reload();
-              }}
-            />
           </View>
         </View>
       ) : null}

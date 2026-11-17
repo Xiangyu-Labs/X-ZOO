@@ -646,7 +646,10 @@ describe('商品详情', () => {
     // The box is the price: no 2 人团 note under it, the sales inside it, no plain price row.
     const box = document.querySelector('.product__promotion') as HTMLElement;
     expect(within(box).queryByText('2 人团')).toBeNull();
-    expect(within(box).getByText('已售 128')).toBeTruthy();
+    // 已售 under the countdown (#95), not under the price.
+    const side = box.querySelector('.product__promotion-side') as HTMLElement;
+    expect(within(side).getByText('已售 128')).toBeTruthy();
+    expect(within(side).getByText('距结束剩')).toBeTruthy();
     expect(document.querySelector('.product__price-row')).toBeNull();
     const single = screen.getByRole('button', { name: /单独购买 ¥59.00/ });
     expect(single.className).toContain('product__buy--groupbuy-single');
@@ -782,7 +785,10 @@ describe('商品详情', () => {
     expect(screen.queryByRole('button', { name: '加入购物车' })).toBeNull();
     const box = document.querySelector('.product__promotion') as HTMLElement;
     expect(within(box).getByText('付款后 10 天内发货')).toBeTruthy();
-    expect(within(box).getByText('已售 128')).toBeTruthy();
+    // 已售 under the countdown (#93), not under the price.
+    const side = box.querySelector('.product__promotion-side') as HTMLElement;
+    expect(within(side).getByText('已售 128')).toBeTruthy();
+    expect(within(side).getByText('距结束剩')).toBeTruthy();
     expect(document.querySelector('.product__price-row')).toBeNull();
     expect(screen.queryByText('去预订')).toBeNull();
     expect(screen.getByRole('button', { name: '立即预订 ¥49.00' }).className).toContain(
