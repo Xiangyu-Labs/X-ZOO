@@ -56,14 +56,23 @@ export const logisticsPort: LogisticsPort = {
     const config = await ctx.config.get(logisticsConfig);
     if (config.provider !== 'aliyun-market' || config.appCode === '') return empty();
 
-    const cacheKey = `shipping:tracking:${input.companyCode}:${input.trackingNo}`;
+    // The phone tail is part of what is asked for 顺丰 (`callAliyun`): without
+    // it in the key, a lookup made before the phone was known — answered with
+    // nothing — would be served for the whole cache window to the one with it.
+    const tail = phoneTailFor(input);
+    const cacheKey = `shipping:tracking:${input.companyCode}:${input.trackingNo}${tail === '' ? '' : `:${tail}`}`;
     const cached = await readCache(ctx, cacheKey);
     if (cached !== null) return cached;
 
     const result = await callAliyun(ctx, config.appCode, input);
     // A result nobody could parse is still worth caching briefly: a carrier
     // that does not know the number yet will not know it a second later either.
-    await ctx.redis.set(cacheKey, JSON.stringify(result), 'EX', config.cacheMinutes * 60);
+    try {
+      await ctx.redis.set(cacheKey, JSON.stringify(result), 'EX', config.cacheMinutes * 60);
+    } catch (error) {
+      // The cache is an optimisation: Redis down must not blank the tracking tab.
+      ctx.logger.warn({ err: error }, '物流查询缓存写入失败');
+    }
     return result;
   },
 };
@@ -83,10 +92,7 @@ async function callAliyun(
   input: { companyCode: string; trackingNo: string; phone?: string },
 ): Promise<TrackingResult> {
   const type = aliyunExpressType(input.companyCode);
-  // The phone tail is 顺丰's requirement; another carrier's number with a
-  // `:1234` stuck on it is a number the vendor has never seen.
-  const phone = type === ALIYUN_SHUNFENG ? (input.phone ?? '') : '';
-  const query = aliyunQuery({ trackingNo: input.trackingNo, type, phone });
+  const query = aliyunQuery({ trackingNo: input.trackingNo, type, phone: phoneTailFor(input) });
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -116,6 +122,16 @@ async function callAliyun(
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * The phone digits sent with the number: 顺丰's requirement only; another
+ * carrier's number with a `:1234` stuck on it is a number the vendor has never
+ * seen. Its last four, which is all the vendor reads.
+ */
+function phoneTailFor(input: { companyCode: string; phone?: string }): string {
+  if (aliyunExpressType(input.companyCode) !== ALIYUN_SHUNFENG) return '';
+  return (input.phone ?? '').slice(-4);
 }
 
 /**
@@ -193,7 +209,13 @@ function stateOf(code: string): TrackingResult['state'] {
 }
 
 async function readCache(ctx: Ctx, key: string): Promise<TrackingResult | null> {
-  const raw = await ctx.redis.get(key);
+  let raw: string | null;
+  try {
+    raw = await ctx.redis.get(key);
+  } catch (error) {
+    ctx.logger.warn({ err: error }, '物流查询缓存读取失败');
+    return null;
+  }
   if (raw === null) return null;
   try {
     const parsed = JSON.parse(raw) as { state?: unknown; traces?: unknown };
