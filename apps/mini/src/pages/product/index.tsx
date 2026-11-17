@@ -620,7 +620,7 @@ function Detail({
           skus={activityDetail.skus}
           perOrderQuantity={activityDetail.perOrderQuantity}
           confirmText={activity.kind === 'groupbuy' ? '立即开团' : '立即预订'}
-          tone={activity.kind === 'presale' ? 'presale' : undefined}
+          tone={activity.kind === 'groupbuy' ? 'groupbuy' : 'presale'}
           onConfirm={(sku, quantity) => {
             setSkuId(sku.skuId);
             setActivitySheet(false);
@@ -647,7 +647,8 @@ function Detail({
         onConfirm={confirm}
         // 秒杀 (#100): 立即抢购 and the 秒杀价 in the box's pink, as on the action bar.
         labels={flashSale ? { buy: '立即抢购' } : undefined}
-        tone={flashSale ? 'flashsale' : undefined}
+        // 拼团's 单独购买 (#102): its price and 立即购买 in the same pink.
+        tone={flashSale ? 'flashsale' : activity?.kind === 'groupbuy' ? 'groupbuy' : undefined}
       />
       <Sheet visible={sheet === 'service'} onClose={() => setSheet(null)} title="服务说明">
         <View className="product__sheet-list">

@@ -442,6 +442,8 @@ describe('商品详情', () => {
     });
     fireEvent.click(within(sheet).getByRole('radio', { name: '白' }));
     fireEvent.click(within(sheet).getByRole('radio', { name: 'M' }));
+    // A plain product's sheet keeps the shop's colours: no 活动 pink (#102).
+    expect(sheet.closest('.shop-sheet')?.className).not.toContain('sku-sheet--');
     fireEvent.click(screen.getAllByRole('button', { name: '立即购买' }).at(-1) as HTMLElement);
 
     expect(useCheckoutDraft.getState().draft).toMatchObject({
@@ -674,9 +676,13 @@ describe('商品详情', () => {
       'product__buy--groupbuy',
     );
     fireEvent.click(await screen.findByRole('button', { name: '立即开团 ¥49.00' }));
+    // The sheet's price and button in the 活动 pink (#102).
     const confirm = await screen.findByRole('button', { name: '立即开团' });
-    // The 预售 pink is 预售's own (#101): 拼团's sheet keeps the shop's colours.
-    expect(confirm.closest('.activity-sku')?.className).not.toContain('activity-sku--presale');
+    const sheet = confirm.closest('.activity-sku') as HTMLElement;
+    expect(sheet.className).toContain('activity-sku--groupbuy');
+    expect(sheet.className).not.toContain('activity-sku--presale');
+    expect(confirm.className).toContain('activity-sku__confirm');
+    expect(sheet.querySelector('.shop-price.activity-sku__price')).not.toBeNull();
     fireEvent.click(confirm);
     await waitFor(() =>
       expect(useCheckoutDraft.getState().draft).toMatchObject({
@@ -750,8 +756,13 @@ describe('商品详情', () => {
     expect(await screen.findByRole('button', { name: '查看我的团' })).toBeTruthy();
     fireEvent.click(screen.getByRole('link', { name: /选择规格/ }));
     // The product's own SKU sheet, bought at the 单独购买 price: no 立即开团 in it.
-    expect(await screen.findByRole('button', { name: '立即购买' })).toBeTruthy();
+    const buy = await screen.findByRole('button', { name: '立即购买' });
     expect(screen.queryByRole('button', { name: '立即开团' })).toBeNull();
+    // Its price and 立即购买 in the 活动 pink, as on the action bar (#102).
+    const sheet = buy.closest('.shop-sheet') as HTMLElement;
+    expect(sheet.className).toContain('sku-sheet--groupbuy');
+    expect(sheet.querySelector('.shop-price.sku-sheet__price')).not.toBeNull();
+    expect(buy.className).toContain('sku-sheet__button--buy');
   });
 
   it('AGENTS 16 — reads the 拼团 again once signed in: a leader is sent to their team', async () => {
@@ -815,6 +826,7 @@ describe('商品详情', () => {
     const confirm = await screen.findByRole('button', { name: '立即预订' });
     const sheet = confirm.closest('.activity-sku') as HTMLElement;
     expect(sheet.className).toContain('activity-sku--presale');
+    expect(sheet.className).not.toContain('activity-sku--groupbuy');
     expect(confirm.className).toContain('activity-sku__confirm');
     expect(sheet.querySelector('.shop-price.activity-sku__price')).not.toBeNull();
     fireEvent.click(confirm);

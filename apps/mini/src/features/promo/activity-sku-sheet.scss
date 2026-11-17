@@ -78,10 +78,11 @@
   }
 }
 
-// 预售 (#101): the price and the button in the 预售 box's pink, as on the product page's action
-// bar. Two classes on the element, so they win over the price's and the button's own colours
-// whatever order the stylesheets load in.
-.activity-sku--presale {
+// 预售 (#101) and 拼团 (#102): the price and the button in the 预售 box's pink, as on the product
+// page's action bar. Two classes on the element, so they win over the price's and the button's
+// own colours whatever order the stylesheets load in.
+.activity-sku--presale,
+.activity-sku--groupbuy {
   .shop-price.activity-sku__price {
     color: #e9578c;
   }
