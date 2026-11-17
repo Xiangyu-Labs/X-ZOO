@@ -56,8 +56,12 @@ export interface SkuForSale {
   skuImageUrl: string | null;
   unitName: string | null;
   barCode: string | null;
+  /** The 限时秒杀 price while one is live for this SKU (PROMO-004), else the SKU's own. */
   unitPrice: string;
+  /** With a 秒杀价: the SKU's own price, struck through beside it. */
   originalUnitPrice: string | null;
+  /** The live 限时秒杀 that priced `unitPrice`, or null. */
+  flashSaleActivityId: number | null;
   costUnitPrice: string | null;
   stock: number;
   /** Kilograms, as stored. */
@@ -83,8 +87,15 @@ export interface CatalogPort {
    * Variants by id. An id with no row is simply absent from the map; a
    * soft-deleted one comes back with `deleted: true`, because the cart has to
    * render the row in order to let the shopper remove it.
+   *
+   * `now` decides whether a 限时秒杀 window holds, so the cart, the preview and
+   * the order all price a line the same way at the same instant.
    */
-  getSkusForSale(db: DbOrTx, skuIds: readonly number[]): Promise<Map<number, SkuForSale>>;
+  getSkusForSale(
+    db: DbOrTx,
+    skuIds: readonly number[],
+    now: Date,
+  ): Promise<Map<number, SkuForSale>>;
 }
 
 let registered: CatalogPort | undefined;

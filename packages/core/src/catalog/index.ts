@@ -61,6 +61,7 @@ import { catalogSalePort } from './catalog.sale';
 import { catalogStockPort } from './catalog.stock';
 import { registerDashboardContributor } from '../system';
 import { catalogDashboardContributor } from './catalog.dashboard';
+import { registerFlashSaleProductPromotion } from './catalog.flashsale';
 // The config group registers itself on import.
 import './catalog.config';
 
@@ -68,6 +69,8 @@ import './catalog.config';
 export function registerCatalogDomain(): void {
   registerStockPort(catalogStockPort);
   registerCatalogPort(catalogSalePort);
+  // 限时秒杀 is the catalog's own sale mode (#97); 预售 and 拼团 register from their domains.
+  registerFlashSaleProductPromotion();
   // 内容安全: a review picture WeChat calls risky comes off the review (C09).
   registerMediaRiskHandler('review_image', hideRiskyReviewImage);
   // …and one WeChat cannot check puts the review back in 待审核 (CONTENT-006).
@@ -212,6 +215,7 @@ export {
   associateProductPromotion,
   promotionTxContext,
   assertProductPromotionPurchase,
+  productPromotionAtoms,
   type ProductPromotionPort,
 } from './catalog.promotion';
 export { productPromotionForm } from './catalog.promotion.rules';

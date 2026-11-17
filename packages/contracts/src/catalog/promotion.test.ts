@@ -35,6 +35,26 @@ describe('product promotion form', () => {
       }).success,
     ).toBe(false);
   });
+  it('takes 限时秒杀 as a third mode and requires its start time', () => {
+    const flash = { endAt: settings.endAt, skus: settings.skus };
+    const parsed = productPromotionInput.safeParse({
+      mode: 'flashsale',
+      expectedVersion: 0,
+      settings: flash,
+    });
+    expect(parsed.success).toBe(false);
+    if (!parsed.success)
+      expect(parsed.error.issues.map((issue) => [issue.path.join('.'), issue.message])).toEqual([
+        ['settings.startAt', '请选择秒杀开始时间'],
+      ]);
+    expect(
+      productPromotionInput.safeParse({
+        mode: 'flashsale',
+        expectedVersion: 0,
+        settings: { ...flash, startAt: '2099-12-01T10:00:00+08:00' },
+      }).success,
+    ).toBe(true);
+  });
   it('gives an actionable Chinese message for an empty activity price', () => {
     const parsed = productPromotionInput.safeParse({
       mode: 'presale',

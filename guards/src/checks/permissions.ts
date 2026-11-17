@@ -1,5 +1,6 @@
 import { allRoutes, routeSources } from '@shop/contracts/routes';
 import { allPermissionAtoms, isKnownPermission } from '@shop/core/auth';
+import { productPromotionAtoms } from '@shop/core/catalog';
 import { allConfigGroups } from '@shop/core/kernel';
 import { defineCheck, fail, result, type Finding } from '../framework';
 import { menuPermissions } from '../lib/menu';
@@ -17,6 +18,9 @@ import '../lib/install-domains';
  *      checkbox in the role editor that grants nothing, and usually means a
  *      route borrowed a neighbour's atom instead — the way 商品保障 must not
  *      hide inside the 商品参数 group (CAT-016).
+ *
+ * Atoms the product editor's sale mode checks (`productPromotionAtoms`) count as used, as config
+ * groups' atoms do: one product route serves every mode.
  *
  * The implicit atoms every admin holds (`auth:profile:*`) are exempt from (3):
  * they are granted by `IMPLICIT_ADMIN_PERMISSIONS`, not by a role.
@@ -94,6 +98,21 @@ export const permissions = defineCheck(
         }
         use(atom, `config group ${group.group}`);
       }
+    }
+
+    // The product editor's sale mode (预售/拼团/秒杀) checks `<kind>:activity:read|write` in
+    // `catalog.promotion.ts` for each kind it registers; 限时秒杀 has no route of its own.
+    for (const atom of productPromotionAtoms()) {
+      if (!isKnownPermission(atom)) {
+        findings.push(
+          fail(
+            'product sale mode',
+            `checks "${atom}", which no permissions.ts declares — nobody but the super admin can use that mode`,
+          ),
+        );
+        continue;
+      }
+      use(atom, 'product sale mode');
     }
 
     for (const atom of declared) {

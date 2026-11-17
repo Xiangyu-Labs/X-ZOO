@@ -342,6 +342,7 @@ async function buildDraft(
   let skus = await catalog.getSkusForSale(
     db,
     requested.map((line) => line.skuId),
+    ctx.clock.now(),
   );
   await catalog.assertPurchase?.(
     ctx,
@@ -355,6 +356,7 @@ async function buildDraft(
     skus = await catalog.getSkusForSale(
       db,
       requested.map((line) => line.skuId),
+      ctx.clock.now(),
     );
   }
   const purchased = await repo.purchasedQuantity(db, {
@@ -530,6 +532,9 @@ function snapshotOf(sku: SkuForSale): OrderItemSnapshot {
     ...(sku.barCode ? { barCode: sku.barCode } : {}),
     ...(sku.weight ? { weight: sku.weight } : {}),
     ...(sku.volume ? { volume: sku.volume } : {}),
+    ...(sku.flashSaleActivityId !== null
+      ? { flashSaleActivityId: String(sku.flashSaleActivityId) }
+      : {}),
   };
 }
 

@@ -108,3 +108,46 @@ describe('售价 against 原价', () => {
     ]);
   });
 });
+
+describe('秒杀价 against 单独购买价', () => {
+  const promotion = (skus: object[]) => ({
+    mode: 'flashsale',
+    expectedVersion: 0,
+    settings: { startAt: '2099-12-01T10:00:00+08:00', endAt: '2099-12-01T12:00:00+08:00', skus },
+  });
+  const parse = (skus: object[], flash: object[], specMode = false) =>
+    adminProductForm.safeParse({
+      ...base,
+      kind: 'physical',
+      specMode,
+      specs: specMode ? [{ name: '颜色', values: [{ value: '红' }, { value: '蓝' }] }] : [],
+      skus,
+      promotion: promotion(flash),
+    });
+  const messages = (result: ReturnType<typeof parse>) =>
+    result.success ? [] : result.error.issues.map((issue) => [issue.path.join('.'), issue.message]);
+
+  it('takes a 秒杀价 below the SKU price', () => {
+    expect(parse([{ ...sku, stock: 1 }], [{ specValues: {}, price: '29.99' }]).success).toBe(true);
+  });
+
+  it('refuses one equal to or above it, naming the spec it is on', () => {
+    expect(messages(parse([{ ...sku, stock: 1 }], [{ specValues: {}, price: '30.00' }]))).toEqual([
+      ['promotion.settings.skus.0.price', '秒杀价必须低于单独购买价'],
+    ]);
+    const red = { ...sku, specValues: { 颜色: '红' }, stock: 1 };
+    const blue = { ...red, specValues: { 颜色: '蓝' }, isDefault: false };
+    expect(
+      messages(
+        parse(
+          [red, blue],
+          [
+            { specValues: { 颜色: '红' }, price: '20.00' },
+            { specValues: { 颜色: '蓝' }, price: '31.00' },
+          ],
+          true,
+        ),
+      ),
+    ).toEqual([['promotion.settings.skus.1.price', '「蓝」秒杀价必须低于单独购买价']]);
+  });
+});

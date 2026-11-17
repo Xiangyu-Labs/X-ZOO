@@ -1251,13 +1251,15 @@ describe('migration 0013 — editors get what their editor reads', () => {
     '0015_admin_user_permission_requirements.sql',
     '0018_coupon_grant_permission_requirements.sql',
     '0021_coupon_template_picker_requirements.sql',
+    '0029_flash_sale.sql',
   ].map((file) => fileURLToPath(new URL(`../../../db/migrations/${file}`, import.meta.url)));
   const sql = () => readFileSync(MIGRATION, 'utf8');
   const runMigration = () => harness.db.handle.pool.query(sql());
 
-  it('is the requirements table, pair for pair, together with 0015, 0018 and 0021', () => {
+  it('is the requirements table, pair for pair, together with 0015, 0018, 0021 and 0029', () => {
     const pairs = [sql(), ...LATER.map((file) => readFileSync(file, 'utf8'))].flatMap((text) =>
-      [...text.matchAll(/\('([a-z:-]+)', '([a-z:-]+)'\)/g)].map(
+      // Atoms only (`a:b:c`): 0029 also creates an enum, `ENUM('active', 'ended')`.
+      [...text.matchAll(/\('([a-z-]+:[a-z:-]+)', '([a-z-]+:[a-z:-]+)'\)/g)].map(
         ([, atom, needs]) => `${atom} -> ${needs}`,
       ),
     );

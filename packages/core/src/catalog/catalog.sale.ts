@@ -1,4 +1,5 @@
 import { assertProductPromotionPurchase } from './catalog.promotion';
+import { flashSalePrices } from './catalog.flashsale';
 import type { DbOrTx } from '@shop/db';
 
 // Through `order/index.ts`, which is the only door `boundaries/core-cross-domain`
@@ -23,7 +24,11 @@ import * as repo from './catalog.repo';
  */
 export const catalogSalePort: CatalogPort = {
   assertPurchase: assertProductPromotionPurchase,
-  async getSkusForSale(db: DbOrTx, skuIds: readonly number[]): Promise<Map<number, SkuForSale>> {
+  async getSkusForSale(
+    db: DbOrTx,
+    skuIds: readonly number[],
+    now: Date,
+  ): Promise<Map<number, SkuForSale>> {
     const out = new Map<number, SkuForSale>();
     if (skuIds.length === 0) return out;
 
@@ -36,6 +41,8 @@ export const catalogSalePort: CatalogPort = {
     // or the shopper is left with a total they cannot account for.
     const products = await repo.productsByIds(db, productIds);
     const categoryIds = await repo.categoryIdsFor(db, productIds);
+    // 限时秒杀 (PROMO-004): the live 秒杀价 is the price, everywhere this port is read.
+    const flash = await flashSalePrices(db, skus, now);
 
     for (const sku of skus.values()) {
       const product = products.get(sku.productId);
@@ -56,8 +63,9 @@ export const catalogSalePort: CatalogPort = {
         skuImageUrl: sku.imageUrl,
         unitName: product.unitName,
         barCode: sku.barCode,
-        unitPrice: sku.price,
-        originalUnitPrice: sku.originalPrice,
+        unitPrice: flash.get(sku.id)?.price ?? sku.price,
+        originalUnitPrice: flash.has(sku.id) ? sku.price : sku.originalPrice,
+        flashSaleActivityId: flash.get(sku.id)?.activityId ?? null,
         costUnitPrice: sku.cost,
         stock: sku.stock,
         weight: sku.weight,

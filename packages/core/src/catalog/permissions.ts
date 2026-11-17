@@ -50,3 +50,18 @@ export const catalogPermissions = definePermissions(
   },
   { section: '商品' },
 );
+
+/**
+ * 限时秒杀 (#97), the third sale mode in the product editor. It has no screen of
+ * its own: `read` shows the mode's settings in 商品编辑, `write` changes them.
+ * Its own domain prefix, like `presale:` and `groupbuy:`, so the role editor
+ * lists it under 营销 beside them.
+ */
+export const flashSalePermissions = definePermissions(
+  'flashsale',
+  {
+    'activity:read': '查看限时秒杀设置',
+    'activity:write': '设置/关闭限时秒杀',
+  },
+  { section: '营销' },
+);

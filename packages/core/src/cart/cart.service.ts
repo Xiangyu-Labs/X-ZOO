@@ -62,6 +62,7 @@ async function loadCart(ctx: Ctx, db: DbOrTx, userId: number): Promise<EnrichedR
   const skus = await resolveCatalogPort().getSkusForSale(
     db,
     rows.map((row) => row.skuId),
+    ctx.clock.now(),
   );
   const purchased = await lifetimePurchases(db, userId, [...skus.values()]);
   return rows.map((row) => {
@@ -192,7 +193,7 @@ export async function count(ctx: Ctx): Promise<CartCount> {
 // ---------------------------------------------------------------------------
 
 async function skuOrRefuse(ctx: Ctx, db: DbOrTx, skuId: number): Promise<SkuForSale> {
-  const skus = await resolveCatalogPort().getSkusForSale(db, [skuId]);
+  const skus = await resolveCatalogPort().getSkusForSale(db, [skuId], ctx.clock.now());
   const sku = skus.get(skuId);
   if (!sku || sku.deleted || !sku.onSale) throw new DomainError('CART_SKU_NOT_AVAILABLE');
   await resolveCatalogPort().assertPurchase?.(ctx, db, [sku.productId], 'normal');
@@ -417,6 +418,7 @@ export async function rebuy(ctx: Ctx, body: CartRebuyBody): Promise<CartRebuyRes
     const skus = await resolveCatalogPort().getSkusForSale(
       tx,
       lines.map((line) => line.skuId),
+      ctx.clock.now(),
     );
     const skipped: string[] = [];
     let added = 0;

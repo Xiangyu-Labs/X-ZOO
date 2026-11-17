@@ -228,6 +228,7 @@ function sku(overrides: Partial<SkuForSale> = {}): SkuForSale {
     barCode: null,
     unitPrice: '10.00',
     originalUnitPrice: null,
+    flashSaleActivityId: null,
     costUnitPrice: null,
     stock: 10,
     weight: null,

@@ -1809,7 +1809,7 @@ A successful group updates leader and members once, without repeated notificatio
 
 ### CORE-002
 
-The shop has no 砍价, 秒杀, 抽奖, 直播, 分销, 积分, 签到, 付费会员, 充值, 余额支付, 支付宝, 线下支付, 核销, 门店自提, 自建客服 or the other features `pnpm guards`' `retired` check lists: no identifier or URL token for any of them exists in the application source or the mini-program (with `@shop/api-client` and `@shop/storefront-blocks`), and every route file is described by a contract, so there is no unlisted surface for one to come back through.
+The shop has no 砍价, stand-alone 秒杀 module, 抽奖, 直播, 分销, 积分, 签到, 付费会员, 充值, 余额支付, 支付宝, 线下支付, 核销, 门店自提, 自建客服 or the other features `pnpm guards`' `retired` check lists: no identifier or URL token for any of them exists in the application source or the mini-program (with `@shop/api-client` and `@shop/storefront-blocks`), and every route file is described by a contract, so there is no unlisted surface for one to come back through. 限时秒杀 exists only as a product sale mode (`flashsale`, PROMO-004): a per-SKU price on ordinary checkout, with no pages, routes, orders or stock of its own.
 
 - `guards/src/checks/retired.test.ts::the retired blacklist > finds no retired identifier in the workspace or the mini-program`
 - `guards/src/checks/contracts.test.ts::contracts and route files > leaves no route file that no contract describes`
@@ -2330,9 +2330,9 @@ The mini-program's splash (`app/config.splashAd.link`) is a `LinkTarget`: the st
 
 ### SYS-022
 
-A role given an editor's write atom is given the reads its pickers need, as ordinary rows, when the role is saved (`permission-requirements.ts`); migrations 0013, 0015, 0018 and 0021 applied the same table to the roles that already existed, and together are that table pair for pair. 0015 also gave every role that handles 待处理任务 the new 失败的后台任务 atom. None touches a role that holds none of the listed atoms.
+A role given an editor's write atom is given the reads its pickers need, as ordinary rows, when the role is saved (`permission-requirements.ts`); migrations 0013, 0015, 0018, 0021 and 0029 applied the same table to the roles that already existed, and together are that table pair for pair. 0029 also gave every role that may edit presales the new 限时秒杀 atoms. 0015 also gave every role that handles 待处理任务 the new 失败的后台任务 atom. None touches a role that holds none of the listed atoms.
 
-- `packages/core/src/system/system.int.test.ts::migration 0013 — editors get what their editor reads > is the requirements table, pair for pair, together with 0015, 0018 and 0021`
+- `packages/core/src/system/system.int.test.ts::migration 0013 — editors get what their editor reads > is the requirements table, pair for pair, together with 0015, 0018, 0021 and 0029`
 - `packages/core/src/system/system.int.test.ts::migration 0015 — 管理员 and 用户 editors, and 失败的后台任务 > SYS-022 — completes the two editors, gives effect handlers the failed-jobs page, and nothing else`
 - `packages/core/src/system/system.int.test.ts::migration 0018 — whoever hands out coupons reads the screens that do it > completes a role that may grant coupons, and nothing else`
 - `packages/core/src/system/system.int.test.ts::migration 0021 — whoever edits coupons reads the catalog its pickers show > completes a role that may edit coupons, and nothing else`
@@ -2820,7 +2820,7 @@ A page holds at most one 悬浮客服 (`floatingContact`: a fixed button, so a s
 
 ### PROMO-001
 
-A product has at most one current presale or group-buy campaign. Legacy conflicts require an
+A product has at most one current presale, group-buy or flash-sale campaign. Legacy conflicts require an
 explicit choice; switching mode closes old campaigns without deleting their history.
 
 - `packages/core/src/catalog/catalog.promotion.int.test.ts::PROMO-001 — one current promotion per product > serializes two legacy creates across promotion kinds`
@@ -2844,3 +2844,19 @@ cannot bypass its price or shipping terms. After expiry ordinary buying is avail
 
 - `packages/core/src/catalog/catalog.promotion.int.test.ts::PROMO-003 — presale checkout cannot be bypassed > refuses normal preview, normal creation and adding to the cart`
 - `packages/core/src/catalog/catalog.promotion.int.test.ts::PROMO-003 — presale checkout cannot be bypassed > returns to ordinary buying on expiry and creates a new campaign when reenabled`
+
+### PROMO-004
+
+A 限时秒杀 is a per-SKU 秒杀价 that ordinary checkout (cart, preview, order) charges only while
+`startAt <= now < endAt`, and only while it is below the SKU's own price; outside the window the
+storefront shows no campaign and the SKU's own price applies. It has no order kind, stock or quota
+of its own, so cancel and refund restore the product's stock and sales through the ordinary
+inverses. It is exclusive with presale and group-buy, and an ended flash sale is never edited back
+to life: saving after its window creates a new one.
+
+- `packages/core/src/catalog/catalog.promotion.int.test.ts::PROMO-004 — 限时秒杀 prices ordinary checkout only inside its window > charges the 秒杀价 inside [startAt, endAt) and the own price outside it`
+- `packages/core/src/catalog/catalog.promotion.int.test.ts::PROMO-004 — 限时秒杀 prices ordinary checkout only inside its window > restores stock when a 秒杀 order is cancelled`
+- `packages/core/src/catalog/catalog.promotion.int.test.ts::PROMO-004 — 限时秒杀 prices ordinary checkout only inside its window > refuses a 秒杀价 that is not below the SKU price, naming the spec`
+- `packages/core/src/catalog/catalog.promotion.int.test.ts::PROMO-004 — 限时秒杀 prices ordinary checkout only inside its window > stops charging the 秒杀价 once the SKU price is lowered beneath it`
+- `packages/core/src/catalog/catalog.promotion.int.test.ts::PROMO-004 — 限时秒杀 prices ordinary checkout only inside its window > is exclusive with presale and group-buy`
+- `packages/core/src/catalog/catalog.promotion.int.test.ts::PROMO-004 — 限时秒杀 prices ordinary checkout only inside its window > never revives an ended flash sale: saving after the window creates a new one`

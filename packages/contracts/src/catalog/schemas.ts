@@ -653,6 +653,28 @@ export const adminProductForm = z
       });
     }
 
+    // 秒杀价 is shown with the SKU's 售价 struck through beside it, so it must be below it. Core
+    // checks again (a SKU price lowered later just stops the 秒杀价 applying, PROMO-004).
+    if (value.promotion?.mode === 'flashsale' && value.promotion.settings) {
+      const comboOf = (specValues: Record<string, string>) =>
+        JSON.stringify(Object.entries(specValues).sort(([a], [b]) => a.localeCompare(b)));
+      const salePrice = new Map(value.skus.map((sku) => [comboOf(sku.specValues), sku.price]));
+      for (const [index, sku] of value.promotion.settings.skus.entries()) {
+        const price = salePrice.get(comboOf(sku.specValues));
+        if (price === undefined || !money.safeParse(sku.price).success) continue;
+        if (fen(sku.price) < fen(price)) continue;
+        const name = Object.values(sku.specValues).join('/');
+        ctx.addIssue({
+          code: 'custom',
+          path: ['promotion', 'settings', 'skus', index, 'price'],
+          message:
+            value.specMode && name !== ''
+              ? `「${name}」秒杀价必须低于单独购买价`
+              : '秒杀价必须低于单独购买价',
+        });
+      }
+    }
+
     const combos = value.skus.map((sku) =>
       Object.keys(sku.specValues)
         .sort()

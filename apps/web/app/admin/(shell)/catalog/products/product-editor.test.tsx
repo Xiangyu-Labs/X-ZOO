@@ -285,7 +285,7 @@ describe('商品编辑器', () => {
     });
   });
 
-  it('puts 预售与拼单 with the prices, above 详情', async () => {
+  it('puts 预售、拼单与秒杀 with the prices, above 详情', async () => {
     stubApi();
     renderAdmin(withStubAssets(<ProductEditorPage productId="1" />), { identity: editor });
 
@@ -293,8 +293,8 @@ describe('商品编辑器', () => {
     const titles = Array.from(document.querySelectorAll('.ant-card-head-title')).map(
       (node) => node.textContent,
     );
-    expect(titles.indexOf('预售与拼单')).toBeGreaterThan(titles.indexOf('价格与规格'));
-    expect(titles.indexOf('预售与拼单')).toBeLessThan(titles.indexOf('详情'));
+    expect(titles.indexOf('预售、拼单与秒杀')).toBeGreaterThan(titles.indexOf('价格与规格'));
+    expect(titles.indexOf('预售、拼单与秒杀')).toBeLessThan(titles.indexOf('详情'));
   });
 
   it('refuses to save a 售价 above its 原价, naming the spec, without calling the server', async () => {

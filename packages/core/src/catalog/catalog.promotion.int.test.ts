@@ -4,6 +4,8 @@ import { eq, sql } from 'drizzle-orm';
 import { presaleActivities } from '@shop/db/schema/presale';
 import { groupbuyActivities } from '@shop/db/schema/groupbuy';
 import { productPromotions } from '@shop/db/schema/catalog-promotion';
+import { flashSaleActivities } from '@shop/db/schema/flash-sale';
+import { orderItems } from '@shop/db/schema/order';
 import { createTestCtx, forkTestCtx, runConcurrently, type TestCtx } from '@shop/testing';
 import { presaleActivityForm } from '@shop/contracts/presale/schemas';
 import { groupbuyActivityForm } from '@shop/contracts/groupbuy/schemas';
@@ -301,6 +303,159 @@ describe('PROMO-003 — presale checkout cannot be bypassed', () => {
       .from(presaleActivities)
       .where(eq(presaleActivities.id, Number(product.promotion!.activityId)));
     expect(old?.status).toBe('ended');
+  });
+});
+
+// 2026-06-01 10:00–12:00 in Shanghai: NOW (08:00 Shanghai) is before the window.
+const FLASH_START = '2026-06-01T02:00:00.000Z';
+const FLASH_END = '2026-06-01T04:00:00.000Z';
+function flash(version = 0, price = '59.00'): ProductPromotionInput {
+  return {
+    mode: 'flashsale',
+    expectedVersion: version,
+    settings: { startAt: FLASH_START, endAt: FLASH_END, skus: [{ specValues: {}, price }] },
+  };
+}
+const buyNow = (skuId: string) => ({
+  source: 'buy-now' as const,
+  kind: 'normal' as const,
+  item: { skuId, quantity: 1 },
+});
+
+describe('PROMO-004 — 限时秒杀 prices ordinary checkout only inside its window', () => {
+  it('charges the 秒杀价 inside [startAt, endAt) and the own price outside it', async () => {
+    const product = await makeProduct(harness.ctx, {
+      kind: 'virtual_manual',
+      promotion: flash(),
+    });
+    expect(product.promotion).toMatchObject({ mode: 'flashsale', conflict: false });
+    const ctx = harness.as(userActor(await makeUser(harness)));
+    const skuId = product.skus[0]!.id;
+
+    expect((await storefront.productDetail(harness.ctx, { id: product.id })).promotion).toBeNull();
+    expect((await order.preview(ctx, checkoutPreviewBody.parse(buyNow(skuId)))).payableAmount).toBe(
+      '99.00',
+    );
+
+    harness.clock.set(FLASH_START);
+    const page = await storefront.productDetail(harness.ctx, { id: product.id });
+    expect(page.promotion).toMatchObject({
+      kind: 'flashsale',
+      price: '59.00',
+      originalPrice: '99.00',
+      endAt: FLASH_END,
+      canBuy: true,
+    });
+    // Not a presale: the cart stays open.
+    await expect(cart.addItem(ctx, { skuId, quantity: 1 })).resolves.toBeDefined();
+    const preview = await order.preview(ctx, checkoutPreviewBody.parse(buyNow(skuId)));
+    expect(preview.lines[0]).toMatchObject({ unitPrice: '59.00' });
+    expect(preview.payableAmount).toBe('59.00');
+    const placed = await order.create(
+      ctx,
+      checkoutCreateBody.parse({ ...buyNow(skuId), idempotencyKey: 'flash-inside' }),
+    );
+    expect(placed.payableAmount).toBe('59.00');
+    const [line] = await harness.ctx.db
+      .select()
+      .from(orderItems)
+      .where(eq(orderItems.orderId, Number(placed.id)));
+    expect(line?.snapshot.flashSaleActivityId).toBe(product.promotion!.activityId);
+
+    harness.clock.set(FLASH_END);
+    expect((await storefront.productDetail(harness.ctx, { id: product.id })).promotion).toBeNull();
+    expect((await order.preview(ctx, checkoutPreviewBody.parse(buyNow(skuId)))).payableAmount).toBe(
+      '99.00',
+    );
+  });
+
+  it('restores stock when a 秒杀 order is cancelled', async () => {
+    const product = await makeProduct(harness.ctx, {
+      kind: 'virtual_manual',
+      promotion: flash(),
+    });
+    harness.clock.set(FLASH_START);
+    const ctx = harness.as(userActor(await makeUser(harness)));
+    const placed = await order.create(
+      ctx,
+      checkoutCreateBody.parse({ ...buyNow(product.skus[0]!.id), idempotencyKey: 'flash-cancel' }),
+    );
+    expect((await service.adminProductDetail(harness.ctx, { id: product.id })).skus[0]?.stock).toBe(
+      9,
+    );
+    await order.cancel(ctx, { id: placed.id }, {});
+    const after = await service.adminProductDetail(harness.ctx, { id: product.id });
+    expect(after.skus[0]?.stock).toBe(10);
+    expect(after.sales).toBe(0);
+  });
+
+  it('refuses a 秒杀价 that is not below the SKU price, naming the spec', async () => {
+    await expect(makeProduct(harness.ctx, { promotion: flash(0, '99.00') })).rejects.toMatchObject({
+      code: 'CATALOG_FLASH_SALE_PRICE_TOO_HIGH',
+    });
+    expect(await harness.ctx.db.select().from(flashSaleActivities)).toHaveLength(0);
+  });
+
+  it('stops charging the 秒杀价 once the SKU price is lowered beneath it', async () => {
+    const product = await makeProduct(harness.ctx, { promotion: flash() });
+    const body = edit(product);
+    body.skus[0]!.price = '49.00';
+    await service.adminProductUpdate(harness.ctx, { id: product.id }, body);
+    harness.clock.set(FLASH_START);
+    const ctx = harness.as(userActor(await makeUser(harness)));
+    expect(
+      (await order.preview(ctx, checkoutPreviewBody.parse(buyNow(product.skus[0]!.id))))
+        .payableAmount,
+    ).toBe('49.00');
+  });
+
+  it('is exclusive with presale and group-buy', async () => {
+    const product = await makeProduct(harness.ctx, { promotion: flash() });
+    await expect(
+      presale.adminActivityCreate(
+        harness.ctx,
+        presaleActivityForm.parse({
+          productId: product.id,
+          title: '预售',
+          price: '49.00',
+          stock: 10,
+          startAt: NOW,
+          endAt: END,
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'CATALOG_PROMOTION_CONFLICT' });
+    const switched = await service.adminProductUpdate(
+      harness.ctx,
+      { id: product.id },
+      edit(product, input('presale', product.promotion!.version)),
+    );
+    expect(switched.promotion?.mode).toBe('presale');
+    const [old] = await harness.ctx.db
+      .select()
+      .from(flashSaleActivities)
+      .where(eq(flashSaleActivities.id, Number(product.promotion!.activityId)));
+    expect(old?.status).toBe('ended');
+  });
+
+  it('never revives an ended flash sale: saving after the window creates a new one', async () => {
+    const product = await makeProduct(harness.ctx, { promotion: flash() });
+    harness.clock.set('2026-06-02T00:00:00.000Z');
+    const current = await service.adminProductDetail(harness.ctx, { id: product.id });
+    const promotion = flash(current.promotion!.version);
+    promotion.activityId = current.promotion!.activityId!;
+    promotion.settings!.startAt = '2026-06-03T02:00:00.000Z';
+    promotion.settings!.endAt = '2026-06-03T04:00:00.000Z';
+    const saved = await service.adminProductUpdate(
+      harness.ctx,
+      { id: product.id },
+      edit(current, promotion),
+    );
+    expect(saved.promotion?.activityId).not.toBe(product.promotion?.activityId);
+    const [old] = await harness.ctx.db
+      .select()
+      .from(flashSaleActivities)
+      .where(eq(flashSaleActivities.id, Number(product.promotion!.activityId)));
+    expect(old).toMatchObject({ status: 'ended', endAt: new Date(FLASH_END) });
   });
 });
 

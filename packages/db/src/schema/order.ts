@@ -248,6 +248,8 @@ export interface OrderItemSnapshot {
   volume?: string;
   /** Activity context, when `orders.kind <> 'normal'`. */
   activity?: { kind: 'groupbuy' | 'presale'; activityId: string; title: string };
+  /** The 限时秒杀 that priced this line of an ordinary order (PROMO-004). */
+  flashSaleActivityId?: string;
   /**
    * What each checkout rule (`PricingContributor`s, then the coupon) took off
    * this line, in the order applied; `amount` negative, e.g. `-10.00`. Written

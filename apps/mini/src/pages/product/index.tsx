@@ -52,9 +52,9 @@ import { strikePrice } from '@/lib/money';
 
 type Product = ResponseOf<'catalog.productDetail'>;
 
-/** The 拼团 / 预售 the product is sold under now, as the price box and action bar read it. */
+/** The 拼团 / 预售 / 秒杀 the product is sold under now, as the price box and action bar read it. */
 interface ProductActivity {
-  kind: 'groupbuy' | 'presale';
+  kind: 'groupbuy' | 'presale' | 'flashsale';
   activityId: string;
   price: string;
   endAt: string;
@@ -175,7 +175,9 @@ function Detail({
           note:
             currentPromotion.kind === 'presale'
               ? shipText(currentPromotion.shipAfterDays ?? 0)
-              : `${currentPromotion.seatsRequired} 人团`,
+              : currentPromotion.kind === 'groupbuy'
+                ? `${currentPromotion.seatsRequired} 人团`
+                : '',
         }
       : undefined;
   const [activitySheet, setActivitySheet] = useState(false);
@@ -212,6 +214,15 @@ function Detail({
   const activityFrom =
     !selectedActivitySku && new Set(activityDetail?.skus.map((sku) => sku.price) ?? []).size > 1;
   const singlePrice = product.skus.find((sku) => sku.id === skuId)?.price ?? product.price;
+  // 限时秒杀 is an ordinary order the server prices at the 秒杀价: the ordinary SKU sheet, with
+  // the 秒杀价 on the SKUs that have one, so the sheet says what checkout will charge.
+  const flashSale = activity?.kind === 'flashsale';
+  const flashPrices = new Map(
+    flashSale ? (activityDetail?.skus ?? []).map((sku) => [sku.skuId, sku.price]) : [],
+  );
+  const sheetSkus = flashSale
+    ? product.skus.map((sku) => ({ ...sku, price: flashPrices.get(sku.id) ?? sku.price }))
+    : product.skus;
   const activityStrike = activityPrice ? strikePrice(activityPrice, singlePrice) : null;
   const openActivity = async () => {
     if (!(await requireLogin(route))) return;
@@ -378,7 +389,11 @@ function Detail({
               className="product__promotion-price"
             />
             <Text className="product__promotion-label">
-              {activity.kind === 'presale' ? '限时预售补贴' : `${activity.seatsRequired}人拼团价`}
+              {activity.kind === 'presale'
+                ? '限时预售补贴'
+                : activity.kind === 'flashsale'
+                  ? '限时秒杀⚡️'
+                  : `${activity.seatsRequired}人拼团价`}
             </Text>
             {/* 拼团's note is the team size (2 人团), already in the label beside the price. */}
             {activity.kind === 'presale' ? (
@@ -433,6 +448,7 @@ function Detail({
             {activity?.kind === 'presale' ? (
               <Text className="product__presale-badge">预售</Text>
             ) : null}
+            {flashSale ? <Text className="product__flashsale-badge">秒杀中</Text> : null}
           </Text>
           <Pressable label="分享" className="product__share" onClick={() => setSheet('share')}>
             <Icon name="share" />
@@ -462,7 +478,9 @@ function Detail({
           value={chosenText}
           // In a team already, 立即开团 is 查看我的团: the spec is chosen for 单独购买.
           onClick={() =>
-            activity && !myTeam ? openActivity() : openSku(canCart ? ['cart', 'buy'] : ['buy'])
+            activity && !flashSale && !myTeam
+              ? openActivity()
+              : openSku(canCart ? ['cart', 'buy'] : ['buy'])
           }
           disabled={soldOut || product.promotionConflict === true}
         />
@@ -508,6 +526,16 @@ function Detail({
         {product.promotionConflict ? (
           <Button size="lg" block disabled>
             暂不可购买
+          </Button>
+        ) : activity?.kind === 'flashsale' ? (
+          <Button
+            size="lg"
+            block
+            className="product__buy product__buy--flashsale"
+            disabled={soldOut}
+            onClick={() => openSku(['buy'])}
+          >
+            {soldOut ? '已售罄' : `立即抢购 ¥${activityPrice}${activityFrom ? '起' : ''}`}
           </Button>
         ) : activity ? (
           <>
@@ -579,7 +607,7 @@ function Detail({
         )}
       </ActionBar>
 
-      {activity && activityDetail ? (
+      {activity && activity.kind !== 'flashsale' && activityDetail ? (
         <ActivitySkuSheet
           visible={activitySheet}
           initialSkuId={skuId}
@@ -596,7 +624,7 @@ function Detail({
             setSkuId(sku.skuId);
             setActivitySheet(false);
             return startActivityCheckout({
-              kind: activity.kind,
+              kind: activity.kind === 'groupbuy' ? 'groupbuy' : 'presale',
               activityId: activity.activityId,
               skuId: sku.skuId,
               quantity,
@@ -607,8 +635,8 @@ function Detail({
       <SkuSheet
         visible={sheet === 'sku'}
         onClose={() => setSheet(null)}
-        product={product}
-        matrix={matrix}
+        product={flashSale ? { ...product, skus: sheetSkus } : product}
+        matrix={flashSale ? { ...matrix, skus: sheetSkus } : matrix}
         actions={actions}
         skuId={skuId}
         busy={addItem.isPending ? 'cart' : null}
