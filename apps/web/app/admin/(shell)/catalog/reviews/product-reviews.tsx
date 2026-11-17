@@ -18,6 +18,7 @@ import {
 } from '@shop/contracts/catalog/schemas';
 
 import { useRouteMutation } from '@/admin/api/hooks';
+import { ConfirmAction } from '@/admin/kit/confirm-action';
 import { ConfirmButton } from '@/admin/kit/confirm-button';
 import { ModalForm, useFormModal } from '@/admin/kit/form/modal-form';
 import { PageContainer } from '@/admin/kit/page-container';
@@ -96,34 +97,40 @@ export function ProductReviewsPage() {
             </Button>
           </Can>
         }
-        batchActions={({ selectedRowKeys, clear }) => (
-          <Can permission="catalog:review:write">
-            <Space>
-              {(['published', 'hidden'] as const).map((status) => (
+        batchActions={({ selectedRowKeys, clear }) => {
+          const runBatch = (status: 'published' | 'hidden') =>
+            batchSetStatus
+              .mutateAsync({ body: { reviewIds: selectedRowKeys.map(String), status } })
+              .then((result) => {
+                void message.success(`已更新 ${result.updated} 条`);
+                clear();
+              });
+          return (
+            <Can permission="catalog:review:write">
+              <Space>
                 <Button
-                  key={status}
                   size="small"
                   loading={batchSetStatus.isPending}
-                  onClick={() =>
-                    batchSetStatus.mutate(
-                      {
-                        body: { reviewIds: selectedRowKeys.map(String), status },
-                      },
-                      {
-                        onSuccess: (result) => {
-                          void message.success(`已更新 ${result.updated} 条`);
-                          clear();
-                        },
-                      },
-                    )
-                  }
+                  onClick={() => runBatch('published')}
                 >
-                  批量{REVIEW_STATUS[status].label.replace('已', '')}
+                  批量显示
                 </Button>
-              ))}
-            </Space>
-          </Can>
-        )}
+                <ConfirmAction
+                  size="small"
+                  loading={batchSetStatus.isPending}
+                  confirm={{
+                    title: `确认隐藏选中的 ${selectedRowKeys.length} 条评价？`,
+                    description: '隐藏后商品详情页不再显示这些评价。',
+                    okText: '隐藏',
+                  }}
+                  onAction={() => runBatch('hidden')}
+                >
+                  批量隐藏
+                </ConfirmAction>
+              </Space>
+            </Can>
+          );
+        }}
         columns={[
           idColumn<AdminProductReview>({ sortable: true }),
           imageColumn<AdminProductReview>({ title: '商品', dataIndex: 'productImageUrl' }),
@@ -217,7 +224,7 @@ export function ProductReviewsPage() {
                       body: { status: next ? ('published' as const) : ('hidden' as const) },
                     })}
                     labels={['显示', '隐藏']}
-                    confirmTitle={`隐藏「${row.authorNickname}」的评价？`}
+                    confirmTitle={`隐藏「${reviewAuthor(row)}」的评价？`}
                     confirmDescription="隐藏后商品详情页不再显示这条评价。"
                     invalidate={[catalogAdminReviewList]}
                   />

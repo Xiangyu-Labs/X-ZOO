@@ -324,7 +324,7 @@ export const refundRejectBody = z.object({
 export type RefundRejectBody = z.infer<typeof refundRejectBody>;
 
 export const refundRemarkBody = z.object({
-  adminRemark: z.string().max(255),
+  adminRemark: z.string().max(255).nullable(),
 });
 export type RefundRemarkBody = z.infer<typeof refundRemarkBody>;
 

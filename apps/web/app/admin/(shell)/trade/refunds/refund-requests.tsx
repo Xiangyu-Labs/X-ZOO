@@ -424,6 +424,7 @@ export function RefundRequestsPage() {
             label: '内部备注',
             rows: 3,
             maxLength: 255,
+            required: false,
             help: '只在后台可见。',
           },
         ]}
@@ -695,7 +696,7 @@ function RefundDrawer({
                 span: 2,
                 hidden: row.rejectReason === null,
               },
-              { label: '内部备注', value: row.adminRemark ?? '—', span: 2 },
+              { label: '内部备注', value: row.adminRemark || '—', span: 2 },
               {
                 label: '最后错误',
                 value: <ErrorSummary summary={row.lastErrorSummary} detail={row.lastError} />,

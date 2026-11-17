@@ -153,4 +153,33 @@ describe('运费模板', () => {
       units: 1,
     });
   });
+
+  it('locks the 默认全国 fallback row against deletion and ignores closed free rules during trial', async () => {
+    const calls = stubApi();
+    renderAdmin(<ShippingTemplatesPage />, { identity: writer });
+    await screen.findByText('全国包邮（满 5 件）');
+    await userEvent.click(screen.getByRole('button', { name: '编辑' }));
+    const drawer = await screen.findByRole('dialog');
+    await within(drawer).findByText('默认全国');
+
+    // 默认全国 row has no delete button.
+    expect(within(drawer).queryByRole('button', { name: '删除' })).not.toBeNull(); // only the freeRule row has delete
+    const deleteButtons = within(drawer).getAllByRole('button', { name: '删除' });
+    expect(deleteButtons).toHaveLength(1);
+
+    // Clear minUnits on the freeRule (making it invalid if it were active), then turn off 启用包邮规则.
+    const freeMinUnits = within(drawer).getByDisplayValue('5');
+    await userEvent.clear(freeMinUnits);
+    await userEvent.click(within(drawer).getByRole('switch', { name: '启用包邮规则' }));
+
+    await userEvent.click(within(drawer).getByTestId('freight-trial'));
+    const modal = (await screen.findAllByRole('dialog')).at(-1)!;
+    await userEvent.click(within(modal).getByRole('combobox'));
+    await userEvent.click(await screen.findByTitle('浙江省'));
+    await userEvent.click(within(modal).getByRole('button', { name: '试 算' }));
+
+    expect(await within(modal).findByTestId('freight-trial-result')).toBeInTheDocument();
+    const trial = calls.find((call) => call.path === '/admin-api/shipping/template-trial');
+    expect((trial?.body as { template: { freeRules: unknown[] } }).template.freeRules).toEqual([]);
+  });
 });

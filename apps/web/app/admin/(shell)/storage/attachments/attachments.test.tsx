@@ -1,6 +1,8 @@
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  storageAttachmentDeleteMany,
   storageAttachmentList,
   storageCategoryTree,
 } from '@shop/contracts/storage/storage.admin.contract';
@@ -11,7 +13,7 @@ import {
 
 import { resetApiConfig } from '@/admin/api/config';
 import { on, stubRoutes } from '@/test/api';
-import { renderAdmin, testIdentity } from '@/test/render';
+import { renderAdmin, testIdentity, zhName } from '@/test/render';
 
 import { AttachmentsPage } from './attachments';
 
@@ -88,5 +90,52 @@ describe('素材库', () => {
     const player = (await screen.findByTestId('video-player')) as HTMLVideoElement;
     expect(player.getAttribute('src')).toBe(CLIP.url);
     expect(player.controls).toBe(true);
+  });
+
+  it('warns instead of saying 已删除 when single-row delete affects 0 rows', async () => {
+    stubRoutes([
+      on(storageAttachmentList, {
+        items: [attachmentItemExample],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+      }),
+      on(storageAttachmentDeleteMany, { affected: 0, skippedIds: [attachmentItemExample.id] }),
+    ]);
+    renderAdmin(<AttachmentsPage />, {
+      identity: {
+        ...testIdentity,
+        permissions: ['storage:attachment:read', 'storage:attachment:delete'],
+      },
+    });
+    await screen.findByText('首页 banner');
+
+    await userEvent.click(screen.getByRole('button', { name: zhName('删除') }));
+    const popup = (await screen.findByText(`删除素材「${attachmentItemExample.name}」？`)).closest(
+      '.ant-popover',
+    ) as HTMLElement;
+    await userEvent.click(within(popup).getByRole('button', { name: zhName('确定') }));
+
+    expect(await screen.findByText('该素材已不存在')).toBeInTheDocument();
+    expect(screen.queryByText('已删除')).toBeNull();
+  });
+
+  it('shows a Chinese error when copying link fails or clipboard is unavailable', async () => {
+    stubApi();
+    const original = navigator.clipboard;
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn().mockRejectedValue(new Error('NotAllowedError')) },
+    });
+    try {
+      renderAdmin(<AttachmentsPage />, {
+        identity: { ...testIdentity, permissions: ['storage:attachment:read'] },
+      });
+      await screen.findByText('首页 banner');
+      await userEvent.click(screen.getByRole('button', { name: '复制链接' }));
+      await waitFor(() => expect(screen.getByText('复制失败，请手动复制')).toBeInTheDocument());
+    } finally {
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: original });
+    }
   });
 });

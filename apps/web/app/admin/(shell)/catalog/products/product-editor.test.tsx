@@ -617,4 +617,35 @@ describe('integrated product promotion save', () => {
       }),
     );
   });
+
+  it('clears specs and collapses skus when switching from 多规格 to 单规格 and submitting directly', async () => {
+    const calls = stubApi(detail, { ...detail, specMode: false, specs: [] });
+    renderAdmin(withStubAssets(<ProductEditorPage productId="1" />), { identity: editor });
+
+    await screen.findByLabelText('规格名 1');
+    await userEvent.click(screen.getByRole('switch', { name: '多规格' }));
+    await userEvent.click(screen.getByRole('button', { name: zhName('保存') }));
+
+    await waitFor(() => {
+      const write = calls.find((call) => call.method === 'PUT');
+      expect(write?.body).toMatchObject({
+        specMode: false,
+        specs: [],
+      });
+      const skus = (write?.body as { skus: { specValues: Record<string, string> }[] }).skus;
+      expect(skus).toHaveLength(1);
+      expect(skus[0]?.specValues).toEqual({});
+    });
+  });
+
+  it('does not fetch categories for a read-only product viewer without catalog:category:read', async () => {
+    const calls = stubApi(detail);
+    renderAdmin(withStubAssets(<ProductEditorPage productId="1" />), {
+      identity: { ...testIdentity, permissions: ['catalog:product:read'] },
+    });
+
+    await screen.findByDisplayValue('简约白 T 恤');
+    expect(screen.getByText('男装')).toBeInTheDocument();
+    expect(calls.some((call) => call.url.includes('/admin-api/catalog/categories'))).toBe(false);
+  });
 });

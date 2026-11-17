@@ -57,7 +57,10 @@ export function FreightTrialButton({ form }: { form: FormInstance }) {
 
   const run = async (): Promise<void> => {
     const input = await inputs.validateFields();
-    const parsed = shippingTemplateForm.safeParse(form.getFieldsValue(true));
+    const raw = { ...(form.getFieldsValue() as Record<string, unknown>) };
+    if (!raw.hasFreeRules) delete raw.freeRules;
+    if (!raw.hasNoDeliveryRules) delete raw.noDeliveryCityIds;
+    const parsed = shippingTemplateForm.safeParse(raw);
     if (!parsed.success) {
       const issue = parsed.error.issues[0];
       setInvalid(`模板还没填完整：${issue?.message ?? '请检查表单'}`);

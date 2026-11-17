@@ -48,7 +48,7 @@ export function ManualRecords({
   readOnly?: boolean | undefined;
 }) {
   const [open, setOpen] = useState(false);
-  const { rows, isPending, isError } = useResolvedRecords(kind, ids);
+  const { rows, readable, isPending, isError } = useResolvedRecords(kind, ids);
   const label = RECORD_KIND_LABELS[kind];
   const move = (from: number, to: number) => {
     const next = [...ids];
@@ -104,9 +104,9 @@ export function ManualRecords({
                   {row.name}
                 </Typography.Text>
               ) : (
-                <Typography.Text type={isError ? 'danger' : 'warning'}>
+                <Typography.Text type={!readable ? 'secondary' : isError ? 'danger' : 'warning'}>
                   #{id}
-                  {isPending ? '' : isError ? '（加载失败）' : '（已不可用）'}
+                  {!readable || isPending ? '' : isError ? '（加载失败）' : '（已不可用）'}
                 </Typography.Text>
               )}
             </Space>

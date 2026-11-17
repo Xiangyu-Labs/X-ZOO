@@ -492,7 +492,7 @@ export const shipmentIdParams = z.object({ id });
 // ---------------------------------------------------------------------------
 
 export const orderRemarkBody = z.object({
-  adminRemark: z.string().max(512),
+  adminRemark: z.string().max(512).nullable(),
 });
 export type OrderRemarkBody = z.infer<typeof orderRemarkBody>;
 

@@ -6,6 +6,7 @@ import {
   refundAdminDetail,
   refundAdminList,
   refundAdminReject,
+  refundAdminRemark,
   refundAdminRetry,
   refundAdminWithdraw,
 } from '@shop/contracts/refund/refund.admin.contract';
@@ -337,6 +338,30 @@ describe('售后单', () => {
         expect(screen.queryByRole('button', { name: '撤销' })).not.toBeInTheDocument();
         unmount();
       }
+    });
+  });
+
+  it('allows clearing 内部备注 by submitting null', async () => {
+    const remarked: AdminRefundListItem = { ...adminRefundExample, adminRemark: '旧内部备注' };
+    const calls = stubRoutes([
+      on(refundAdminList, { items: [remarked], total: 1, page: 1, pageSize: 20 }),
+      on(refundAdminDetail, { ...adminRefundDetailExample, adminRemark: '旧内部备注' }),
+      on(refundAdminRemark, { ...adminRefundDetailExample, adminRemark: null }),
+    ]);
+    renderAdmin(<RefundRequestsPage />, {
+      identity: { ...identity, permissions: [...identity.permissions, 'refund:request:write'] },
+    });
+
+    await screen.findByText(remarked.refundNo);
+    await userEvent.click(screen.getByRole('button', { name: zhName('备注') }));
+    const dialog = await screen.findByRole('dialog');
+    const textarea = within(dialog).getByLabelText('内部备注');
+    await userEvent.clear(textarea);
+    await userEvent.click(within(dialog).getByRole('button', { name: zhName('保存') }));
+
+    await waitFor(() => {
+      const post = calls.find((call) => call.routeId === refundAdminRemark.id);
+      expect(post?.body).toEqual({ adminRemark: null });
     });
   });
 });

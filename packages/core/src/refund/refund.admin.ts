@@ -375,7 +375,9 @@ export async function adminRemark(
   const id = Number(input.id);
   const row = await repo.findRefund(ctx.db, id);
   if (!row) throw new DomainError('REFUND_NOT_FOUND');
-  await repo.setAdminRemark(ctx.db, id, input.adminRemark);
+  const remark =
+    input.adminRemark === null || input.adminRemark.trim() === '' ? null : input.adminRemark;
+  await repo.setAdminRemark(ctx.db, id, remark);
   return detail(ctx, id);
 }
 

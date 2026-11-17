@@ -164,6 +164,17 @@ describe('admins', () => {
     expect(updated.admin.name).toBe('编辑部');
   });
 
+  it('preserves an existing avatar when adminUpdate omits avatar', async () => {
+    const ctx = as(superId);
+    const avatar = 'https://cdn.example.com/avatar.png';
+    const created = await adminCreate(ctx, { ...form, avatar });
+    expect(created.admin.avatar).toBe(avatar);
+
+    const updated = await adminUpdate(ctx, { id: created.admin.id }, { ...form, name: '改了姓名' });
+    expect(updated.admin.name).toBe('改了姓名');
+    expect(updated.admin.avatar).toBe(avatar);
+  });
+
   it('refuses a duplicate account', async () => {
     const ctx = as(superId);
     await adminCreate(ctx, form);

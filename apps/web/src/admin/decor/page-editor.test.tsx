@@ -1,4 +1,5 @@
 import type { Data } from '@puckeditor/core';
+import { QueryClient } from '@tanstack/react-query';
 import {
   decorDocumentGet,
   decorDraftSave,
@@ -14,7 +15,9 @@ import { resetApiConfig } from '@/admin/api/config';
 import { on, respondWithError, stubRoutes, type StubCall } from '@/test/api';
 import { renderAdmin, testIdentity, zhName } from '@/test/render';
 
+import { SingleRecordPicker } from './fields/record-picker';
 import { DecorPageEditor } from './page-editor';
+import { createDecorRecordSource, DecorRecordSourceProvider } from './records';
 
 /**
  * The editor page's session logic — save, conflict, publish, the unsaved
@@ -253,6 +256,8 @@ describe('装修页面编辑器', () => {
     expect(issues).toHaveTextContent('第 1 个组件「轮播」');
     expect(issues).toHaveTextContent('至少添加一张图片');
     expect(within(issues).getByRole('button', { name: '定位' })).toBeInTheDocument();
+    // Publishing dialog starts closing (open=false) after validation failure so operator can fix issues.
+    await waitFor(() => expect(dialog.className).toContain('ant-zoom-leave'));
   });
 
   it('guards unsaved changes: the browser prompt and the back button', async () => {
@@ -282,5 +287,51 @@ describe('装修页面编辑器', () => {
     expect(screen.queryByRole('button', { name: zhName('保存草稿') })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^发\s*布$/ })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: zhName('发布记录') })).toBeInTheDocument();
+  });
+
+  it('refetches the document on mount instead of mounting with stale cache', async () => {
+    let version = '3';
+    let title = '旧标题';
+    stubRoutes([
+      on(decorDocumentGet, () => ({
+        ...detail({
+          draftVersion: version,
+          draft: { schemaVersion: 2, root: { props: { title } }, blocks: [] },
+        }),
+      })),
+    ]);
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false, staleTime: Infinity, gcTime: Infinity },
+        mutations: { retry: false },
+      },
+    });
+    const first = renderAdmin(<DecorPageEditor id="7" previewUrl={null} />, {
+      identity: editor,
+      queryClient,
+    });
+    expect(await screen.findByTestId('canvas-title')).toHaveTextContent('旧标题');
+    first.unmount();
+
+    version = '4';
+    title = '最新标题';
+    renderAdmin(<DecorPageEditor id="7" previewUrl={null} />, {
+      identity: editor,
+      queryClient,
+    });
+    expect(await screen.findByTestId('canvas-title')).toHaveTextContent('最新标题');
+  });
+
+  it('does not resolve cross-domain records for a decor:page:read-only viewer (no 403)', async () => {
+    const calls = stubRoutes([]);
+    renderAdmin(
+      <DecorRecordSourceProvider source={createDecorRecordSource()}>
+        <SingleRecordPicker kind="product" value="101" onChange={() => {}} readOnly />
+      </DecorRecordSourceProvider>,
+      { identity: { ...testIdentity, permissions: ['decor:page:read'] } },
+    );
+
+    expect(await screen.findByText('#101')).toBeInTheDocument();
+    expect(calls).toHaveLength(0);
   });
 });

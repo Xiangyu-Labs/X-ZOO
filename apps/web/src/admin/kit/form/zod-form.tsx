@@ -163,8 +163,14 @@ export function ZodForm<S extends AnyObjectSchema>({
   }, [error, serverMatch, clientUnmatched]);
 
   async function handleFinish(raw: unknown): Promise<void> {
+    const withCleared = markClearedFields(
+      raw,
+      visibleFields,
+      form,
+      initialValues as Record<string, unknown> | undefined,
+    );
     // Cleared fields become "nothing" the contract accepts, text is trimmed.
-    const result = schema.safeParse(normaliseFormValues(schema, raw, visibleFields));
+    const result = schema.safeParse(normaliseFormValues(schema, withCleared, visibleFields));
     if (!result.success) {
       setClientUnmatched(applyZodIssues(form, result.error, errorFieldNames).unmatched);
       return;
@@ -254,4 +260,36 @@ export function ZodForm<S extends AnyObjectSchema>({
       )}
     </Form>
   );
+}
+
+/**
+ * Controls like `Select`, `TreeSelect` and `MoneyInput` emit `undefined` when
+ * cleared rather than `null`, which `normaliseFormValues` would drop as
+ * "untouched". Turn a cleared `undefined` (either touched in this session or
+ * originally populated by `initialValues`) into `null` so `.nullish()` /
+ * `.nullable()` schemas still send `null` while untouched create fields stay
+ * omitted.
+ */
+function markClearedFields(
+  raw: unknown,
+  visibleFields: readonly FieldSpec[],
+  form: FormInstance,
+  initialValues: Record<string, unknown> | undefined,
+): unknown {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return raw;
+  const next: Record<string, unknown> = { ...(raw as Record<string, unknown>) };
+  for (const spec of visibleFields) {
+    const path = toNamePath(spec.name);
+    if (path.length !== 1) continue;
+    const key = String(path[0]);
+    if (next[key] !== undefined) continue;
+    const hadInitial =
+      initialValues !== undefined &&
+      initialValues[key] !== undefined &&
+      initialValues[key] !== null;
+    if (hadInitial || form.isFieldTouched(path)) {
+      next[key] = null;
+    }
+  }
+  return next;
 }

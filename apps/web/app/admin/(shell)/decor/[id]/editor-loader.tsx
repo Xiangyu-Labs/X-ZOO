@@ -21,6 +21,6 @@ const DecorPageEditor = dynamic(loadDecorEditor, {
 export function DecorEditorLoader({ id, previewUrl }: { id: string; previewUrl: string | null }) {
   // The document starts loading with the editor's chunk, not after it: the editor asks for the
   // same query and finds it under way or done.
-  useRouteQuery(decorDocumentGet, { params: { id } });
+  useRouteQuery(decorDocumentGet, { params: { id } }, { refetchOnMount: 'always' });
   return <DecorPageEditor id={id} previewUrl={previewUrl} />;
 }

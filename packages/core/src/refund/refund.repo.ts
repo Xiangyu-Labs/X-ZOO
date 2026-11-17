@@ -654,7 +654,7 @@ export async function setLastError(
 export async function setAdminRemark(
   tx: DbOrTx,
   id: number,
-  adminRemark: string,
+  adminRemark: string | null,
 ): Promise<ConditionalUpdateResult> {
   return conditionalUpdate(tx, refunds, {
     where: eq(refunds.id, id),

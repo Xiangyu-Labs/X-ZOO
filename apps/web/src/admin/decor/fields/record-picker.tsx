@@ -15,6 +15,7 @@ import {
 } from 'antd';
 import { useState } from 'react';
 
+import { useOptionalSession } from '../../session/session-provider';
 import {
   RECORD_KIND_LABELS,
   useDecorRecordSource,
@@ -22,6 +23,21 @@ import {
   type DecorRecordKind,
   type DecorTreeNode,
 } from '../records';
+
+const RECORD_READ_PERMISSION: Record<DecorRecordKind, string> = {
+  product: 'catalog:product:read',
+  label: 'catalog:label:read',
+  article: 'cms:article:read',
+  coupon: 'coupon:template:read',
+  groupbuy: 'groupbuy:activity:read',
+  presale: 'presale:activity:read',
+  page: 'decor:page:read',
+};
+
+const CATEGORY_READ_PERMISSION: Record<'product' | 'article', string> = {
+  product: 'catalog:category:read',
+  article: 'cms:article:read',
+};
 
 const PAGE_SIZE = 10;
 
@@ -116,17 +132,21 @@ export function RecordPickerModal({ kind, open, onClose, onPick, chosen }: Recor
 /** Stored ids back into rows, in order; `missing` counts ids whose record is gone. */
 export function useResolvedRecords(kind: DecorRecordKind, ids: readonly string[]) {
   const source = useDecorRecordSource();
+  const session = useOptionalSession();
+  const readable = session === null || session.can(RECORD_READ_PERMISSION[kind]);
   const query = useQuery({
     queryKey: ['decor.resolve', kind, ids],
     queryFn: () => source.resolve(kind, ids),
-    enabled: ids.length > 0,
+    enabled: readable && ids.length > 0,
     staleTime: 60_000,
+    meta: { presentError: false },
   });
   const byId = new Map((query.data ?? []).map((row) => [row.id, row]));
   return {
     rows: ids.map((id) => byId.get(id)),
-    isPending: ids.length > 0 && query.isPending,
-    isError: query.isError,
+    readable,
+    isPending: readable && ids.length > 0 && query.isPending,
+    isError: readable && query.isError,
   };
 }
 
@@ -144,11 +164,12 @@ export function SingleRecordPicker({
 }) {
   const [open, setOpen] = useState(false);
   const ids = value ? [value] : [];
-  const { rows, isPending, isError } = useResolvedRecords(kind, ids);
+  const { rows, readable, isPending, isError } = useResolvedRecords(kind, ids);
   const row = rows[0];
   let text = <Typography.Text type="secondary">未选择</Typography.Text>;
   if (value) {
-    if (isPending) text = <Typography.Text type="secondary">加载中…</Typography.Text>;
+    if (!readable) text = <Typography.Text type="secondary">#{value}</Typography.Text>;
+    else if (isPending) text = <Typography.Text type="secondary">加载中…</Typography.Text>;
     else if (row) text = <Typography.Text ellipsis>{row.name}</Typography.Text>;
     else if (isError) text = <Typography.Text type="danger">#{value}（加载失败）</Typography.Text>;
     else text = <Typography.Text type="warning">#{value}（已不存在）</Typography.Text>;
@@ -203,11 +224,20 @@ export function CategoryTreeSelect({
   readOnly?: boolean | undefined;
 }) {
   const source = useDecorRecordSource();
+  const session = useOptionalSession();
+  const readable = session === null || session.can(CATEGORY_READ_PERMISSION[tree]);
   const nodes = useQuery({
     queryKey: ['decor.categories', tree],
     queryFn: () => source.categories(tree),
+    enabled: readable,
     staleTime: 60_000,
+    meta: { presentError: false },
   });
+  const treeData = readable
+    ? toTreeData(nodes.data ?? [])
+    : value
+      ? [{ value, title: `#${value}` }]
+      : [];
   return (
     <TreeSelect
       style={{ width: '100%' }}
@@ -216,8 +246,8 @@ export function CategoryTreeSelect({
       placeholder={placeholder ?? (tree === 'product' ? '选择商品分类' : '选择资讯分类')}
       disabled={readOnly}
       allowClear={allowClear}
-      loading={nodes.isPending}
-      treeData={toTreeData(nodes.data ?? [])}
+      loading={readable && nodes.isPending}
+      treeData={treeData}
       treeDefaultExpandAll
       showSearch
       treeNodeFilterProp="title"

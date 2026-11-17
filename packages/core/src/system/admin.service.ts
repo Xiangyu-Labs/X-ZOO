@@ -187,7 +187,7 @@ export async function adminUpdate(
           account: body.account,
           name: body.name,
           phone: body.phone ?? null,
-          avatar: body.avatar ?? null,
+          ...(body.avatar === undefined ? {} : { avatar: body.avatar }),
           status: body.enabled ? 1 : 0,
         },
         now,
@@ -320,7 +320,11 @@ export async function profileUpdate(ctx: Ctx, body: ProfileForm): Promise<AdminS
   await repo.updateAdminProfile(
     ctx.db,
     id,
-    { name: body.name, phone: body.phone ?? null, avatar: body.avatar ?? null },
+    {
+      name: body.name,
+      phone: body.phone ?? null,
+      ...(body.avatar === undefined ? {} : { avatar: body.avatar }),
+    },
     ctx.clock.now(),
   );
   return profileGet(ctx);

@@ -13,6 +13,7 @@ import {
   Timeline,
   Typography,
 } from 'antd';
+import type { ClientPlatform } from '@shop/contracts/_conventions/common';
 import { catalogAdminProductDetail } from '@shop/contracts/catalog/catalog.product.admin.contract';
 import {
   orderAdminAdjustPrice,
@@ -96,6 +97,12 @@ export function mayStartAftersale(order: AdminOrderDetail): boolean {
  * actions sit next to the panel they change rather than in one toolbar, so
  * 发货 is beside the shipments and 改价 is beside the money.
  */
+const CLIENT_PLATFORM_LABELS: Record<ClientPlatform, string> = {
+  'wechat-mini': '微信小程序',
+  'wechat-oa': '微信公众号',
+  h5: 'H5 网页',
+};
+
 export function OrderDetailPage({ id }: { id: string }) {
   const order = useRouteQuery(orderAdminDetail, { params: { id } });
   const timeline = useRouteQuery(orderAdminTimeline, { params: { id } });
@@ -372,7 +379,12 @@ export function OrderDetailPage({ id }: { id: string }) {
                   { label: '昵称', value: data?.user.nickname ?? '—' },
                   { label: '用户 ID', value: <CodeText value={data?.user.id} /> },
                   { label: '手机号', value: data?.user.phone ?? '—' },
-                  { label: '下单端', value: data?.platform ?? '—' },
+                  {
+                    label: '下单端',
+                    value: data?.platform
+                      ? (CLIENT_PLATFORM_LABELS[data.platform] ?? data.platform)
+                      : '—',
+                  },
                 ]}
               />
             </Col>
@@ -390,8 +402,8 @@ export function OrderDetailPage({ id }: { id: string }) {
                       ? `${data.receiver.province}${data.receiver.city}${data.receiver.district ?? ''}${data.receiver.detail}`
                       : '—',
                   },
-                  { label: '买家备注', value: data?.buyerRemark ?? '—' },
-                  { label: '商家备注', value: data?.adminRemark ?? '—' },
+                  { label: '买家备注', value: data?.buyerRemark || '—' },
+                  { label: '商家备注', value: data?.adminRemark || '—' },
                 ]}
               />
             </Col>
@@ -417,7 +429,16 @@ export function OrderDetailPage({ id }: { id: string }) {
         {...remarkModal.props}
         title="商家备注"
         schema={orderRemarkBody}
-        fields={[{ kind: 'textarea', name: 'adminRemark', label: '备注', rows: 4, maxLength: 512 }]}
+        fields={[
+          {
+            kind: 'textarea',
+            name: 'adminRemark',
+            label: '备注',
+            rows: 4,
+            maxLength: 512,
+            required: false,
+          },
+        ]}
         initialValues={{ adminRemark: data?.adminRemark ?? '' }}
         route={orderAdminRemark}
         toInput={(values) => ({ params: { id }, body: values })}

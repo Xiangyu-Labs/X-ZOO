@@ -21,7 +21,7 @@ import {
 } from '@shop/contracts/refund/schemas';
 import { z } from 'zod';
 
-import { errorMessage, useRouteQuery } from '@/admin/api';
+import { useRouteQuery } from '@/admin/api';
 import { ModalForm } from '@/admin/kit/form/modal-form';
 import { fenToMoney, isMoney, moneyToFen } from '@/admin/kit/money';
 import { MoneyText } from '@/admin/kit/money-text';
@@ -119,12 +119,12 @@ export function AftersaleModal({
   open: boolean;
   onClose: () => void;
 }) {
-  // Read every time the dialog opens: another request may have taken a line
-  // since the last look.
+  // Read every time the dialog opens: ModalForm's `load` fetches on every
+  // opening and gates「确认发起」until the refundable lines are in.
   const applicable = useRouteQuery(
     refundAdminApplicable,
     { params: { id: orderId } },
-    { enabled: open, staleTime: 0, refetchOnMount: 'always', presentError: false },
+    { enabled: open, presentError: false },
   );
   const tellOutcome = useOutcomeToast();
   const data = applicable.data;
@@ -137,6 +137,11 @@ export function AftersaleModal({
       title="发起售后"
       size="large"
       schema={schema}
+      load={{
+        route: refundAdminApplicable,
+        params: { id: orderId },
+        select: () => ({}),
+      }}
       initialValues={{ kind: 'return_and_refund', quantities: {}, includeFreight: false }}
       fields={[
         {
@@ -210,30 +215,12 @@ export function AftersaleModal({
       invalidate={REFRESHES}
       onSuccess={(detail) => tellOutcome(aftersaleOutcome(detail))}
       okText="确认发起"
-      header={
-        <AftersaleHeader applicable={data} error={applicable.isError ? applicable.error : null} />
-      }
+      header={data ? <AftersaleHeader applicable={data} /> : null}
     />
   );
 }
 
-function AftersaleHeader({
-  applicable,
-  error,
-}: {
-  applicable: RefundableItemsResult | undefined;
-  error: unknown;
-}) {
-  if (error !== null) {
-    return (
-      <Alert
-        type="error"
-        showIcon
-        style={{ marginBottom: 16 }}
-        message={errorMessage(error, '可售后的商品加载失败，请关闭后重试')}
-      />
-    );
-  }
+function AftersaleHeader({ applicable }: { applicable: RefundableItemsResult }) {
   return (
     <Alert
       type="warning"

@@ -111,6 +111,7 @@ export type FieldSpec<N extends string = string> =
       leafOnly?: boolean | undefined;
       /** See `TreeSelectFieldProps.withParents`. */
       withParents?: boolean | undefined;
+      treeDefaultExpandAll?: boolean | undefined;
       placeholder?: string | undefined;
     })
   | (FieldBase<N> & {
@@ -145,6 +146,7 @@ export type FieldSpec<N extends string = string> =
       max?: number | undefined;
       min?: number | undefined;
       emptyText?: string | undefined;
+      isItemLocked?: ((item: never, index: number) => boolean) | undefined;
     })
   | (FieldBase<N> & {
       /** Anything the kit doesn't cover. Gets antd's `value` / `onChange` contract. */

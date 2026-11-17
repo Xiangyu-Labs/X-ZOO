@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   systemAdminList,
   systemAdminSetStatus,
+  systemAdminUpdate,
 } from '@shop/contracts/system/system.admin.contract';
 import { systemRoleList } from '@shop/contracts/system/system.role.contract';
 import {
@@ -69,5 +70,29 @@ describe('管理员', () => {
     await screen.findByText('operator');
 
     expect(calls.some((call) => call.url.includes('/admin-api/roles'))).toBe(false);
+  });
+
+  it('edits an admin with an existing avatar without sending avatar: null', async () => {
+    const withAvatar: AdminListItem = { ...operator, avatar: 'https://cdn.example.com/a.png' };
+    const calls = stubRoutes([
+      on(systemAdminList, { items: [withAvatar], total: 1, page: 1, pageSize: 20 }),
+      on(systemRoleList, { items: [roleListItemExample], total: 1, page: 1, pageSize: 100 }),
+      on(systemAdminUpdate, { admin: { ...withAvatar, name: '新运营' }, revokedSessions: 1 }),
+    ]);
+    renderAdmin(<AdminsPage />, { identity: manager });
+    await screen.findByText('operator');
+
+    await userEvent.click(screen.getByRole('button', { name: zhName('编辑') }));
+    const dialog = await screen.findByRole('dialog');
+    const nameInput = within(dialog).getByLabelText('姓名');
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, '新运营');
+    await userEvent.click(within(dialog).getByRole('button', { name: zhName('保存') }));
+
+    await waitFor(() => {
+      const update = calls.find((call) => call.routeId === systemAdminUpdate.id);
+      expect(update?.body).toMatchObject({ name: '新运营' });
+      expect(update?.body).not.toHaveProperty('avatar');
+    });
   });
 });
