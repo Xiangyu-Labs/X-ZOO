@@ -1,7 +1,16 @@
 import { z } from 'zod';
 import { descriptionBlock } from '../catalog/description';
 import { PER_ORDER_UNLIMITED } from '../catalog/per-order';
-import { id, idList, instant, money, pageQuery, paged, sortQuery } from '../_conventions/common';
+import {
+  id,
+  idList,
+  instant,
+  money,
+  oneOrMany,
+  paged,
+  pageQuery,
+  sortQuery,
+} from '../_conventions/common';
 import { storefrontRoute } from '../system/storefront-routes';
 
 /**
@@ -166,7 +175,7 @@ export type GroupbuyActivityForm = z.infer<typeof groupbuyActivityForm>;
 export const groupbuyActivityListQuery = pageQuery
   .extend({
     keyword: z.string().trim().max(64).optional(),
-    status: z.union([groupbuyActivityStatus, z.array(groupbuyActivityStatus)]).optional(),
+    status: oneOrMany(groupbuyActivityStatus).optional(),
     productId: id.optional(),
   })
   .extend(sortQuery(['id', 'sortOrder', 'sales', 'startAt', 'createdAt']).shape);
@@ -227,7 +236,7 @@ export type GroupbuyGroupDetail = z.infer<typeof groupbuyGroupDetail>;
 export const groupbuyGroupListQuery = pageQuery
   .extend({
     activityId: id.optional(),
-    status: z.union([groupbuyGroupStatus, z.array(groupbuyGroupStatus)]).optional(),
+    status: oneOrMany(groupbuyGroupStatus).optional(),
     leaderUserId: id.optional(),
   })
   .extend(sortQuery(['id', 'createdAt', 'expiresAt']).shape);

@@ -24,6 +24,14 @@ export const idList = z
   .pipe(z.array(id).min(1).max(100));
 
 /**
+ * An enum filter in a query string: one value, or the key repeated (`?status=a&status=b`). At most
+ * one of each value, so a query string cannot grow the array without bound.
+ */
+export function oneOrMany<T extends z.ZodEnum>(values: T) {
+  return z.union([values, z.array(values).max(values.options.length)]);
+}
+
+/**
  * Money is a decimal string with exactly two fraction digits ("12.00"), never a JS number.
  * Stored as numeric(12,2); the domain works in integer fen through `Money` in core/kernel.
  */

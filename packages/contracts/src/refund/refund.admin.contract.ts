@@ -218,6 +218,11 @@ export const refundAdminRetry = defineRoute({
     'REFUND_STATE_UNKNOWN',
     // 复核 of a refused 仅退款 whose units have shipped since (REFUND-015).
     'REFUND_LINE_ALREADY_SHIPPED',
+    // Re-sending a failed refund: the payment it goes back through, and the amount frozen on the
+    // first submit (REFUND-005).
+    'REFUND_NO_ORIGINAL_PAYMENT',
+    'REFUND_AMOUNT_MISMATCH',
+    'PAYMENT_NOT_CONFIGURED',
   ],
   examples: [
     {

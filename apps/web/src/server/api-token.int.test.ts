@@ -175,7 +175,7 @@ describe('a personal API token', () => {
     expect((await logs.json()).items[0]).toMatchObject({ apiTokenName: '老板的助手' });
   });
 
-  it('AUTH-012 — cannot create a role or an admin, nor save the payment settings', async () => {
+  it('AUTH-012 — cannot create a role or an admin, save the payment settings or change the password', async () => {
     await seedAdmin();
     const token = await mintToken(await consoleHeaders());
     const { POST: createRole } = await import('../../app/admin-api/roles/route');
@@ -205,6 +205,22 @@ describe('a personal API token', () => {
     );
     expect(payment.status).toBe(403);
     expect((await payment.json()).code).toBe('AUTH_TOKEN_CONSOLE_ONLY');
+
+    const { POST: changePassword } = await import('../../app/admin-api/profile/password/route');
+    const password = await changePassword(
+      request(
+        'POST',
+        '/admin-api/profile/password',
+        {
+          currentPassword: PASSWORD,
+          newPassword: 'another-pass-1',
+          confirmPassword: 'another-pass-1',
+        },
+        bearer(token),
+      ),
+    );
+    expect(password.status).toBe(403);
+    expect((await password.json()).code).toBe('AUTH_TOKEN_CONSOLE_ONLY');
   });
 
   it('cannot mint, list or revoke tokens itself', async () => {

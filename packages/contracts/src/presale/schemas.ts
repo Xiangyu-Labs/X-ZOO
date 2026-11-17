@@ -1,7 +1,16 @@
 import { z } from 'zod';
 import { descriptionBlock } from '../catalog/description';
 import { PER_ORDER_UNLIMITED } from '../catalog/per-order';
-import { id, idList, instant, money, pageQuery, paged, sortQuery } from '../_conventions/common';
+import {
+  id,
+  idList,
+  instant,
+  money,
+  oneOrMany,
+  paged,
+  pageQuery,
+  sortQuery,
+} from '../_conventions/common';
 
 /**
  * Shapes shared by the presale routes.
@@ -145,7 +154,7 @@ export type PresaleActivityForm = z.infer<typeof presaleActivityForm>;
 export const presaleActivityListQuery = pageQuery
   .extend({
     keyword: z.string().trim().max(64).optional(),
-    status: z.union([presaleActivityStatus, z.array(presaleActivityStatus)]).optional(),
+    status: oneOrMany(presaleActivityStatus).optional(),
     productId: id.optional(),
   })
   .extend(sortQuery(['id', 'sortOrder', 'sales', 'startAt', 'createdAt']).shape);
@@ -186,7 +195,7 @@ export type PresaleOrderItem = z.infer<typeof presaleOrderItem>;
 export const presaleOrderListQuery = pageQuery
   .extend({
     activityId: id.optional(),
-    stage: z.union([presaleOrderStage, z.array(presaleOrderStage)]).optional(),
+    stage: oneOrMany(presaleOrderStage).optional(),
     userId: id.optional(),
   })
   .extend(sortQuery(['orderId', 'createdAt', 'shipNotBeforeAt']).shape);

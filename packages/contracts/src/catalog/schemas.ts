@@ -6,9 +6,10 @@ import {
   idList,
   instant,
   money,
+  oneOrMany,
+  paged,
   pageQuery,
   requiredMoney,
-  paged,
   sortQuery,
 } from '../_conventions/common';
 
@@ -402,7 +403,10 @@ export type ProductSku = z.infer<typeof productSku>;
  * existing SKU whose combination is missing is removed.
  */
 export const productSkuInput = z.object({
-  specValues: z.record(z.string(), z.string()),
+  /** One value per spec: at most 5 specs, names and values as `productSpecInput` bounds them. */
+  specValues: z
+    .record(z.string().max(64), z.string().max(64))
+    .refine((values) => Object.keys(values).length <= 5, '规格最多 5 项'),
   skuCode: z.string().trim().max(32).optional(),
   imageUrl: z.string().max(512).optional(),
   price: requiredMoney('请填写售价'),
@@ -922,7 +926,7 @@ export const adminReviewListQuery = pageQuery
   .extend({
     keyword: z.string().trim().max(64).optional(),
     productId: id.optional(),
-    status: z.union([productReviewStatus, z.array(productReviewStatus)]).optional(),
+    status: oneOrMany(productReviewStatus).optional(),
     /** 好评 4–5 / 中评 3 / 差评 1–2. */
     rating: z.enum(['good', 'medium', 'bad']).optional(),
     hasReply: z.stringbool().optional(),

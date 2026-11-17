@@ -137,11 +137,14 @@ export const shippingTemplateListItem = z.object({
 });
 export type ShippingTemplateListItem = z.infer<typeof shippingTemplateListItem>;
 
+/** Every city, province and district in `cities` (3,221 rows) fits, with room for new ones. */
+const cityIdSet = z.array(id).max(4000);
+
 /** One priced region: the first `firstUnit` units cost `firstPrice`, each further `additionalUnit` costs `additionalPrice`. */
 export const shippingTemplateRegion = z.object({
   /** `true` on the single rule that applies where no city rule matches. Its `cityIds` is empty. */
   isFallback: z.boolean(),
-  cityIds: z.array(id),
+  cityIds: cityIdSet,
   firstUnit: unitAmount,
   firstPrice: requiredMoney('请填写首件运费'),
   /** `0` means "no continuation rule": everything over the first unit is still charged `firstPrice`. */
@@ -152,7 +155,7 @@ export type ShippingTemplateRegion = z.infer<typeof shippingTemplateRegion>;
 
 /** "Free over N units **and** ¥X" for a set of cities. Both thresholds must be met. */
 export const shippingTemplateFreeRule = z.object({
-  cityIds: z.array(id),
+  cityIds: cityIdSet,
   /** `null` = the unit threshold is not used. */
   minUnits: unitAmount.nullable(),
   /** `null` = the amount threshold is not used. */
@@ -185,9 +188,9 @@ export const shippingTemplateForm = z
     hasFreeRules: z.boolean().default(false),
     hasNoDeliveryRules: z.boolean().default(false),
     sortOrder: z.number().int().min(0).max(9999).default(0),
-    regions: z.array(shippingTemplateRegion).min(1),
-    freeRules: z.array(shippingTemplateFreeRule).default([]),
-    noDeliveryCityIds: z.array(id).default([]),
+    regions: z.array(shippingTemplateRegion).min(1).max(200),
+    freeRules: z.array(shippingTemplateFreeRule).max(200).default([]),
+    noDeliveryCityIds: cityIdSet.default([]),
   })
   .superRefine((value, ctx) => {
     const fallbacks = value.regions.filter((region) => region.isFallback);

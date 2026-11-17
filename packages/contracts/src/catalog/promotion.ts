@@ -8,7 +8,9 @@ export const productPromotionKind = z.enum(['presale', 'groupbuy', 'flashsale'])
 
 /** Spec values also address new editor rows which have no persisted SKU id yet. */
 export const productPromotionSkuInput = z.object({
-  specValues: z.record(z.string(), z.string()),
+  specValues: z
+    .record(z.string().max(64), z.string().max(64))
+    .refine((values) => Object.keys(values).length <= 5, '规格最多 5 项'),
   price: requiredMoney('请填写活动价格'),
   stock: z.number().int().min(0).max(1_000_000).optional(),
   expectedStock: z.number().int().min(0).optional(),

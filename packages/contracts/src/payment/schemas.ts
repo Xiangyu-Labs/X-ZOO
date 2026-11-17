@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { id, instant, money, pageQuery, paged, sortQuery } from '../_conventions/common';
+import { id, instant, money, oneOrMany, paged, pageQuery, sortQuery } from '../_conventions/common';
 
 /**
  * Shapes shared by the payment routes.
@@ -186,7 +186,7 @@ export const paymentAttemptListQuery = pageQuery
     orderId: id.optional(),
     outTradeNo: z.string().max(64).optional(),
     transactionId: z.string().max(64).optional(),
-    status: z.union([paymentAttemptStatus, z.array(paymentAttemptStatus)]).optional(),
+    status: oneOrMany(paymentAttemptStatus).optional(),
     channel: paymentChannel.optional(),
     createdFrom: instant.optional(),
     createdTo: instant.optional(),
@@ -246,7 +246,7 @@ export type PaymentExceptionDetail = z.infer<typeof paymentExceptionDetail>;
 
 export const paymentExceptionListQuery = pageQuery
   .extend({
-    status: z.union([paymentExceptionStatus, z.array(paymentExceptionStatus)]).optional(),
+    status: oneOrMany(paymentExceptionStatus).optional(),
     reason: paymentExceptionReason.optional(),
     keyword: z.string().trim().max(64).optional(),
     createdFrom: instant.optional(),
@@ -292,7 +292,7 @@ export type CapitalFlowListItem = z.infer<typeof capitalFlowListItem>;
 
 export const capitalFlowListQuery = pageQuery
   .extend({
-    kind: z.union([capitalFlowKind, z.array(capitalFlowKind)]).optional(),
+    kind: oneOrMany(capitalFlowKind).optional(),
     direction: capitalFlowDirection.optional(),
     orderId: id.optional(),
     userId: id.optional(),

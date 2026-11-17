@@ -95,6 +95,8 @@ export const paymentMiniTradeStatus = defineRoute({
   method: 'GET',
   path: '/admin-api/wechat-mini-trade',
   auth: 'admin',
+  // Payment has no `config:read` atom on purpose (see payment/permissions.ts): this status is
+  // part of the `wechat-mini-trade` settings group, which is read with the same atom.
   permission: 'payment:config:write',
   summary: '小程序发货信息管理状态',
   tags: ['payment', 'wechat'],

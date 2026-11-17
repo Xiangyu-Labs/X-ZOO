@@ -1,5 +1,14 @@
 import { z } from 'zod';
-import { id, idList, instant, money, pageQuery, paged, sortQuery } from '../_conventions/common';
+import {
+  id,
+  idList,
+  instant,
+  money,
+  oneOrMany,
+  paged,
+  pageQuery,
+  sortQuery,
+} from '../_conventions/common';
 import { adminUserListQuery } from '../user/schemas';
 
 /**
@@ -186,7 +195,7 @@ export type CouponTemplateForm = z.infer<typeof couponTemplateForm>;
 export const couponTemplateListQuery = pageQuery
   .extend({
     keyword: z.string().trim().max(64).optional(),
-    status: z.union([couponTemplateStatus, z.array(couponTemplateStatus)]).optional(),
+    status: oneOrMany(couponTemplateStatus).optional(),
     scope: couponScope.optional(),
     claimMode: couponClaimMode.optional(),
   })
@@ -287,7 +296,7 @@ export const adminUserCouponListQuery = pageQuery
   .extend({
     templateId: id.optional(),
     userId: id.optional(),
-    status: z.union([userCouponStatus, z.array(userCouponStatus)]).optional(),
+    status: oneOrMany(userCouponStatus).optional(),
   })
   .extend(sortQuery(['id', 'createdAt', 'validTo']).shape);
 export type AdminUserCouponListQuery = z.infer<typeof adminUserCouponListQuery>;

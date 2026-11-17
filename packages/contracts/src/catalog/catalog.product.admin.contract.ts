@@ -338,7 +338,7 @@ export const catalogAdminProductDelete = defineRoute({
   params: productParams,
   response: z.void(),
   status: 204,
-  errors: ['CATALOG_PRODUCT_NOT_FOUND'],
+  errors: ['CATALOG_PRODUCT_NOT_FOUND', 'CATALOG_PRODUCT_IN_USE'],
   examples: [{ name: 'ok', params: { id: '1' }, response: undefined }],
 });
 

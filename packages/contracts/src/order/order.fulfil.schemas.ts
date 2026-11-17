@@ -4,8 +4,9 @@ import {
   id,
   instant,
   money,
-  pageQuery,
+  oneOrMany,
   paged,
+  pageQuery,
   sortQuery,
 } from '../_conventions/common';
 import {
@@ -415,11 +416,9 @@ export const adminOrderDetailExample = {
  */
 export const adminOrderListQuery = pageQuery
   .extend({
-    status: z.union([orderStatus, z.array(orderStatus)]).optional(),
-    fulfillmentStatus: z
-      .union([orderFulfillmentStatus, z.array(orderFulfillmentStatus)])
-      .optional(),
-    refundStatus: z.union([orderRefundStatus, z.array(orderRefundStatus)]).optional(),
+    status: oneOrMany(orderStatus).optional(),
+    fulfillmentStatus: oneOrMany(orderFulfillmentStatus).optional(),
+    refundStatus: oneOrMany(orderRefundStatus).optional(),
     /**
      * `true` keeps only orders with an after-sales request still open (退款中).
      * Not a `refundStatus` value: that roll-up stays `partially_refunded` after
@@ -805,13 +804,13 @@ export const invoiceRejectBody = z.object({
 export type InvoiceRejectBody = z.infer<typeof invoiceRejectBody>;
 
 export const myInvoiceListQuery = pageQuery.extend({
-  status: z.union([invoiceStatus, z.array(invoiceStatus)]).optional(),
+  status: oneOrMany(invoiceStatus).optional(),
 });
 export type MyInvoiceListQuery = z.infer<typeof myInvoiceListQuery>;
 
 export const adminInvoiceListQuery = pageQuery
   .extend({
-    status: z.union([invoiceStatus, z.array(invoiceStatus)]).optional(),
+    status: oneOrMany(invoiceStatus).optional(),
     headerType: invoiceHeaderType.optional(),
     invoiceType: invoiceType.optional(),
     /** Invoice header, duty number or order number. */

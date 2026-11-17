@@ -327,8 +327,17 @@ export const checkoutCreateBody = checkoutInput
       .max(64)
       .regex(/^[A-Za-z0-9_-]+$/, '幂等键格式不正确'),
     buyerRemark: z.string().max(512).optional(),
-    /** Answers to `products.custom_form`, keyed by field. */
-    customForm: z.record(z.string(), z.unknown()).optional(),
+    /**
+     * Answers to `products.custom_form`, keyed by field: text, a number, or the chosen options and
+     * image URLs. Bounded like the form itself (a 32-character key, 50 options), stored as sent.
+     */
+    customForm: z
+      .record(
+        z.string().max(32),
+        z.union([z.string().max(2000), z.number(), z.array(z.string().max(512)).max(50)]),
+      )
+      .refine((answers) => Object.keys(answers).length <= 100, '自定义表单项过多')
+      .optional(),
     /**
      * What the shopper was shown. When present and the server's recomputation
      * disagrees, the order is refused with `ORDER_PRICE_CHANGED` instead of
