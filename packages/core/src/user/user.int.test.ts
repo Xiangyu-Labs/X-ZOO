@@ -356,6 +356,23 @@ describe('profile', () => {
     expect((await service.getProfile(asUser(user.id))).birthday).toBeNull();
   });
 
+  it('clears the real name and the avatar on null or blank, and leaves them on absence', async () => {
+    const user = await makeUser();
+    await service.updateProfile(asUser(user.id), { realName: '王五' });
+    await service.updateProfile(asUser(user.id), { nickname: '小明' });
+    expect((await service.getProfile(asUser(user.id))).realName).toBe('王五');
+
+    await service.updateProfile(asUser(user.id), { realName: null, avatarUrl: null });
+    expect(await service.getProfile(asUser(user.id))).toMatchObject({
+      realName: null,
+      avatarUrl: null,
+    });
+
+    await service.updateProfile(asUser(user.id), { realName: '王五' });
+    await service.updateProfile(asUser(user.id), { realName: '  ' });
+    expect((await service.getProfile(asUser(user.id))).realName).toBeNull();
+  });
+
   it('refuses to read a cancelled account', async () => {
     const user = await makeUser();
     await harness.ctx.withTx((tx) =>
@@ -849,6 +866,17 @@ describe('admin edit', () => {
 
     const detail = await admin.adminDetail(asAdmin(), { id: String(user.id) });
     expect(detail.groups.map((g) => g.id)).toEqual([lapsed.id]);
+  });
+
+  it('clears the real name and the remark on a blank value, never storing an empty string', async () => {
+    const user = await makeUser();
+    const id = { id: String(user.id) };
+    await admin.adminUpdate(asAdmin(), id, form({ realName: '王五', adminRemark: '电话下单' }));
+    await admin.adminUpdate(asAdmin(), id, form({ realName: '', adminRemark: '' }));
+    expect(await admin.adminDetail(asAdmin(), id)).toMatchObject({
+      realName: null,
+      adminRemark: null,
+    });
   });
 
   it('refuses a group id that does not exist rather than silently dropping it', async () => {

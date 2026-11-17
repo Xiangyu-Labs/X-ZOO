@@ -54,6 +54,47 @@ describe('the aggregated contract surface', () => {
     expect(checked).toBeGreaterThan(10);
   });
 
+  it('lets every optional field of an edit form be cleared with null', () => {
+    // A detail answers `null` where nothing is set, and the admin's forms send `null` for an
+    // emptied control: an edit body that refuses it can never clear the field. These are the
+    // fields with nothing to clear — a password, a cart line, a concurrency token, a required
+    // name on a partial update, a waybill an express shipment must keep.
+    const notClearable = new Set([
+      'auth.changePassword.oldPassword',
+      'auth.changePassword.code',
+      'cart.updateItem.skuId',
+      'cart.updateItem.quantity',
+      'cart.updateItem.isSelected',
+      'cart.updateItemPut.skuId',
+      'cart.updateItemPut.quantity',
+      'cart.updateItemPut.isSelected',
+      'groupbuy.adminActivityUpdate.expectedStock',
+      'presale.adminActivityUpdate.expectedStock',
+      'order.adminUpdateShipment.expressCompanyId',
+      'order.adminUpdateShipment.trackingNo',
+      'system.adminUpdate.password',
+      'user.adminUpdate.nickname',
+      'user.updateProfile.nickname',
+    ]);
+    const refused: string[] = [];
+    for (const r of allRoutes) {
+      if (r.method !== 'PUT' && r.method !== 'PATCH') continue;
+      let body: z.ZodType | undefined = r.body;
+      while (body !== undefined && !(body instanceof z.ZodObject)) {
+        const def = body.def as { in?: z.ZodType; schema?: z.ZodType; innerType?: z.ZodType };
+        body = def.in ?? def.schema ?? def.innerType;
+      }
+      if (body === undefined) continue;
+      for (const [key, field] of Object.entries(body.shape as Record<string, z.ZodType>)) {
+        if (notClearable.has(`${r.id}.${key}`) || field instanceof z.ZodDefault) continue;
+        if (field.safeParse(undefined).success && !field.safeParse(null).success) {
+          refused.push(`${r.id}.${key}`);
+        }
+      }
+    }
+    expect(refused).toEqual([]);
+  });
+
   it('merges the common error codes into the registry', () => {
     expect(errorRegistry.VALIDATION_FAILED).toEqual({ status: 422, message: '提交的数据有误' });
     expect(errorRegistry.AUTH_INVALID_CREDENTIALS?.status).toBe(401);

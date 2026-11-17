@@ -508,6 +508,23 @@ describe('editing and cancelling a shipment', () => {
     expect(updated.lines).toHaveLength(1);
   });
 
+  it('clears the remark and the courier on null, and keeps what was not sent', async () => {
+    const { shipmentId, adminId } = await shippedHalf();
+    const id = { id: shipmentId };
+    await order.updateShipment(asAdmin(adminId), id, {
+      remark: '单号打错了',
+      courierName: '张师傅',
+      courierPhone: '13800001234',
+    });
+    const cleared = await order.updateShipment(asAdmin(adminId), id, {
+      remark: null,
+      courierName: null,
+      courierPhone: null,
+    });
+    expect(cleared).toMatchObject({ remark: null, courierName: null, courierPhone: null });
+    expect(cleared.trackingNo).not.toBeNull();
+  });
+
   it('hands the units back and rolls the fulfilment status back with them', async () => {
     const { placed, shipmentId, adminId } = await shippedHalf();
     expect((await orderRow(placed.orderId)).fulfillmentStatus).toBe('partially_fulfilled');

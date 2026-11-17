@@ -449,7 +449,8 @@ export async function updateShipment(
     if (body.trackingNo !== undefined) set.trackingNo = body.trackingNo;
     if (body.courierName !== undefined) set.courierName = body.courierName;
     if (body.courierPhone !== undefined) set.courierPhone = body.courierPhone;
-    if (body.remark !== undefined) set.remark = body.remark;
+    // `null` (or an emptied remark) clears it.
+    if (body.remark !== undefined) set.remark = body.remark?.trim() || null;
     if (Object.keys(set).length === 0) return;
 
     const updated = await fulfilRepo.updateShipmentInfo(tx, { shipmentId, set });

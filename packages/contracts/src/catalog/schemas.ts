@@ -2,6 +2,7 @@ import { productPromotionAdmin, productPromotionInput, storefrontPromotion } fro
 import { z } from 'zod';
 import { descriptionBlock, descriptionBlocksInput } from './description';
 import {
+  clearable,
   id,
   idList,
   instant,
@@ -142,8 +143,8 @@ export const productCategoryForm = z
     /** `null` / omitted makes a root category. */
     parentId: id.nullable().default(null),
     name: z.string().trim().min(1).max(100),
-    iconUrl: z.string().max(512).optional(),
-    bannerUrl: z.string().max(512).optional(),
+    iconUrl: clearable(z.string().max(512)),
+    bannerUrl: clearable(z.string().max(512)),
     sortOrder: z.number().int().min(0).max(9999).default(0),
     isVisible: z.boolean().default(true),
   })
@@ -229,10 +230,10 @@ export const productLabelForm = z
     categoryId: id.nullable().default(null),
     name: z.string().trim().min(1).max(64),
     style: productLabelStyle.default('text'),
-    fontColor: z.string().max(32).optional(),
-    backgroundColor: z.string().max(32).optional(),
-    borderColor: z.string().max(32).optional(),
-    imageUrl: z.string().max(512).optional(),
+    fontColor: clearable(z.string().max(32)),
+    backgroundColor: clearable(z.string().max(32)),
+    borderColor: clearable(z.string().max(32)),
+    imageUrl: clearable(z.string().max(512)),
     isVisible: z.boolean().default(true),
     isEnabled: z.boolean().default(true),
     sortOrder: z.number().int().min(0).max(9999).default(0),
@@ -277,7 +278,7 @@ export type ProductParamTemplate = z.infer<typeof productParamTemplate>;
 export const productParamTemplateForm = z
   .object({
     name: z.string().trim().min(1).max(64),
-    suggestedValues: z.string().max(2000).optional(),
+    suggestedValues: clearable(z.string().max(2000)),
     isEnabled: z.boolean().default(true),
     sortOrder: z.number().int().min(0).max(9999).default(0),
   })
@@ -322,8 +323,8 @@ export type ProductProtection = z.infer<typeof productProtection>;
 export const productProtectionForm = z
   .object({
     title: z.string().trim().min(1).max(64),
-    content: z.string().max(2000).optional(),
-    iconUrl: z.string().max(512).optional(),
+    content: clearable(z.string().max(2000)),
+    iconUrl: clearable(z.string().max(512)),
     isEnabled: z.boolean().default(true),
     sortOrder: z.number().int().min(0).max(9999).default(0),
   })
@@ -522,48 +523,48 @@ export type AdminProductDetail = z.infer<typeof adminProductDetail>;
  */
 export const adminProductForm = z
   .object({
-    promotion: productPromotionInput.optional(),
+    promotion: clearable(productPromotionInput),
     name: z.string().trim().min(1).max(128),
-    subtitle: z.string().trim().max(255).optional(),
-    keyword: z.string().trim().max(255).optional(),
-    spu: z.string().trim().max(32).optional(),
-    barCode: z.string().trim().max(32).optional(),
+    subtitle: clearable(z.string().trim().max(255)),
+    keyword: clearable(z.string().trim().max(255)),
+    spu: clearable(z.string().trim().max(32)),
+    barCode: clearable(z.string().trim().max(32)),
     kind: productKind.default('physical'),
     status: productStatus.default('draft'),
     imageUrl: z.string().min(1).max(512),
-    cardImageUrl: z.string().max(512).optional(),
+    cardImageUrl: clearable(z.string().max(512)),
     sliderImages: z.array(z.string().max(512)).max(10).default([]),
-    videoUrl: z.string().max(512).optional(),
+    videoUrl: clearable(z.string().max(512)),
     /** Only with `videoUrl`; absent shows `imageUrl` over the video. */
-    videoPosterUrl: z.string().max(512).optional(),
-    unitName: z.string().trim().max(32).optional(),
+    videoPosterUrl: clearable(z.string().max(512)),
+    unitName: clearable(z.string().trim().max(32)),
     /**
      * Ignored: the product's 划线价 is the shown SKU's 原价 (see `rollupProduct`). Still accepted
      * so an older client that sends it is not refused.
      */
-    originalPrice: money.optional(),
+    originalPrice: clearable(money),
     displaySalesBoost: z.number().int().min(0).max(1_000_000).default(0),
     /** `false` means one implicit SKU; `true` means the spec matrix below. */
     specMode: z.boolean().default(false),
     specs: z.array(productSpecInput).max(5).default([]),
     skus: z.array(productSkuInput).min(1).max(500),
     freightMode: productFreightMode.default('template'),
-    fixedFreight: money.optional(),
-    shippingTemplateId: id.optional(),
+    fixedFreight: clearable(money),
+    shippingTemplateId: clearable(id),
     purchaseLimitMode: productPurchaseLimitMode.default('none'),
-    purchaseLimitQuantity: z.number().int().min(1).max(100_000).optional(),
+    purchaseLimitQuantity: clearable(z.number().int().min(1).max(100_000)),
     minPurchaseQuantity: z.number().int().min(1).max(100_000).default(1),
     isHot: z.boolean().default(false),
     isNew: z.boolean().default(false),
     isBest: z.boolean().default(false),
     isBenefit: z.boolean().default(false),
     isRecommended: z.boolean().default(false),
-    customForm: z.array(productCustomFormField).max(20).optional(),
+    customForm: clearable(z.array(productCustomFormField).max(20)),
     sortOrder: z.number().int().min(0).max(9999).default(0),
     /** Read only when `descriptionBlocks` is absent: the details as one rich-text block. */
     descriptionHtml: z.string().max(500_000).default(''),
     /** 商品详情 in order; replaces `descriptionHtml` when sent. */
-    descriptionBlocks: descriptionBlocksInput.optional(),
+    descriptionBlocks: clearable(descriptionBlocksInput),
     categoryIds: z.array(id).min(1).max(20),
     labelIds: z.array(id).max(20).default([]),
     protectionIds: z.array(id).max(20).default([]),

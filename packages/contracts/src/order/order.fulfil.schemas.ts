@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  clearable,
   clientPlatform,
   id,
   instant,
@@ -178,12 +179,16 @@ export const shipBodyExample = {
  * because that is what `shipment_items` and `shippedQuantity` already agreed on.
  * Correcting the lines means cancelling the shipment and shipping again.
  */
+/**
+ * Only what is sent changes. The waybill (company + number) can be corrected but not removed — an
+ * express shipment must have one; the courier and the remark can be: `null` clears them.
+ */
 export const shipmentUpdateBody = z.object({
   expressCompanyId: id.optional(),
   trackingNo: z.string().min(1).max(64).optional(),
-  courierName: z.string().min(1).max(64).optional(),
-  courierPhone: z.string().min(1).max(20).optional(),
-  remark: z.string().max(255).optional(),
+  courierName: z.string().min(1).max(64).nullish(),
+  courierPhone: z.string().min(1).max(20).nullish(),
+  remark: z.string().max(255).nullish(),
 });
 export type ShipmentUpdateBody = z.infer<typeof shipmentUpdateBody>;
 
@@ -740,13 +745,13 @@ export const invoiceHeaderInput = z.object({
   headerType: invoiceHeaderType,
   invoiceType: invoiceType.default('plain'),
   name: z.string().min(1).max(100),
-  dutyNumber: z.string().max(50).optional(),
-  drawerPhone: z.string().max(20).optional(),
-  email: z.string().email().max(100).optional(),
-  registeredTel: z.string().max(30).optional(),
-  registeredAddress: z.string().max(255).optional(),
-  bankName: z.string().max(100).optional(),
-  bankAccount: z.string().max(50).optional(),
+  dutyNumber: clearable(z.string().max(50)),
+  drawerPhone: clearable(z.string().max(20)),
+  email: clearable(z.string().email().max(100)),
+  registeredTel: clearable(z.string().max(30)),
+  registeredAddress: clearable(z.string().max(255)),
+  bankName: clearable(z.string().max(100)),
+  bankAccount: clearable(z.string().max(50)),
 });
 export type InvoiceHeaderInput = z.infer<typeof invoiceHeaderInput>;
 
