@@ -324,6 +324,13 @@ async function changeSku(
   args: { row: repo.CartRow; userId: number; skuId: number; quantity: number },
 ): Promise<number> {
   const sku = await skuOrRefuse(ctx, tx, args.skuId);
+  // 换规格 only: another product's SKU would carry this row's units past that
+  // product's purchase limit and minimum without either ever being checked.
+  if (sku.productId !== args.row.productId) {
+    throw new DomainError('CART_SKU_PRODUCT_MISMATCH', {
+      details: { skuId: toId(args.skuId) },
+    });
+  }
   const existing = await repo.findBySku(tx, { userId: args.userId, skuId: args.skuId });
 
   const refusal = refuseQuantity(sku, args.quantity + (existing?.quantity ?? 0));

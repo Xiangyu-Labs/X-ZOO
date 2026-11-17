@@ -324,6 +324,20 @@ describe('editing the cart', () => {
     expect(listed.items.map((row) => row.quantity)).toEqual([1]);
   });
 
+  it('refuses to re-spec a row onto another product’s variant', async () => {
+    const userId = await makeUser();
+    const limited = await makeProduct({ purchaseLimit: 1 });
+    const other = await makeProduct();
+    const added = await cart.addItem(as(userId), { skuId: String(other.skuId), quantity: 3 });
+
+    await expectDomainError(
+      cart.updateItem(as(userId), { id: added.item!.id }, { skuId: String(limited.skuId) }),
+      'CART_SKU_PRODUCT_MISMATCH',
+    );
+    const listed = await cart.list(as(userId), { page: 1, pageSize: 20, filter: 'all' });
+    expect(listed.items.map((row) => row.skuId)).toEqual([String(other.skuId)]);
+  });
+
   it('refuses to edit somebody else’s row, with the same code as a missing one', async () => {
     const owner = await makeUser();
     const stranger = await makeUser();

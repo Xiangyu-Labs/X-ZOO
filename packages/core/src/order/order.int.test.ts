@@ -470,6 +470,54 @@ describe('checkout preview', () => {
     );
   });
 
+  async function secondSku(item: {
+    productId: number;
+  }): Promise<{ productId: number; skuId: number }> {
+    sequence += 1;
+    const [sku] = await harness.ctx.db
+      .insert(productSkus)
+      .values({
+        productId: item.productId,
+        skuCode: `SKU-${sequence}`,
+        specText: '另一规格',
+        price: '60.00',
+        originalPrice: '88.00',
+        cost: '30.00',
+        stock: 10,
+        weight: '1.000',
+      })
+      .returning({ id: productSkus.id });
+    return { productId: item.productId, skuId: sku!.id };
+  }
+
+  it('sums the variants of one product against its per-order limit', async () => {
+    const userId = await makeUser();
+    const red = await makeProduct({ purchaseLimit: { mode: 'per_order', quantity: 3 } });
+    const blue = await secondSku(red);
+    await addToCart(userId, red, 2);
+    await addToCart(userId, blue, 2);
+    await makeAddress(userId);
+
+    await expectDomainError(
+      order.preview(as(userId), { source: 'cart', cartItemIds: [], kind: 'normal' }),
+      'ORDER_PURCHASE_LIMIT_REACHED',
+    );
+  });
+
+  it('sums the variants of one product against its lifetime limit', async () => {
+    const userId = await makeUser();
+    const red = await makeProduct({ purchaseLimit: { mode: 'lifetime', quantity: 3 } });
+    const blue = await secondSku(red);
+    await addToCart(userId, red, 2);
+    await addToCart(userId, blue, 2);
+    await makeAddress(userId);
+
+    await expectDomainError(
+      order.preview(as(userId), { source: 'cart', cartItemIds: [], kind: 'normal' }),
+      'ORDER_PURCHASE_LIMIT_REACHED',
+    );
+  });
+
   it('CAT-014 — counts a lifetime limit the way the cart and the product page do: unpaid in, refunded out', async () => {
     const userId = await makeUser();
     const item = await makeProduct({ purchaseLimit: { mode: 'lifetime', quantity: 2 } });
