@@ -646,6 +646,11 @@ describe('商品详情', () => {
     // The box is the price: no 2 人团 note under it, the sales inside it, no plain price row.
     const box = document.querySelector('.product__promotion') as HTMLElement;
     expect(within(box).queryByText('2 人团')).toBeNull();
+    // 划线价 on its own line under the price (#95): the price side, not the countdown's.
+    expect(
+      within(box.querySelector('.product__promotion-original') as HTMLElement).getByText('59'),
+    ).toBeTruthy();
+    expect(box.querySelector('.product__promotion-side .product__promotion-original')).toBeNull();
     // 已售 under the countdown (#95), not under the price.
     const side = box.querySelector('.product__promotion-side') as HTMLElement;
     expect(within(side).getByText('已售 128')).toBeTruthy();

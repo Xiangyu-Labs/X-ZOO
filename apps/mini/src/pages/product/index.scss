@@ -255,7 +255,10 @@
   color: #fff;
 }
 
-.product__promotion-original {
+// 划线价 on a line of its own under the activity price (#95), not after 2人拼团价. Two classes,
+// so `display` wins over the price's own `inline-flex` whatever order the stylesheets load in.
+.shop-price.product__promotion-original {
+  display: flex;
   color: #fff;
   opacity: 0.8;
   margin-top: 8px;
