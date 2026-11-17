@@ -83,6 +83,19 @@ describe('<ProductSelect>', () => {
     expect(onChange).toHaveBeenCalledWith(['12', '13']);
   });
 
+  it('debounces rapid typing before sending search and id queries', async () => {
+    const calls = stubApi();
+    renderAdmin(<ProductSelect />, { identity: reader });
+    await waitFor(() => expect(calls).toHaveLength(1));
+
+    await userEvent.type(screen.getByRole('combobox'), '13');
+    await waitFor(() => {
+      const keywordCalls = calls.filter((call) => call.query.get('keyword') !== null);
+      expect(keywordCalls.map((call) => call.query.get('keyword'))).toEqual(['13']);
+    });
+    expect(await screen.findByTitle('明前龙井（#13）')).toBeInTheDocument();
+  });
+
   it('is the plain id box for a role that may not read products', () => {
     const calls = stubApi();
     renderAdmin(<ProductSelect value="12" />, { identity: testIdentity });

@@ -47,6 +47,7 @@ import { groupbuyConfig } from './groupbuy.config';
 import { settleGroup } from './groupbuy.jobs';
 import { groupbuyPermissions } from './permissions';
 import * as repo from './groupbuy.repo';
+import { recordActivityView } from './groupbuy.views';
 import {
   assertCompletable,
   assertWithdrawable,
@@ -548,7 +549,7 @@ export async function detail(ctx: Ctx, input: { id: string }): Promise<GroupbuyD
   const myOpenGroup =
     userId === null ? null : await repo.findMyOpenGroup(ctx.db, { activityId: id, userId, now });
 
-  await repo.bumpViews(ctx.db, id);
+  await recordActivityView(ctx, id);
 
   return {
     ...toCard(activity, forming.get(id) ?? 0, now),

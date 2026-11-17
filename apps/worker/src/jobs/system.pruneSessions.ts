@@ -8,11 +8,11 @@ import { defineJob } from '../define-job';
  */
 export default defineJob({
   name: 'system.pruneSessions',
-  schema: z.object({}).default({}),
+  schema: z.object({ limit: z.number().int().min(100).max(100_000).default(5000) }).prefault({}),
   concurrency: 1,
   repeat: { pattern: '20 3 * * *' },
-  handler: async (ctx) => {
-    const removed = await new UserSessionService().pruneExpired(ctx);
+  handler: async (ctx, payload) => {
+    const removed = await new UserSessionService().pruneExpired(ctx, { limit: payload.limit });
     if (removed > 0) ctx.logger.info({ removed }, 'pruned expired storefront sessions');
   },
 });

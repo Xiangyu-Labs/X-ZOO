@@ -11,15 +11,12 @@ import {
   catalogAdminProductRestore,
   catalogAdminProductSetStatus,
 } from '@shop/contracts/catalog/catalog.product.admin.contract';
-import type {
-  AdminProductListItem,
-  AdminProductTab,
-  ProductExportResult,
-} from '@shop/contracts/catalog/schemas';
+import type { AdminProductListItem, AdminProductTab } from '@shop/contracts/catalog/schemas';
 
 import { useRouteMutation } from '@/admin/api/hooks';
 import { ConfirmAction } from '@/admin/kit/confirm-action';
 import { ConfirmButton } from '@/admin/kit/confirm-button';
+import { downloadCsv, formatCsvTable } from '@/admin/kit/csv';
 import { TreeSelectField } from '@/admin/kit/form/select-fields';
 import { PageContainer } from '@/admin/kit/page-container';
 import { StatusTag } from '@/admin/kit/status-tag';
@@ -364,7 +361,7 @@ function ExportButton({
       },
       {
         onSuccess: (result) => {
-          downloadCsv(result);
+          downloadCsv(result.filename, formatCsvTable(result.columns, result.rows));
           void message.success(
             result.truncated
               ? `已导出前 ${result.rows.length} 条，共 ${result.total} 条，请缩小筛选范围`
@@ -382,31 +379,4 @@ function ExportButton({
       </Button>
     </Can>
   );
-}
-
-/**
- * Always quoted. A leading `=`, `+`, `-` or `@` gets a `'` first so a
- * spreadsheet shows a product called `=HYPERLINK(…)` as text instead of
- * running it.
- */
-function csvCell(value: string): string {
-  const guarded = /^[=+\-@]/.test(value) ? `'${value}` : value;
-  return `"${guarded.replaceAll('"', '""')}"`;
-}
-
-function downloadCsv(result: ProductExportResult): void {
-  const header = result.columns.map((column) => csvCell(column.title)).join(',');
-  const body = result.rows
-    .map((row) => result.columns.map((column) => csvCell(row[column.key] ?? '')).join(','))
-    .join('\r\n');
-  const blob = new Blob(['﻿', `${header}\r\n${body}`], {
-    type: 'text/csv;charset=utf-8',
-  });
-
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = result.filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
 }

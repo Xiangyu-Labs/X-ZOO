@@ -54,7 +54,7 @@ export async function trial(
     names,
     units: body.units,
     amountFen: Money.parse(body.amount).valueOfFen(),
-    freeThresholdFen: config.freeShippingThreshold * 100,
+    freeThresholdFen: Money.fromYuan(config.freeShippingThreshold).fen,
   });
 }
 

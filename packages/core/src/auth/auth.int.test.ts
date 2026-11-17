@@ -514,8 +514,14 @@ describe('storefront sessions', () => {
     expect(await sessions.resolve(harness.ctx, b.token)).not.toBeNull();
   });
 
-  it('prunes expired rows', async () => {
+  it('prunes expired rows in bounded batches', async () => {
     registerUserLookup(fakeUserLookup([{ id: 7 }]));
+    await sessions.issue(harness.ctx, {
+      userId: 7,
+      passwordVersion: 1,
+      platform: 'h5',
+      ttlMs: 1000,
+    });
     await sessions.issue(harness.ctx, {
       userId: 7,
       passwordVersion: 1,
@@ -524,7 +530,9 @@ describe('storefront sessions', () => {
     });
     await sessions.issue(harness.ctx, { userId: 7, passwordVersion: 1, platform: 'h5' });
     harness.clock.advance(2000);
-    expect(await sessions.pruneExpired(harness.ctx)).toBe(1);
+    expect(await sessions.pruneExpired(harness.ctx, { limit: 1 })).toBe(1);
+    expect(await harness.ctx.db.select().from(userSessions)).toHaveLength(2);
+    expect(await sessions.pruneExpired(harness.ctx, { limit: 10 })).toBe(1);
     expect(await harness.ctx.db.select().from(userSessions)).toHaveLength(1);
   });
 });

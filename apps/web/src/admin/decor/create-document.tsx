@@ -82,22 +82,42 @@ function TemplateCard({
         }}
       >
         {template.document ? (
-          <div
-            style={{
-              width: THUMB_WIDTH,
-              height: THUMB_HEIGHT,
-              transform: `scale(${THUMB_SCALE})`,
-              transformOrigin: 'top left',
-            }}
-          >
-            <DecorPagePreview
-              kind={template.kind}
-              data={toPuckData(template.document)}
-              width={THUMB_WIDTH}
-              height={THUMB_HEIGHT}
-              title={`${template.name}预览`}
-            />
-          </div>
+          selected ? (
+            <div
+              style={{
+                width: THUMB_WIDTH,
+                height: THUMB_HEIGHT,
+                transform: `scale(${THUMB_SCALE})`,
+                transformOrigin: 'top left',
+              }}
+            >
+              <DecorPagePreview
+                kind={template.kind}
+                data={toPuckData(template.document)}
+                width={THUMB_WIDTH}
+                height={THUMB_HEIGHT}
+                title={`${template.name}预览`}
+              />
+            </div>
+          ) : (
+            <div
+              style={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 4,
+                padding: 12,
+                textAlign: 'center',
+                color: 'var(--ant-color-text-tertiary)',
+                fontSize: 12,
+              }}
+            >
+              <span>{template.document.blocks.length} 个组件</span>
+              <span style={{ color: 'var(--ant-color-text-quaternary)' }}>选中后预览</span>
+            </div>
+          )
         ) : (
           <div
             style={{

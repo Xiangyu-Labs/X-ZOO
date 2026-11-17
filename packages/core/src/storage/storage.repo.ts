@@ -544,54 +544,120 @@ export async function listSweepableAttachments(
     .limit(limit);
 }
 
-/**
- * Tables that record what happened rather than what the shop shows. A URL in
- * an audit entry or a job payload is not a picture on a page, and these are
- * the tables that grow without bound, so the reference scan skips them.
- * Everything else is scanned — a table added later is covered without anyone
- * remembering to list it here.
- */
-const NOT_CONTENT_TABLES = [
-  'attachments',
-  'attachment_categories',
-  'audit_logs',
-  'user_sessions',
-  'admin_api_tokens',
-  'oauth_clients',
-  'effects',
-  'failed_jobs',
-  'payment_attempts',
-  'payment_callbacks',
-  'payment_exceptions',
-  'capital_flows',
-  'wechat_trade_orders',
-  'notification_messages',
-  'sms_logs',
-  'product_events',
-  'user_visits',
-  'search_logs',
-  'order_status_logs',
-  'refund_logs',
-  'presale_stock_ledger',
-  'content_security_checks',
-  'wechat_qrcode_scans',
-  'cities',
-];
-
-/** The text-like column types a URL can sit in. */
-const TEXT_UDTS = ['text', 'varchar', 'bpchar', 'json', 'jsonb', '_text', '_varchar'];
-
 const regexpLiteral = (text: string) => text.replace(/[\\^$.|?*+()[\]{}]/g, '\\$&');
 
+interface ContentSource {
+  table: string;
+  /** SQL expression yielding a single text string per row that may hold attachment URLs/keys. */
+  expr: SQL;
+  /** Skips rows whose media columns are all NULL / empty before running regex checks. */
+  nonEmpty?: SQL;
+}
+
+const colText = (name: string) => sql`${sql.identifier(name)}::text`;
+
+function colsSource(table: string, columns: readonly string[], nonEmpty?: SQL): ContentSource {
+  const expr =
+    columns.length === 1
+      ? colText(columns[0]!)
+      : sql`concat_ws(' ', ${sql.join(columns.map(colText), sql`, `)})`;
+  return nonEmpty === undefined ? { table, expr } : { table, expr, nonEmpty };
+}
+
 /**
- * Which of `needles` some content still contains, anywhere in a text, JSON or
- * text-array column of a content table: a product's pictures and description,
- * a page document and its revisions, an article, a config value, an avatar, an
- * order line's snapshot.
+ * Curated media-bearing tables and columns, ordered from smallest config/catalog
+ * tables to largest transactional/user tables so `pending.length === 0` exits
+ * early without touching large tables.
  *
- * One pass per table, whatever the number of needles. A needle is matched as a
- * substring, so a false hit keeps a file that could have gone — the safe side
- * for a job whose other mistake is a broken picture.
+ * Non-media tables (`orders`, `shipments`, `admins`, `user_addresses`,
+ * `product_virtual_cards`, logs, stats, etc.) are never scanned, and
+ * `order_items` reads only the two image keys out of `snapshot`.
+ */
+export const CONTENT_MEDIA_COLUMNS: Readonly<Record<string, readonly string[]>> = {
+  config_values: ['value'],
+  agreements: ['content_html'],
+  decor_documents: ['draft'],
+  decor_revisions: ['content'],
+  product_categories: ['icon_url', 'banner_url'],
+  products: ['image_url', 'card_image_url', 'slider_images', 'video_url', 'video_poster_url'],
+  product_descriptions: ['content_html', 'blocks'],
+  product_spec_values: ['image_url'],
+  product_skus: ['image_url'],
+  product_labels: ['image_url'],
+  product_protections: ['icon_url'],
+  article_categories: ['image_url'],
+  articles: ['cover_image_url', 'source_url'],
+  article_contents: ['content_html'],
+  groupbuy_activities: ['image_url', 'slider_images'],
+  presale_activities: ['image_url', 'slider_images'],
+  wechat_auto_replies: ['payload'],
+  wechat_qrcodes: ['image_url', 'reply_payload'],
+  wechat_mini_codes: ['storage_key', 'url'],
+  wechat_media: ['url'],
+  product_reviews: ['author_avatar_url', 'images'],
+  refunds: ['images'],
+  groupbuy_members: ['avatar_url'],
+  wechat_identities: ['avatar_url'],
+  users: ['avatar_url'],
+  order_items: ['snapshot'],
+};
+
+const CONTENT_SOURCES: readonly ContentSource[] = [
+  colsSource('config_values', ['value']),
+  colsSource('agreements', ['content_html'], sql`content_html is not null`),
+  colsSource('decor_documents', ['draft']),
+  colsSource('decor_revisions', ['content']),
+  colsSource(
+    'product_categories',
+    ['icon_url', 'banner_url'],
+    sql`(icon_url is not null or banner_url is not null)`,
+  ),
+  colsSource('products', [
+    'image_url',
+    'card_image_url',
+    'slider_images',
+    'video_url',
+    'video_poster_url',
+  ]),
+  colsSource('product_descriptions', ['content_html', 'blocks']),
+  colsSource('product_spec_values', ['image_url'], sql`image_url is not null`),
+  colsSource('product_skus', ['image_url'], sql`image_url is not null`),
+  colsSource('product_labels', ['image_url'], sql`image_url is not null`),
+  colsSource('product_protections', ['icon_url'], sql`icon_url is not null`),
+  colsSource('article_categories', ['image_url'], sql`image_url is not null`),
+  colsSource(
+    'articles',
+    ['cover_image_url', 'source_url'],
+    sql`(cover_image_url is not null or source_url is not null)`,
+  ),
+  colsSource('article_contents', ['content_html']),
+  colsSource('groupbuy_activities', ['image_url', 'slider_images']),
+  colsSource('presale_activities', ['image_url', 'slider_images']),
+  colsSource('wechat_auto_replies', ['payload']),
+  colsSource('wechat_qrcodes', ['image_url', 'reply_payload']),
+  colsSource('wechat_mini_codes', ['storage_key', 'url']),
+  colsSource('wechat_media', ['url'], sql`url is not null`),
+  colsSource(
+    'product_reviews',
+    ['author_avatar_url', 'images'],
+    sql`(author_avatar_url is not null or jsonb_array_length(images) > 0)`,
+  ),
+  colsSource('refunds', ['images'], sql`jsonb_array_length(images) > 0`),
+  colsSource('groupbuy_members', ['avatar_url'], sql`avatar_url is not null`),
+  colsSource('wechat_identities', ['avatar_url'], sql`avatar_url is not null`),
+  colsSource('users', ['avatar_url'], sql`avatar_url is not null`),
+  {
+    table: 'order_items',
+    expr: sql`concat_ws(' ', snapshot->>'productImageUrl', snapshot->>'skuImageUrl')`,
+    nonEmpty: sql`(snapshot->>'productImageUrl' is not null or snapshot->>'skuImageUrl' is not null)`,
+  },
+];
+
+/**
+ * Which of `needles` some content still contains in a media-bearing column.
+ *
+ * Pre-filters rows with `nonEmpty` and `~` (fast regex match without capture
+ * extraction) before invoking `regexp_matches(..., 'g')` only on matching rows.
  */
 export async function referencedNeedles(
   db: DbOrTx,
@@ -600,40 +666,22 @@ export async function referencedNeedles(
   const found = new Set<string>();
   if (needles.length === 0) return found;
 
-  const columns = await db.execute<{ table_name: string; column_name: string }>(sql`
-    select c.table_name, c.column_name
-      from information_schema.columns c
-      join information_schema.tables t
-        on t.table_schema = c.table_schema and t.table_name = c.table_name
-     where c.table_schema = current_schema()
-       and t.table_type = 'BASE TABLE'
-       and c.udt_name in (${sql.join(
-         TEXT_UDTS.map((udt) => sql`${udt}`),
-         sql`, `,
-       )})
-       and c.table_name not in (${sql.join(
-         NOT_CONTENT_TABLES.map((table) => sql`${table}`),
-         sql`, `,
-       )})
-     order by c.table_name, c.ordinal_position`);
-
-  const byTable = new Map<string, string[]>();
-  for (const row of columns.rows) {
-    byTable.set(row.table_name, [...(byTable.get(row.table_name) ?? []), row.column_name]);
-  }
-
-  for (const [table, names] of byTable) {
+  for (const source of CONTENT_SOURCES) {
     const pending = needles.filter((needle) => !found.has(needle));
     if (pending.length === 0) break;
     const pattern = `(${pending.map(regexpLiteral).join('|')})`;
-    const text = sql.join(
-      names.map((name) => sql`${sql.identifier(name)}::text`),
-      sql`, `,
-    );
+    const whereClause = source.nonEmpty
+      ? sql`${source.nonEmpty} and ${source.expr} ~ ${pattern}`
+      : sql`${source.expr} is not null and ${source.expr} ~ ${pattern}`;
     const hits = await db.execute<{ needle: string }>(sql`
+      with matched as (
+        select ${source.expr} as body
+          from ${sql.identifier(source.table)}
+         where ${whereClause}
+      )
       select distinct m[1] as needle
-        from ${sql.identifier(table)},
-             regexp_matches(concat_ws(' ', ${text}), ${pattern}, 'g') as m`);
+        from matched,
+             regexp_matches(matched.body, ${pattern}, 'g') as m`);
     for (const hit of hits.rows) found.add(hit.needle);
   }
   return found;

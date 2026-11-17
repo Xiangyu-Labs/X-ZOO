@@ -54,19 +54,24 @@ export async function productActivitySummaries(
       ),
     );
 }
-export async function activitySkus(
+
+export async function listActivitiesSkus(
   db: DbOrTx,
-  activityId: number,
-): Promise<{ skuId: number; price: string; specValues: Record<string, string> }[]> {
+  activityIds: readonly number[],
+): Promise<
+  { activityId: number; skuId: number; price: string; specValues: Record<string, string> }[]
+> {
+  if (activityIds.length === 0) return [];
   return db
     .select({
+      activityId: flashSaleActivitySkus.activityId,
       skuId: flashSaleActivitySkus.skuId,
       price: flashSaleActivitySkus.price,
       specValues: productSkus.specValues,
     })
     .from(flashSaleActivitySkus)
     .innerJoin(productSkus, eq(productSkus.id, flashSaleActivitySkus.skuId))
-    .where(eq(flashSaleActivitySkus.activityId, activityId))
+    .where(inArray(flashSaleActivitySkus.activityId, [...activityIds]))
     .orderBy(asc(productSkus.sortOrder), asc(productSkus.id));
 }
 

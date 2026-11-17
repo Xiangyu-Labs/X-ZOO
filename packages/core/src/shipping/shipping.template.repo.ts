@@ -103,6 +103,17 @@ export async function findTemplate(db: DbOrTx, id: number): Promise<TemplateRow 
   return rows[0] ?? null;
 }
 
+export async function listTemplatesByIds(
+  db: DbOrTx,
+  ids: readonly number[],
+): Promise<TemplateRow[]> {
+  if (ids.length === 0) return [];
+  return db
+    .select()
+    .from(shippingTemplates)
+    .where(and(inArray(shippingTemplates.id, [...new Set(ids)]), live()));
+}
+
 /** How many live products point at each of these templates. Empty ids ⇒ empty map. */
 export async function countProductsPerTemplate(
   db: DbOrTx,

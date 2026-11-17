@@ -906,7 +906,6 @@ export async function closeActivity(
   });
 }
 
-/** Internal product-editor read, unpaged so legacy conflicts cannot be hidden by a list cap. */
 /** `productActivityIds` for many products at once: what a product card needs to know. */
 export async function productActivitySummaries(
   db: DbOrTx,
@@ -934,13 +933,15 @@ export async function productActivitySummaries(
       ),
     );
 }
-export async function productActivityIds(
+
+/** Internal product-editor read, unpaged so legacy conflicts cannot be hidden by a list cap. */
+export async function listProductActivities(
   db: DbOrTx,
   productId: number,
   includeId: number | null,
-): Promise<number[]> {
-  const rows = await db
-    .select({ id: presaleActivities.id })
+): Promise<PresaleActivity[]> {
+  return db
+    .select()
     .from(presaleActivities)
     .where(
       and(
@@ -951,8 +952,8 @@ export async function productActivityIds(
           includeId === null ? undefined : eq(presaleActivities.id, includeId),
         ),
       ),
-    );
-  return rows.map((row) => row.id);
+    )
+    .orderBy(asc(presaleActivities.id));
 }
 export async function endProductActivity(
   tx: Tx,

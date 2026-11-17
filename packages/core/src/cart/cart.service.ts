@@ -84,25 +84,23 @@ async function loadCart(ctx: Ctx, db: DbOrTx, userId: number): Promise<EnrichedR
 
 /**
  * Units already bought of each product in the cart that has a `lifetime`
- * limit, through the order domain's facts port (one read per such product;
- * a cart rarely holds more than a few).
+ * limit, through the order domain's facts port in one batched query.
  */
 async function lifetimePurchases(
   db: DbOrTx,
   userId: number,
   skus: readonly SkuForSale[],
 ): Promise<Map<number, number>> {
-  const out = new Map<number, number>();
-  const products = new Set(
-    skus
-      .filter((sku) => sku.purchaseLimitMode === 'lifetime' && sku.purchaseLimitQuantity !== null)
-      .map((sku) => sku.productId),
-  );
-  for (const productId of products) {
-    // The port is typed for a transaction; a plain read through the pool is the same query.
-    out.set(productId, await getOrderFacts().purchasedQuantity(db as Tx, { userId, productId }));
-  }
-  return out;
+  const productIds = [
+    ...new Set(
+      skus
+        .filter((sku) => sku.purchaseLimitMode === 'lifetime' && sku.purchaseLimitQuantity !== null)
+        .map((sku) => sku.productId),
+    ),
+  ];
+  if (productIds.length === 0) return new Map();
+  // The port is typed for a transaction; a plain read through the pool is the same query.
+  return getOrderFacts().purchasedQuantities(db as Tx, { userId, productIds });
 }
 
 function toCartItem(entry: EnrichedRow): CartItem {
@@ -372,12 +370,17 @@ export async function removeItems(
   const userId = requireUserId(ctx);
 
   return ctx.withTx(async (tx) => {
-    const ids = body.unavailableOnly
-      ? (await loadCart(ctx, tx, userId))
-          .filter((entry) => !entry.available)
-          .map((entry) => entry.row.id)
-      : body.itemIds.map(fromId);
-    const removed = await repo.remove(tx, { userId, ids });
+    if (body.unavailableOnly) {
+      const loaded = await loadCart(ctx, tx, userId);
+      const ids = loaded.filter((entry) => !entry.available).map((entry) => entry.row.id);
+      if (ids.length === 0) return { removed: 0, cart: countOf(loaded) };
+      const removedIds = new Set(await repo.removeReturningIds(tx, { userId, ids }));
+      return {
+        removed: removedIds.size,
+        cart: countOf(loaded.filter((entry) => !removedIds.has(entry.row.id))),
+      };
+    }
+    const removed = await repo.remove(tx, { userId, ids: body.itemIds.map(fromId) });
     return { removed, cart: countOf(await loadCart(ctx, tx, userId)) };
   });
 }
@@ -394,19 +397,65 @@ export async function setSelection(ctx: Ctx, body: CartSelectionBody): Promise<C
   const userId = requireUserId(ctx);
 
   const entries = await ctx.withTx(async (tx) => {
-    const loaded = await loadCart(ctx, tx, userId);
-    const ids = body.all
-      ? loaded
-          .filter((entry) => (body.isSelected ? entry.available : true))
-          .map((entry) => entry.row.id)
-      : body.itemIds.map(fromId);
-    await repo.setSelected(tx, { userId, ids, isSelected: body.isSelected });
+    if (body.all) {
+      const loaded = await loadCart(ctx, tx, userId);
+      const ids = loaded
+        .filter((entry) => (body.isSelected ? entry.available : true))
+        .map((entry) => entry.row.id);
+      const updatedIds = new Set(
+        await repo.setSelectedReturningIds(tx, { userId, ids, isSelected: body.isSelected }),
+      );
+      return loaded.map((entry) =>
+        updatedIds.has(entry.row.id)
+          ? { ...entry, row: { ...entry.row, isSelected: body.isSelected } }
+          : entry,
+      );
+    }
+    await repo.setSelected(tx, {
+      userId,
+      ids: body.itemIds.map(fromId),
+      isSelected: body.isSelected,
+    });
     return loadCart(ctx, tx, userId);
   });
 
   // The whole cart, not a first page: the storefront puts this answer in place of the cart it
   // shows, and a 20-row page would drop every row past the 20th from it.
   return listOf(entries, { page: 1, pageSize: MAX_CART_ROWS, filter: 'all' });
+}
+
+function isPromotionBlockedError(error: unknown): boolean {
+  return (
+    DomainError.is(error) &&
+    ['CATALOG_PRESALE_REQUIRED', 'CATALOG_PROMOTION_CONFLICT'].includes(error.code)
+  );
+}
+
+async function blockedNormalProducts(
+  ctx: Ctx,
+  tx: Tx,
+  productIds: readonly number[],
+): Promise<Set<number>> {
+  const uniqueIds = [...new Set(productIds)];
+  const assertPurchase = resolveCatalogPort().assertPurchase;
+  if (uniqueIds.length === 0 || !assertPurchase) return new Set();
+  try {
+    await assertPurchase(ctx, tx, uniqueIds, 'normal');
+    return new Set();
+  } catch (error) {
+    if (!isPromotionBlockedError(error)) throw error;
+    if (uniqueIds.length === 1) return new Set(uniqueIds);
+  }
+  const blocked = new Set<number>();
+  for (const productId of uniqueIds) {
+    try {
+      await assertPurchase(ctx, tx, [productId], 'normal');
+    } catch (error) {
+      if (isPromotionBlockedError(error)) blocked.add(productId);
+      else throw error;
+    }
+  }
+  return blocked;
 }
 
 /**
@@ -428,7 +477,7 @@ export async function rebuy(ctx: Ctx, body: CartRebuyBody): Promise<CartRebuyRes
       ctx.clock.now(),
     );
     const skipped: string[] = [];
-    let added = 0;
+    const eligible: { line: (typeof lines)[number]; sku: SkuForSale }[] = [];
 
     for (const line of lines) {
       const sku = skus.get(line.skuId);
@@ -436,17 +485,20 @@ export async function rebuy(ctx: Ctx, body: CartRebuyBody): Promise<CartRebuyRes
         skipped.push(toId(line.skuId));
         continue;
       }
-      try {
-        await resolveCatalogPort().assertPurchase?.(ctx, tx, [sku.productId], 'normal');
-      } catch (error) {
-        if (
-          DomainError.is(error) &&
-          ['CATALOG_PRESALE_REQUIRED', 'CATALOG_PROMOTION_CONFLICT'].includes(error.code)
-        ) {
-          skipped.push(toId(line.skuId));
-          continue;
-        }
-        throw error;
+      eligible.push({ line, sku });
+    }
+
+    const blocked = await blockedNormalProducts(
+      ctx,
+      tx,
+      eligible.map((entry) => entry.sku.productId),
+    );
+    let added = 0;
+
+    for (const { line, sku } of eligible) {
+      if (blocked.has(sku.productId)) {
+        skipped.push(toId(line.skuId));
+        continue;
       }
       const quantity = Math.min(line.quantity, capFor(sku), Math.max(1, sku.stock));
       await repo.addUnits(tx, {

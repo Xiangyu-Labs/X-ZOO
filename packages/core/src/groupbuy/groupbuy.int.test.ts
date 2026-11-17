@@ -41,6 +41,7 @@ import { closeEndedActivities, settleExpiredGroups, settleGroup } from './groupb
 import { groupbuyKindHandler } from './groupbuy.order';
 import * as repo from './groupbuy.repo';
 import * as service from './groupbuy.service';
+import { ACTIVITY_VIEWS_PENDING_KEY, foldActivityViews } from './groupbuy.views';
 import { registerGroupbuyDomain } from './index';
 
 /**
@@ -2234,5 +2235,41 @@ describe('shopper notifications', () => {
     expect(page.items.find((row) => row.code === 'groupbuy_failed')?.channels.inApp?.body).toBe(
       '「{{activityTitle}}」{{reason}}，订单 {{orderNo}} {{refundNote}}。',
     );
+  });
+});
+
+describe('activity views, folded asynchronously by the worker', () => {
+  it('buffers detail() views in Redis without locking the activity row, then folds them once', async () => {
+    await harness.redis.del(ACTIVITY_VIEWS_PENDING_KEY);
+    const first = await makeActivity({ stock: 10 });
+    const second = await makeActivity({ stock: 10 });
+
+    await service.detail(harness.as(anonymousActor), { id: String(first.activityId) });
+    await service.detail(harness.as(anonymousActor), { id: String(first.activityId) });
+    await service.detail(harness.as(anonymousActor), { id: String(second.activityId) });
+
+    // No synchronous UPDATE on groupbuy_activities.views during detail().
+    const [row1Before] = await harness.ctx.db
+      .select({ views: groupbuyActivities.views })
+      .from(groupbuyActivities)
+      .where(eq(groupbuyActivities.id, first.activityId));
+    expect(row1Before?.views).toBe(0);
+
+    const folded = await foldActivityViews(harness.ctx);
+    expect(folded).toEqual({ activities: 2, views: 3 });
+
+    const [row1After] = await harness.ctx.db
+      .select({ views: groupbuyActivities.views })
+      .from(groupbuyActivities)
+      .where(eq(groupbuyActivities.id, first.activityId));
+    const [row2After] = await harness.ctx.db
+      .select({ views: groupbuyActivities.views })
+      .from(groupbuyActivities)
+      .where(eq(groupbuyActivities.id, second.activityId));
+    expect(row1After?.views).toBe(2);
+    expect(row2After?.views).toBe(1);
+
+    // Second run folds nothing twice.
+    expect(await foldActivityViews(harness.ctx)).toEqual({ activities: 0, views: 0 });
   });
 });

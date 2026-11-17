@@ -1,7 +1,7 @@
 'use client';
 
 import { Form, Modal, Select, Space, Typography, message } from 'antd';
-import { useDeferredValue, useState } from 'react';
+import { useState } from 'react';
 import {
   couponAdminGrant,
   couponAdminGrantBatch,
@@ -12,6 +12,7 @@ import type { CouponGrantResult } from '@shop/contracts/coupon/schemas';
 
 import { useRouteMutation, useRouteQuery } from '@/admin/api/hooks';
 import type { BodyInputOf } from '@/admin/api/call-route';
+import { useDebouncedValue } from '@/admin/kit/use-debounced-value';
 
 /** Who the coupon goes to: the ticked rows, or everyone the filters match. */
 export type GrantTarget =
@@ -43,7 +44,7 @@ export function GrantCouponModal({
   // 发放 pressed with no coupon chosen: said under the select, not in a toast.
   const [missing, setMissing] = useState(false);
   const [keyword, setKeyword] = useState('');
-  const deferredKeyword = useDeferredValue(keyword);
+  const debouncedKeyword = useDebouncedValue(keyword, 250);
 
   const templates = useRouteQuery(
     couponAdminList,
@@ -52,7 +53,7 @@ export function GrantCouponModal({
         page: 1,
         pageSize: 50,
         status: 'active',
-        ...(deferredKeyword ? { keyword: deferredKeyword } : {}),
+        ...(debouncedKeyword ? { keyword: debouncedKeyword } : {}),
       },
     },
     { enabled: target !== null },
@@ -135,8 +136,12 @@ export function GrantCouponModal({
             }}
             onSearch={setKeyword}
             filterOption={false}
-            loading={templates.isFetching}
-            notFoundContent={templates.isFetching ? '加载中…' : '没有进行中的优惠券'}
+            loading={templates.isFetching || keyword !== debouncedKeyword}
+            notFoundContent={
+              templates.isFetching || keyword !== debouncedKeyword
+                ? '加载中…'
+                : '没有进行中的优惠券'
+            }
             options={(templates.data?.items ?? []).map((item) => ({
               value: item.id,
               label: item.name,

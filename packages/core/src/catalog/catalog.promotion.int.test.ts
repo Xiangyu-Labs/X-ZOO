@@ -200,6 +200,22 @@ describe('PROMO-001 — one current promotion per product', () => {
       (await groupbuy.adminActivityDetail(harness.ctx, { id: String(legacy!.id) })).status,
     ).toBe('ended');
   });
+
+  it('reads groupbuy storefront promotion on productDetail without bumping activity views', async () => {
+    await harness.redis.del(groupbuy.ACTIVITY_VIEWS_PENDING_KEY);
+    const product = await makeProduct(harness.ctx, { promotion: input('groupbuy') });
+    const page = await storefront.productDetail(harness.ctx, { id: product.id });
+    expect(page.promotion).toMatchObject({ kind: 'groupbuy', price: '49.00', canBuy: true });
+
+    const [row] = await harness.ctx.db
+      .select({ views: groupbuyActivities.views })
+      .from(groupbuyActivities)
+      .where(eq(groupbuyActivities.id, Number(product.promotion!.activityId)));
+    expect(row?.views).toBe(0);
+    expect(
+      await harness.redis.hget(groupbuy.ACTIVITY_VIEWS_PENDING_KEY, product.promotion!.activityId!),
+    ).toBeNull();
+  });
 });
 
 describe('PROMO-002 — atomic product edits and stale-editor protection', () => {

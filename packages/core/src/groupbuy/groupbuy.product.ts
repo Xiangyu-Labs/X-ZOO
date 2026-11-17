@@ -1,55 +1,67 @@
-import { DomainError } from '../kernel/errors';
-import { groupbuyActivityForm } from '@shop/contracts/groupbuy/schemas';
+import { hasPermission } from '../auth';
 import {
   registerProductPromotionPort,
   productPromotionForm,
   type ProductPromotionPort,
 } from '../catalog';
+import { DomainError } from '../kernel/errors';
+import { toId, toIdOrNull } from '../kernel/ids';
+import { groupbuyActivityForm } from '@shop/contracts/groupbuy/schemas';
+import { isActivityOpen } from './groupbuy.rules';
+import { groupbuyPermissions } from './permissions';
 import * as service from './groupbuy.service';
 import * as repo from './groupbuy.repo';
 
 const port: ProductPromotionPort = {
   async candidates(ctx, productId, includeId) {
-    const ids = await repo.productActivityIds(ctx.db, productId, includeId);
-    const out = [];
-    for (const id of ids) {
-      const activity = await service.adminActivityDetail(ctx, { id: String(id) });
-      const skus = await repo.listActivitySkus(ctx.db, [id]);
-      out.push({
-        kind: 'groupbuy' as const,
-        activityId: String(id),
-        title: activity.title,
-        status: activity.status,
-        settings: {
-          endAt: activity.endAt,
-          startAt: activity.startAt,
-          seatsRequired: activity.seatsRequired,
-          groupTtlSeconds: activity.groupTtlSeconds,
-          title: activity.title,
-          originalPrice: activity.originalPrice,
-          cost: activity.cost,
-          intro: activity.intro,
-          imageUrl: activity.imageUrl,
-          sliderImages: activity.sliderImages,
-          ...(activity.status === 'ended' ? {} : { status: activity.status }),
-          stock: activity.stock,
-          expectedStock: activity.stock,
-          totalQuota: activity.totalQuota,
-          perOrderQuantity: activity.perOrderQuantity,
-          shippingTemplateId: activity.shippingTemplateId,
-          sortOrder: activity.sortOrder,
-          skus: skus.map((sku) => ({
-            specValues: sku.specValues,
-            price: sku.price,
-            stock: sku.stock,
-            expectedStock: sku.stock,
-            quota: sku.quota,
-            isEnabled: sku.isEnabled,
-          })),
-        },
-      });
+    const activities = await repo.listProductActivities(ctx.db, productId, includeId);
+    if (activities.length === 0) return [];
+
+    const skus = await repo.listActivitySkus(
+      ctx.db,
+      activities.map((activity) => activity.id),
+    );
+    const skusByActivity = new Map<number, repo.ActivitySkuRow[]>();
+    for (const sku of skus) {
+      const list = skusByActivity.get(sku.activityId);
+      if (list) list.push(sku);
+      else skusByActivity.set(sku.activityId, [sku]);
     }
-    return out;
+    const canWriteCost = hasPermission(ctx.actor, groupbuyPermissions['activity:write']);
+
+    return activities.map((activity) => ({
+      kind: 'groupbuy' as const,
+      activityId: String(activity.id),
+      title: activity.title,
+      status: activity.status,
+      settings: {
+        endAt: activity.endAt.toISOString(),
+        startAt: activity.startAt.toISOString(),
+        seatsRequired: activity.seatsRequired,
+        groupTtlSeconds: activity.groupTtlSeconds,
+        title: activity.title,
+        originalPrice: activity.originalPrice,
+        cost: canWriteCost ? activity.cost : null,
+        intro: activity.intro,
+        imageUrl: activity.imageUrl,
+        sliderImages: activity.sliderImages,
+        ...(activity.status === 'ended' ? {} : { status: activity.status }),
+        stock: activity.stock,
+        expectedStock: activity.stock,
+        totalQuota: activity.totalQuota,
+        perOrderQuantity: activity.perOrderQuantity,
+        shippingTemplateId: toIdOrNull(activity.shippingTemplateId),
+        sortOrder: activity.sortOrder,
+        skus: (skusByActivity.get(activity.id) ?? []).map((sku) => ({
+          specValues: sku.specValues,
+          price: sku.price,
+          stock: sku.stock,
+          expectedStock: sku.stock,
+          quota: sku.quota,
+          isEnabled: sku.isEnabled,
+        })),
+      },
+    }));
   },
   async summaries(ctx, productIds, includeIds) {
     return (await repo.productActivitySummaries(ctx.db, productIds, includeIds)).map((row) => ({
@@ -79,18 +91,35 @@ const port: ProductPromotionPort = {
     });
   },
   async storefront(ctx, activityId) {
-    const data = await service.detail(ctx, { id: activityId });
+    const id = Number(activityId);
+    const now = ctx.clock.now();
+    const [activity, skus] = await Promise.all([
+      repo.findActivity(ctx.db, id, { sellableProductOnly: true }),
+      repo.listActivitySkus(ctx.db, [id]),
+    ]);
+    if (!activity) throw new DomainError('GROUPBUY_ACTIVITY_NOT_FOUND');
+
     return {
       kind: 'groupbuy',
       activityId,
-      price: data.price,
-      originalPrice: data.originalPrice,
-      endAt: data.endAt,
-      canBuy: data.canBuy,
-      seatsRequired: data.seatsRequired,
+      price: activity.price,
+      originalPrice: activity.originalPrice,
+      endAt: activity.endAt.toISOString(),
+      canBuy: isActivityOpen(activity, now) && activity.stock > 0,
+      seatsRequired: activity.seatsRequired,
       shipAfterDays: null,
-      perOrderQuantity: data.perOrderQuantity,
-      skus: data.skus,
+      perOrderQuantity: activity.perOrderQuantity,
+      skus: skus
+        .filter((sku) => sku.isEnabled)
+        .map((sku) => ({
+          skuId: toId(sku.skuId),
+          specText: sku.specText,
+          specValues: sku.specValues,
+          imageUrl: sku.imageUrl,
+          price: sku.price,
+          originalPrice: sku.skuOriginalPrice ?? sku.skuPrice,
+          stock: sku.stock,
+        })),
     };
   },
 };

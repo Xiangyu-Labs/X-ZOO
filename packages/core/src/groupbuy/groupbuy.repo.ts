@@ -379,11 +379,33 @@ export async function listLiveParticipantAvatars(
   return rows.map((row) => row.avatarUrl).filter((url): url is string => url !== null);
 }
 
-export async function bumpViews(db: DbOrTx, activityId: number): Promise<void> {
-  await conditionalUpdate(db, groupbuyActivities, {
-    where: eq(groupbuyActivities.id, activityId),
-    set: { views: sql`${groupbuyActivities.views} + 1` },
-  });
+export async function foldActivityViews(
+  tx: Tx,
+  entries: readonly { activityId: number; delta: number }[],
+): Promise<{ activities: number; views: number }> {
+  if (entries.length === 0) return { activities: 0, views: 0 };
+  const sorted = [...entries].sort((a, b) => a.activityId - b.activityId);
+  const ids = sql.join(
+    sorted.map((entry) => sql`${entry.activityId}::bigint`),
+    sql`, `,
+  );
+  const deltas = sql.join(
+    sorted.map((entry) => sql`${entry.delta}::int`),
+    sql`, `,
+  );
+  const result = await tx.execute<{ activities: number; views: number }>(sql`
+    with folded as (
+      update ${groupbuyActivities}
+         set views = ${groupbuyActivities.views} + v.delta
+        from unnest(array[${ids}], array[${deltas}]) as v(id, delta)
+       where ${groupbuyActivities.id} = v.id
+         and ${isNull(groupbuyActivities.deletedAt)}
+      returning v.delta
+    )
+    select count(*)::int as activities, coalesce(sum(delta), 0)::int as views from folded
+  `);
+  const row = result.rows[0];
+  return { activities: Number(row?.activities ?? 0), views: Number(row?.views ?? 0) };
 }
 
 // ---------------------------------------------------------------------------
@@ -1572,7 +1594,6 @@ export async function listActivityOrders(
   };
 }
 
-/** Internal product-editor read, unpaged so legacy conflicts cannot be hidden by a list cap. */
 /** `productActivityIds` for many products at once: what a product card needs to know. */
 export async function productActivitySummaries(
   db: DbOrTx,
@@ -1600,13 +1621,15 @@ export async function productActivitySummaries(
       ),
     );
 }
-export async function productActivityIds(
+
+/** Internal product-editor read, unpaged so legacy conflicts cannot be hidden by a list cap. */
+export async function listProductActivities(
   db: DbOrTx,
   productId: number,
   includeId: number | null,
-): Promise<number[]> {
-  const rows = await db
-    .select({ id: groupbuyActivities.id })
+): Promise<GroupbuyActivity[]> {
+  return db
+    .select()
     .from(groupbuyActivities)
     .where(
       and(
@@ -1617,8 +1640,8 @@ export async function productActivityIds(
           includeId === null ? undefined : eq(groupbuyActivities.id, includeId),
         ),
       ),
-    );
-  return rows.map((row) => row.id);
+    )
+    .orderBy(asc(groupbuyActivities.id));
 }
 export async function endProductActivity(
   tx: Tx,

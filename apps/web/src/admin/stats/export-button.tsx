@@ -8,6 +8,7 @@ import type { StatsExportResult } from '@shop/contracts/stats/schemas';
 import { callRoute } from '@/admin/api/call-route';
 import { presentApiError } from '@/admin/api/error-presenter';
 import type { AnyRouteDef } from '@/admin/api/contracts';
+import { downloadCsv } from '@/admin/kit/csv';
 import { Can } from '@/admin/session/can';
 
 /**
@@ -43,13 +44,7 @@ export function StatsExportButton({
     setBusy(true);
     try {
       const result = (await callRoute(route, { query } as never)) as StatsExportResult;
-      const blob = new Blob(['﻿', result.content], { type: 'text/csv;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = result.filename;
-      anchor.click();
-      URL.revokeObjectURL(url);
+      downloadCsv(result.filename, result.content);
       if (result.truncated) {
         message.warning(`导出已截断到 ${result.rowCount} 行，请缩小时间范围`);
       } else {

@@ -23,7 +23,8 @@ vi.mock('next/navigation', () => ({
 }));
 
 // The template thumbnails draw a real page: not what this test is about.
-vi.mock('./editor', () => ({ DecorPagePreview: () => null }));
+const previewMock = vi.fn((_props: unknown) => null);
+vi.mock('./editor', () => ({ DecorPagePreview: (props: unknown) => previewMock(props) }));
 
 type Summary = ResponseOf<typeof decorDesignations>['home'] & object;
 
@@ -103,6 +104,7 @@ function rowOf(name: string): HTMLElement {
 afterEach(() => {
   resetApiConfig();
   push.mockReset();
+  previewMock.mockClear();
 });
 
 describe('店铺装修列表', () => {
@@ -174,6 +176,12 @@ describe('店铺装修列表', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '新建页面' }));
     const dialog = await screen.findByRole('dialog');
+    expect(previewMock).not.toHaveBeenCalled();
+
+    await userEvent.click(within(dialog).getByRole('button', { name: '专题活动' }));
+    await waitFor(() => expect(previewMock).toHaveBeenCalledTimes(1));
+    await userEvent.click(within(dialog).getByRole('button', { name: '空白页面' }));
+
     await userEvent.type(within(dialog).getByLabelText('页面名称'), '周末活动');
     expect(within(dialog).getByRole('button', { name: '空白页面' })).toHaveAttribute(
       'aria-pressed',

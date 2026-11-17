@@ -1,6 +1,6 @@
 import type { DbOrTx } from '@shop/db';
 import { userSessions } from '@shop/db/schema/auth';
-import { and, eq, isNull, lt, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 
 /** The only file that touches `user_sessions`. */
 
@@ -89,8 +89,13 @@ export async function revokeAllForUser(db: DbOrTx, userId: number, now: Date): P
   return (result as { rowCount?: number | null }).rowCount ?? 0;
 }
 
-/** Housekeeping job: expired rows are useless once nobody can present them. */
-export async function deleteExpired(db: DbOrTx, before: Date): Promise<number> {
-  const result = await db.delete(userSessions).where(lt(userSessions.expiresAt, before));
+/** Housekeeping job: expired rows are useless once nobody can present them. Batched to avoid large table locks. */
+export async function deleteExpired(db: DbOrTx, before: Date, limit = 5000): Promise<number> {
+  const result = await db.execute(
+    sql`delete from ${userSessions} where ${userSessions.id} in (
+          select id from ${userSessions} where ${userSessions.expiresAt} < ${before}
+          order by id limit ${limit}
+        )`,
+  );
   return (result as { rowCount?: number | null }).rowCount ?? 0;
 }
