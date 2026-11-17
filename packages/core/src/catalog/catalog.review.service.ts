@@ -476,6 +476,13 @@ export interface AutoReviewResult {
 }
 
 /**
+ * How far before the auto-review deadline the sweep still looks. The job runs hourly, so a line
+ * only falls out of the window if the worker was down this long; without a bound every run would
+ * walk every completed order the shop ever had.
+ */
+export const AUTO_REVIEW_LOOKBACK_DAYS = 30;
+
+/**
  * 系统默认好评: after `autoReviewDays`, an unreviewed completed line gets a
  * five-star review with the configured text.
  *
@@ -487,6 +494,8 @@ export interface AutoReviewResult {
  *
  * The shopper's own review always wins, because the port only returns lines
  * with no review at all.
+ *
+ * `autoReviewDays = 0` turns it off, as the settings screen says (填 0 关闭).
  */
 export async function runAutoReview(
   ctx: Ctx,
@@ -495,10 +504,18 @@ export async function runAutoReview(
   const config = await ctx.config.get(catalogConfig);
   const limit = options.limit ?? 200;
   const now = ctx.clock.now();
+  if (config.autoReviewDays === 0) return { scanned: 0, written: 0 };
   const completedBefore = new Date(now.getTime() - config.autoReviewDays * 24 * 60 * 60 * 1000);
+  const completedAfter = new Date(
+    completedBefore.getTime() - AUTO_REVIEW_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+  );
 
   return ctx.withTx(async (tx) => {
-    const lines = await getOrderFacts().findLinesAwaitingReview(tx, { completedBefore, limit });
+    const lines = await getOrderFacts().findLinesAwaitingReview(tx, {
+      completedAfter,
+      completedBefore,
+      limit,
+    });
     let written = 0;
 
     for (const line of lines) {

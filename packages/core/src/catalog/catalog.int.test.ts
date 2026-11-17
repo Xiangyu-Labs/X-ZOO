@@ -1969,6 +1969,34 @@ describe('auto review', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]!.productScore).toBe(2);
   });
+
+  it('does not reach back past its lookback, so a run never walks every completed order', async () => {
+    harness.clock.set('2026-06-01T00:00:00.000Z');
+    const product = await makeProduct(asAdmin());
+    const skuId = await firstSkuId(harness, product.id);
+    const userId = await makeUser(harness);
+    await makeOrderLine(harness, { userId, productId: Number(product.id), skuId });
+
+    // Completed 06-01; the default window is 7 days and the lookback 30 more, so on 07-09 the
+    // line is past the sweep's lower bound (06-02) and left for the shopper.
+    harness.clock.set('2026-07-09T00:00:00.000Z');
+    expect(reviews.AUTO_REVIEW_LOOKBACK_DAYS).toBe(30);
+    const late = await reviews.runAutoReview(harness.ctx);
+    expect(late.written).toBe(0);
+  });
+
+  it('writes nothing when the days are set to 0, which the settings screen calls 关闭', async () => {
+    harness.clock.set('2026-06-01T00:00:00.000Z');
+    const product = await makeProduct(asAdmin());
+    const skuId = await firstSkuId(harness, product.id);
+    const userId = await makeUser(harness);
+    await makeOrderLine(harness, { userId, productId: Number(product.id), skuId });
+    await harness.ctx.config.set(catalogConfig, { autoReviewDays: 0 });
+
+    harness.clock.set('2026-06-15T00:00:00.000Z');
+    const off = await reviews.runAutoReview(harness.ctx);
+    expect(off.written).toBe(0);
+  });
 });
 
 // ---------------------------------------------------------------------------

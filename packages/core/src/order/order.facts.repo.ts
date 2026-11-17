@@ -1,6 +1,6 @@
 import { productReviews } from '@shop/db/schema/catalog';
 import { orderItems, orders } from '@shop/db/schema/order';
-import { and, asc, eq, isNull, lte, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, isNull, lte, sql } from 'drizzle-orm';
 
 import type { OrderFactsPort, ReviewableLine } from './ports';
 import { purchasedQuantity } from './order.repo';
@@ -99,6 +99,7 @@ export const orderFacts: OrderFactsPort = {
       .where(
         and(
           eq(orders.status, 'completed'),
+          gt(orders.completedAt, args.completedAfter),
           lte(orders.completedAt, args.completedBefore),
           isNull(productReviews.id),
           sql`${orderItems.refundedQuantity} < ${orderItems.quantity}`,
