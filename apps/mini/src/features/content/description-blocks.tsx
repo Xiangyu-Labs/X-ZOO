@@ -27,7 +27,8 @@ export function hasDescription(
 
 /**
  * 商品详情 in the order the shop arranged it: rich text drawn natively, videos as their cover
- * with ▶, played on a tap (`VideoPlayer`).
+ * with ▶, played on a tap (`VideoPlayer`). Drawn edge to edge: the parent has no side padding,
+ * pictures and videos fill the screen width (#114) and text keeps the gutter.
  */
 export function DescriptionBlocks({
   blocks,
@@ -44,7 +45,7 @@ export function DescriptionBlocks({
           className={cx('description-blocks__item', index > 0 && 'description-blocks__item--after')}
         >
           {block.type === 'richText' ? (
-            <RichContent html={block.html} />
+            <RichContent html={block.html} bleed />
           ) : (
             <VideoPlayer src={block.src} poster={block.posterUrl} label="详情视频" />
           )}

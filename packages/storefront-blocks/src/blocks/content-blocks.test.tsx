@@ -196,6 +196,30 @@ describe('RichText', () => {
     expect(root?.querySelector('h3')?.getAttribute('style')).toMatch(/font-weight:\s*600/);
   });
 
+  it('with bleed, stretches pictures to the edges and insets the text around them', () => {
+    const { container } = render(
+      <RichText
+        bleed
+        props={{
+          ...fixtureRichText,
+          html: '<p>前言 <strong>重点</strong></p><p><img src="/a.jpg"></p><p><br></p><img src="/b.jpg"><p>结语 <img src="/icon.png"></p>',
+        }}
+      />,
+    );
+    const root = container.querySelector('.sbd-rich-text') as HTMLElement;
+    const [first, second, icon] = Array.from(root.querySelectorAll('img'));
+    expect(first?.getAttribute('style')).toMatch(/width:\s*100%/);
+    expect(second?.getAttribute('style')).toMatch(/width:\s*100%/);
+    // A picture inside a sentence stays its own size.
+    expect(icon?.getAttribute('style')).not.toMatch(/[^-]width:\s*100%/);
+    const insets = Array.from(root.querySelectorAll('div')).filter((el) =>
+      /margin:\s*0(px)? 0\.86em/.test(el.getAttribute('style') ?? ''),
+    );
+    // The blank paragraph between the two pictures leaves no wrapper of its own.
+    expect(insets.map((el) => el.textContent)).toEqual(['前言 重点', '结语 ']);
+    expect(first?.closest('div[style*="0.86em"]')).toBeNull();
+  });
+
   it('never renders what the allow-list refuses, even from unsanitised props', () => {
     const { container } = render(
       <RichText

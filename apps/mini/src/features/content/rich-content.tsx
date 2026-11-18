@@ -13,8 +13,9 @@ const HOST: BlockHost = { resolveImage: (src) => assetUrl(src) ?? src };
 /**
  * Operator HTML (协议, 资讯, 商品详情) drawn natively: the DIY 富文本 block without its frame, so
  * the same allow-list and typography apply everywhere. Links inside are not tappable in a
- * mini-program; `extractLinks` lists them separately.
+ * mini-program; `extractLinks` lists them separately. `bleed` is for a parent with no side
+ * padding: pictures reach both edges and text keeps the page gutter.
  */
-export function RichContent({ html }: { html: string }) {
-  return <RichText props={{ html, style: FLAT, visibility: EVERYONE }} host={HOST} />;
+export function RichContent({ html, bleed }: { html: string; bleed?: boolean | undefined }) {
+  return <RichText props={{ html, style: FLAT, visibility: EVERYONE }} host={HOST} bleed={bleed} />;
 }

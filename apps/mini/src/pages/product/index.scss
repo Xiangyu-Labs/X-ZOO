@@ -97,6 +97,21 @@
     margin-top: $space-3;
   }
 
+  // 商品详情 runs edge to edge (#114): only its heading and text keep the page gutter.
+  &__description.shop-card {
+    margin-right: 0;
+    margin-left: 0;
+    border-radius: 0;
+  }
+
+  &__description .shop-card__header {
+    padding: $space-5 $space-5 0;
+  }
+
+  &__description-empty {
+    padding: 0 $space-5 $space-5;
+  }
+
   &__good-rate {
     @include text($font-caption);
     color: var(--color-text-secondary);

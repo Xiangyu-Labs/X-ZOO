@@ -231,6 +231,8 @@ describe('商品详情', () => {
       '.product__description',
     ) as HTMLElement;
     expect(card.querySelectorAll('.description-blocks__item')).toHaveLength(2);
+    // Edge to edge (#114): the card itself adds no side padding.
+    expect(card.className).not.toContain('shop-card--padded');
 
     fireEvent.click(within(card).getByRole('button', { name: '播放详情视频' }));
     const player = await within(card).findByTestId('native-video');

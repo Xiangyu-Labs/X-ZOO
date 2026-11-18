@@ -515,11 +515,18 @@ function Detail({
 
       {display.productReviews ? <Reviews product={product} /> : null}
 
-      <Card title="商品详情" className="product__description" id="product-description">
+      <Card
+        title="商品详情"
+        padded={false}
+        className="product__description"
+        id="product-description"
+      >
         {hasDescription(product.descriptionBlocks, product.descriptionHtml) ? (
           <DescriptionBlocks blocks={product.descriptionBlocks} html={product.descriptionHtml} />
         ) : (
-          <Text className="product__muted">暂无图文详情</Text>
+          <View className="product__description-empty">
+            <Text className="product__muted">暂无图文详情</Text>
+          </View>
         )}
       </Card>
 
