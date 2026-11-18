@@ -23,6 +23,8 @@ import {
   assertQuantityAllowed,
   expectedGoodsTotal,
   groupExpiresAt,
+  isActivityOpen,
+  isActivityOpenForJoin,
 } from './groupbuy.rules';
 
 /**
@@ -100,7 +102,8 @@ export const groupbuyKindHandler: OrderKindHandler = {
 
     const activity = await repo.findActivity(tx, activityId, { sellableProductOnly: true });
     if (!activity) throw new DomainError('GROUPBUY_ACTIVITY_NOT_FOUND');
-    assertActivityOpen(activity, now);
+    // Joining a forming team outlives the activity window; opening one does not (#109).
+    assertActivityOpen(activity, now, { joining: groupId !== null });
 
     const quantity = draft.lines.reduce((sum, line) => sum + line.quantity, 0);
     assertQuantityAllowed(activity, quantity);
@@ -334,7 +337,12 @@ export const groupbuyPricingContributor: PricingContributor = {
     if (!Number.isInteger(activityId) || activityId <= 0) return [];
 
     const activity = await repo.findActivity(ctx.db, activityId);
-    if (!activity || !isOpenNow(ctx, activity)) return [];
+    if (!activity) return [];
+    const now = ctx.clock.now();
+    const joining = readSelection(draft, 'groupId') !== null;
+    if (!(joining ? isActivityOpenForJoin(activity, now) : isActivityOpen(activity, now))) {
+      return [];
+    }
 
     const skus = await repo.listActivitySkus(ctx.db, [activityId]);
     const prices = new Map(skus.filter((s) => s.isEnabled).map((s) => [s.skuId, s.price]));
@@ -364,16 +372,6 @@ export const groupbuyPricingContributor: PricingContributor = {
     ];
   },
 };
-
-function isOpenNow(ctx: Ctx, activity: repo.ActivityRow): boolean {
-  const now = ctx.clock.now();
-  return (
-    activity.status === 'active' &&
-    activity.deletedAt === null &&
-    activity.startAt.getTime() <= now.getTime() &&
-    activity.endAt.getTime() > now.getTime()
-  );
-}
 
 // ---------------------------------------------------------------------------
 // lifecycle hooks

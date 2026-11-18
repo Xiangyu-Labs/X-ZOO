@@ -628,6 +628,69 @@ describe('the group-buy price through the real checkout', () => {
     const member = await repo.findMemberByOrder(harness.ctx.db, Number(created.id));
     expect(member?.groupId).toBe(leader.groupId);
   });
+
+  it('#109 — a team opened before the 结束时间 can still be joined, at the activity price, until its own clock runs out', async () => {
+    // Ends an hour after NOW; a team opened at NOW lives a day.
+    const fixture = await makeActivity({
+      seatsRequired: 2,
+      endAt: new Date('2026-06-01T01:00:00.000Z'),
+    });
+    const leaderId = await makeUser();
+    const leader = await placeOrder({ userId: leaderId, fixture });
+    await pay(leader.orderId);
+
+    harness.clock.set('2026-06-01T02:00:00.000Z');
+    await closeEndedActivities(harness.ctx);
+    const { userId, ctx } = await shopper();
+    expect((await service.groupDetail(ctx, { id: String(leader.groupId) })).canJoin).toBe(true);
+
+    const meta = { activityId: String(fixture.activityId), groupId: String(leader.groupId) };
+    const preview = await checkout.preview(ctx, buyNow(fixture, meta));
+    expect(preview.payableAmount).toBe('59.00');
+    const created = await checkout.create(ctx, {
+      ...buyNow(fixture, meta),
+      idempotencyKey: `late-join-${fixture.activityId}`,
+    });
+    expect(created.payableAmount).toBe('59.00');
+    await pay(Number(created.id));
+    expect(await readGroup(leader.groupId)).toMatchObject({ status: 'succeeded', seatsTaken: 2 });
+    expect(await repo.findMemberByOrder(harness.ctx.db, Number(created.id))).toMatchObject({
+      userId,
+      role: 'member',
+    });
+
+    // Opening a new team after the end is still refused.
+    const late = await shopper();
+    await expect(
+      checkout.create(late.ctx, {
+        ...buyNow(fixture, { activityId: String(fixture.activityId) }),
+        idempotencyKey: `late-open-${fixture.activityId}`,
+      }),
+    ).rejects.toMatchObject({ code: 'GROUPBUY_ACTIVITY_NOT_OPEN' });
+  });
+
+  it('#109 — a paused activity refuses joining its forming teams, and the team page stops offering it', async () => {
+    const fixture = await makeActivity();
+    const leaderId = await makeUser();
+    const leader = await placeOrder({ userId: leaderId, fixture });
+    await pay(leader.orderId);
+    await harness.ctx.db
+      .update(groupbuyActivities)
+      .set({ status: 'paused' })
+      .where(eq(groupbuyActivities.id, fixture.activityId));
+
+    const { ctx } = await shopper();
+    expect((await service.groupDetail(ctx, { id: String(leader.groupId) })).canJoin).toBe(false);
+    await expect(
+      checkout.create(ctx, {
+        ...buyNow(fixture, {
+          activityId: String(fixture.activityId),
+          groupId: String(leader.groupId),
+        }),
+        idempotencyKey: `paused-join-${fixture.activityId}`,
+      }),
+    ).rejects.toMatchObject({ code: 'GROUPBUY_ACTIVITY_NOT_OPEN' });
+  });
 });
 
 describe('beforeCreate', () => {

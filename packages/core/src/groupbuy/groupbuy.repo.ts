@@ -904,6 +904,10 @@ export interface GroupRow extends GroupbuyGroup {
   activityImageUrl: string | null;
   activityPrice: string;
   activityOriginalPrice: string | null;
+  /** The activity's window, for 参与拼团 (`isActivityOpenForJoin`). */
+  activityStatus: ActivityStatus;
+  activityStartAt: Date;
+  activityDeletedAt: Date | null;
   leaderNickname: string | null;
   leaderAvatarUrl: string | null;
   /** Members still in and paid. Below `seatsTaken` exactly when the team was faked. */
@@ -929,6 +933,9 @@ const groupSelection = {
   activityImageUrl: groupbuyActivities.imageUrl,
   activityPrice: groupbuyActivities.price,
   activityOriginalPrice: groupbuyActivities.originalPrice,
+  activityStatus: groupbuyActivities.status,
+  activityStartAt: groupbuyActivities.startAt,
+  activityDeletedAt: groupbuyActivities.deletedAt,
   leaderNickname: users.nickname,
   leaderAvatarUrl: users.avatarUrl,
   realMembers,
@@ -941,6 +948,9 @@ function toGroupRow(row: {
   activityImageUrl: string | null;
   activityPrice: string;
   activityOriginalPrice: string | null;
+  activityStatus: ActivityStatus;
+  activityStartAt: Date;
+  activityDeletedAt: Date | null;
   leaderNickname: string | null;
   leaderAvatarUrl: string | null;
   realMembers: number;

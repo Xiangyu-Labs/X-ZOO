@@ -11,6 +11,7 @@ import {
   expectedGoodsTotal,
   groupExpiresAt,
   isActivityOpen,
+  isActivityOpenForJoin,
   isGroupJoinable,
   maskNickname,
   seatsLeft,
@@ -66,6 +67,16 @@ describe('activity window', () => {
     const end = new Date('2026-07-01T00:00:00.000Z');
     expect(isActivityOpen(activity(), start)).toBe(true);
     expect(isActivityOpen(activity(), end)).toBe(false);
+  });
+
+  it('#109 — lets a forming team be joined past the 结束时间 or an operator’s 结束, never while paused', () => {
+    const after = new Date('2026-07-02T00:00:00.000Z');
+    expect(isActivityOpenForJoin(activity(), after)).toBe(true);
+    expect(isActivityOpenForJoin(activity({ status: 'ended' }), NOW)).toBe(true);
+    expect(isActivityOpenForJoin(activity({ status: 'paused' }), NOW)).toBe(false);
+    expect(isActivityOpenForJoin(activity({ status: 'draft' }), NOW)).toBe(false);
+    expect(isActivityOpenForJoin(activity({ deletedAt: NOW }), NOW)).toBe(false);
+    expect(isActivityOpenForJoin(activity(), new Date('2026-04-30T00:00:00.000Z'))).toBe(false);
   });
 });
 

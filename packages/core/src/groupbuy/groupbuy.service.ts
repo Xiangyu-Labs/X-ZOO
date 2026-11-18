@@ -52,6 +52,7 @@ import {
   assertCompletable,
   assertWithdrawable,
   isActivityOpen,
+  isActivityOpenForJoin,
   isGroupJoinable,
   maskNickname,
   seatsLeft,
@@ -793,7 +794,19 @@ async function buildGroupView(ctx: Ctx, groupId: number): Promise<GroupbuyGroupV
             orderId: toId(mine.orderId),
             paid: paid.some((member) => member.id === mine.id),
           },
-    canJoin: mine === null && isGroupJoinable(row, now),
+    // The team's own clock, not the activity's 结束时间, decides (#109); a paused or
+    // deleted activity still refuses, as the order does.
+    canJoin:
+      mine === null &&
+      isGroupJoinable(row, now) &&
+      isActivityOpenForJoin(
+        {
+          status: row.activityStatus,
+          startAt: row.activityStartAt,
+          deletedAt: row.activityDeletedAt,
+        },
+        now,
+      ),
   };
 }
 

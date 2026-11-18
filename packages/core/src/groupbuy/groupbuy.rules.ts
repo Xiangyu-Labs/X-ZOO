@@ -28,8 +28,30 @@ export function isActivityOpen(activity: ActivityWindow, now: Date): boolean {
   return activity.startAt.getTime() <= now.getTime() && activity.endAt.getTime() > now.getTime();
 }
 
-export function assertActivityOpen(activity: ActivityWindow, now: Date): void {
-  if (isActivityOpen(activity, now)) return;
+/**
+ * Open for a shopper joining a team that is already forming (#109).
+ *
+ * A team runs out its own clock (`groupExpiresAt`), which may reach past the
+ * activity's 结束时间 or past an operator's 结束; the team page keeps offering
+ * 参与拼团 until then, so the order must accept it too, or the team can only
+ * fail and refund. `paused` and `draft` still refuse: an operator who pauses a
+ * campaign means every order, and a deleted one has nothing to sell.
+ */
+export function isActivityOpenForJoin(activity: Omit<ActivityWindow, 'endAt'>, now: Date): boolean {
+  if (activity.deletedAt) return false;
+  if (activity.status !== 'active' && activity.status !== 'ended') return false;
+  return activity.startAt.getTime() <= now.getTime();
+}
+
+export function assertActivityOpen(
+  activity: ActivityWindow,
+  now: Date,
+  options: { joining?: boolean } = {},
+): void {
+  const open = options.joining
+    ? isActivityOpenForJoin(activity, now)
+    : isActivityOpen(activity, now);
+  if (open) return;
   throw new DomainError('GROUPBUY_ACTIVITY_NOT_OPEN', {
     details: {
       status: activity.status,
