@@ -1303,8 +1303,12 @@ export interface MyGroupRow extends GroupbuyMember {
   seatsTaken: number;
   expiresAt: Date;
   orderNo: string;
+  orderStatus: string;
 }
 
+/**
+ * 我的拼团. A team whose order the shopper deleted goes with it: both lists show the same orders.
+ */
 export async function listMyGroups(
   db: DbOrTx,
   args: {
@@ -1314,7 +1318,11 @@ export async function listMyGroups(
     offset: number;
   },
 ): Promise<{ rows: MyGroupRow[]; total: number }> {
-  const parts: (SQL | undefined)[] = [eq(groupbuyMembers.userId, args.userId)];
+  const parts: (SQL | undefined)[] = [
+    eq(groupbuyMembers.userId, args.userId),
+    isNull(orders.hiddenByUserAt),
+    isNull(orders.deletedAt),
+  ];
   if (args.status) parts.push(eq(groupbuyGroups.status, args.status));
   const where = and(...parts);
 
@@ -1325,6 +1333,7 @@ export async function listMyGroups(
       activityTitle: groupbuyActivities.title,
       activityImageUrl: groupbuyActivities.imageUrl,
       orderNo: orders.orderNo,
+      orderStatus: orders.status,
     })
     .from(groupbuyMembers)
     .innerJoin(groupbuyGroups, eq(groupbuyGroups.id, groupbuyMembers.groupId))
@@ -1339,6 +1348,7 @@ export async function listMyGroups(
     .select({ value: count() })
     .from(groupbuyMembers)
     .innerJoin(groupbuyGroups, eq(groupbuyGroups.id, groupbuyMembers.groupId))
+    .innerJoin(orders, eq(orders.id, groupbuyMembers.orderId))
     .where(where);
 
   return {
@@ -1352,9 +1362,20 @@ export async function listMyGroups(
       seatsTaken: row.group.seatsTaken,
       expiresAt: row.group.expiresAt,
       orderNo: row.orderNo,
+      orderStatus: row.orderStatus,
     })),
     total: totalRow?.value ?? 0,
   };
+}
+
+/** The order is still its owner's to open: not deleted by them, nor by an operator. */
+export async function isOrderVisibleToOwner(db: DbOrTx, orderId: number): Promise<boolean> {
+  const [row] = await db
+    .select({ id: orders.id })
+    .from(orders)
+    .where(and(eq(orders.id, orderId), isNull(orders.hiddenByUserAt), isNull(orders.deletedAt)))
+    .limit(1);
+  return row !== undefined;
 }
 
 /**

@@ -25,6 +25,7 @@ import { orderDashboardContributor } from './order.dashboard';
  * | `remindUnpaid`        | jobs   | 未付款提醒, before the window closes        |
  * | `list` / `counts` / `detail` | routes | 我的订单                             |
  * | `hide`                | routes | 删除订单 (visibility only)                  |
+ * | `deletableOrders`     | groupbuy | 我的拼团 offers 删除订单                  |
  * | `rebuyLines`          | cart   | 再次购买                                    |
  * | `resolveCatalogPort`  | cart   | live price, stock and status of a variant   |
  *
@@ -63,7 +64,7 @@ export { remindUnpaid } from './order.remind.service';
 export type { CancelInput, CancelOutcome, CancelReason } from './order.cancel.service';
 export { counts, detail, detailOf, giftCoupons, list } from './order.query.service';
 export { aftersaleOpen } from './order.aftersale';
-export { hide } from './order.hide.service';
+export { deletableOrders, hide } from './order.hide.service';
 export { ORDER_NO_LENGTH, isOrderNo, requireOrderRef, resolveOrderRef } from './order.ref';
 export { orderStateMachine } from './order.state-machine';
 export { orderConfig } from './order.config';

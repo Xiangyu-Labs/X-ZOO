@@ -1452,6 +1452,35 @@ describe('the storefront surface', () => {
     ).rejects.toMatchObject({ code: 'GROUPBUY_GROUP_NOT_WITHDRAWABLE' });
   });
 
+  it('lets a shopper delete a finished team order from 我的拼团, and only that — #116', async () => {
+    const leader = await makeUser();
+    const running = await placeOrder({
+      userId: leader,
+      fixture: await makeActivity({ stock: 10 }),
+    });
+    await pay(running.orderId);
+    const ended = await placeOrder({ userId: leader, fixture: await makeActivity({ stock: 10 }) });
+    await cancel(ended.orderId);
+
+    const ctx = asUser(leader);
+    const before = await service.myGroups(ctx, { page: 1, pageSize: 20 });
+    expect(before.total).toBe(2);
+    const deletable = (orderId: number) =>
+      before.items.find((item) => item.orderId === String(orderId))?.orderDeletable;
+    expect(deletable(running.orderId)).toBe(false);
+    expect(deletable(ended.orderId)).toBe(true);
+    const visible = await service.groupDetail(ctx, { id: String(ended.groupId) });
+    expect(visible.me?.orderVisible).toBe(true);
+
+    await checkout.hide(ctx, { id: String(ended.orderId) });
+
+    const after = await service.myGroups(ctx, { page: 1, pageSize: 20 });
+    expect(after.total).toBe(1);
+    expect(after.items.map((item) => item.orderId)).toEqual([String(running.orderId)]);
+    const hidden = await service.groupDetail(ctx, { id: String(ended.groupId) });
+    expect(hidden.me?.orderVisible).toBe(false);
+  });
+
   it('answers the poster with data and a payload, never an image — SHARE-002', async () => {
     const fixture = await makeActivity({ stock: 10 });
     const leader = await makeUser('小明');

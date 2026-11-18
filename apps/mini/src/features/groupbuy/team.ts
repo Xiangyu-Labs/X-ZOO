@@ -105,6 +105,8 @@ export function teamActions(
   phase: TeamPhase,
 ): TeamAction[] {
   const me = view.me && view.me.status !== 'cancelled' ? view.me : null;
+  // A deleted order has no page left to open.
+  const order: TeamAction[] = me?.orderVisible ? [{ kind: 'order', orderId: me.orderId }] : [];
   if (phase === 'open') {
     if (me && !me.paid) {
       const out: TeamAction[] = [{ kind: 'pay', orderId: me.orderId }];
@@ -116,11 +118,11 @@ export function teamActions(
     return [{ kind: 'again' }];
   }
   if (phase === 'settling') {
-    return me ? [{ kind: 'refresh' }, { kind: 'order', orderId: me.orderId }] : [{ kind: 'again' }];
+    return me ? [{ kind: 'refresh' }, ...order] : [{ kind: 'again' }];
   }
   // full, failed, refunded, cancelled
   if (me && (me.paid || me.status === 'refunded' || phase === 'failed')) {
-    return [{ kind: 'order', orderId: me.orderId }, { kind: 'again' }];
+    return [...order, { kind: 'again' }];
   }
   return [{ kind: 'again' }];
 }

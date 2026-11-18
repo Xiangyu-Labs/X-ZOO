@@ -1,4 +1,5 @@
 import { HIDEABLE_ORDER_STATUSES, type OrderHidden } from '@shop/contracts/order/schemas';
+import type { DbOrTx } from '@shop/db';
 import type { Ctx } from '../kernel/context';
 import { DomainError } from '../kernel/errors';
 import { requireOrderRef } from './order.ref';
@@ -75,4 +76,19 @@ export async function hide(ctx: Ctx, params: { id: string }): Promise<OrderHidde
 
     return { hidden: true };
   });
+}
+
+/**
+ * Which of these still-visible orders `hide` would accept: the same two facts its WHERE checks, for
+ * a page that offers the button (我的拼团). `hide` stays the judge when the tap arrives.
+ */
+export async function deletableOrders(
+  db: DbOrTx,
+  candidates: ReadonlyArray<{ id: number; status: string }>,
+): Promise<Set<number>> {
+  const finished = candidates
+    .filter((order) => (HIDEABLE_ORDER_STATUSES as readonly string[]).includes(order.status))
+    .map((order) => order.id);
+  const open = await repo.ordersWithOpenRefund(db, finished);
+  return new Set(finished.filter((id) => !open.has(id)));
 }
