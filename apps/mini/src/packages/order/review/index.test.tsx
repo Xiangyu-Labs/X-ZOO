@@ -93,7 +93,9 @@ describe('评价商品', () => {
     await renderPage(<ReviewPage />);
     const box = await screen.findByRole('checkbox', { name: '匿名评价' });
     expect(box.getAttribute('aria-checked')).toBe('true');
-    screen.getByText('评价将显示为默认头像和隐藏部分字的昵称');
+    // #117: ticked, the row says nothing more.
+    expect(screen.queryByText('评价将显示你的昵称和头像')).toBeNull();
+    expect(screen.queryByText(/隐藏部分字/)).toBeNull();
 
     fireEvent.click(box);
     screen.getByText('评价将显示你的昵称和头像');

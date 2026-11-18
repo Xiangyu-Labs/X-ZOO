@@ -242,10 +242,8 @@ function ReviewForm({ orderId, only }: { orderId: string; only?: string | undefi
         <Stars label="服务评分" value={serviceScore} onChange={setServiceScore} />
         <View className="review__anonymous">
           <Checkbox checked={anonymous} onChange={setAnonymous} label="匿名评价" />
-          {/* One text, its words swapped: the row's height stays put (design.md §4.3). */}
-          <Text className="review__hint">
-            {anonymous ? '评价将显示为默认头像和隐藏部分字的昵称' : '评价将显示你的昵称和头像'}
-          </Text>
+          {/* Said only when unticked (#117); the empty line keeps the row's height. */}
+          <Text className="review__hint">{anonymous ? '' : '评价将显示你的昵称和头像'}</Text>
         </View>
       </Card>
       <View className="review__bar">
