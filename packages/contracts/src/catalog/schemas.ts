@@ -981,6 +981,13 @@ export const reviewSubmitBody = z
     serviceScore: z.number().int().min(1).max(5),
     content: z.string().max(1000).optional(),
     images: z.array(z.string().max(512)).max(9).default([]),
+    /**
+     * 匿名评价 (#112), on unless the shopper unticks it: the review shows a
+     * masked nickname (`a***` or `***c`) and the default avatar. Off, it shows
+     * the shopper's nickname and avatar as they are at write time. Absent (an
+     * older mini-program build) is anonymous, as every review was before.
+     */
+    anonymous: z.boolean().optional(),
   })
   .strict();
 export type ReviewSubmitBody = z.infer<typeof reviewSubmitBody>;

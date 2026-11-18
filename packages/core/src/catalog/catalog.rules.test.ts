@@ -11,6 +11,7 @@ import {
   compareDecimal,
   levelOfPath,
   likePattern,
+  maskedNickname,
   normaliseKeyword,
   ratingBucket,
   rollupSkus,
@@ -493,5 +494,22 @@ describe('the product form', () => {
     expect(messages({ ...multi, specMode: false, specs: [] })).toContain(
       '单规格商品只能有一条库存记录',
     );
+  });
+});
+
+describe('maskedNickname (#112 匿名评价)', () => {
+  it('keeps the first or the last character', () => {
+    expect(maskedNickname('abc', true)).toBe('a***');
+    expect(maskedNickname('bac', false)).toBe('***c');
+  });
+
+  it('counts a Chinese character or an emoji as one', () => {
+    expect(maskedNickname('小明同学', true)).toBe('小***');
+    expect(maskedNickname('猫🐱', false)).toBe('***🐱');
+  });
+
+  it('reads a blank nickname as 匿名用户', () => {
+    expect(maskedNickname(null, true)).toBe('匿名用户');
+    expect(maskedNickname('   ', false)).toBe('匿名用户');
   });
 });

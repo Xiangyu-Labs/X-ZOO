@@ -23,6 +23,7 @@ import {
 import { productGiftCoupons } from '@shop/db/schema/coupon';
 import { productEvents, searchLogs } from '@shop/db/schema/stats';
 import { effects } from '@shop/db/schema/system';
+import { users } from '@shop/db/schema/user';
 import {
   and,
   asc,
@@ -2047,6 +2048,19 @@ export async function removeReviewImage(
     .where(and(eq(productReviews.id, args.id), sql`${productReviews.images} ? ${args.url}::text`))
     .returning({ id: productReviews.id });
   return rows.length > 0;
+}
+
+/** The shopper's nickname and avatar as they are now, frozen onto a review they sign (#112). */
+export async function findReviewAuthor(
+  db: DbOrTx,
+  userId: number,
+): Promise<{ nickname: string | null; avatarUrl: string | null } | null> {
+  const rows = await db
+    .select({ nickname: users.nickname, avatarUrl: users.avatarUrl })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return rows[0] ?? null;
 }
 
 /**

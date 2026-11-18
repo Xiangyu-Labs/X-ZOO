@@ -637,7 +637,9 @@ export const productReviews = pgTable(
     orderItemId: fk().references((): AnyPgColumn => orderItems.id, { onDelete: 'set null' }),
     /**
      * Author identity frozen at write time; a later nickname change must not rewrite a review.
-     * Set only on operator-seeded reviews (no `userId`); cleared on the author's 注销.
+     * An operator-seeded review (no `userId`) carries the name it was given; a shopper's carries
+     * a masked nickname and no avatar when written 匿名 (the default), else their own (#112).
+     * The system's 默认好评 carries none. Cleared on the author's 注销.
      */
     authorNickname: varchar({ length: 64 }),
     authorAvatarUrl: varchar({ length: 512 }),

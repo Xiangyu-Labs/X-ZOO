@@ -5,6 +5,7 @@ import { couponTemplates } from '@shop/db/schema/coupon';
 import { shippingTemplates } from '@shop/db/schema/shipping';
 import { productEvents } from '@shop/db/schema/stats';
 import { attachments } from '@shop/db/schema/storage';
+import { users } from '@shop/db/schema/user';
 import { effects as effectsTable } from '@shop/db/schema/system';
 import { createTestCtx, type TestCtx } from '@shop/testing';
 
@@ -430,6 +431,68 @@ describe('products', () => {
     expect(Number(edited.skus[0]!.id)).toBe(skuId);
     expect(edited.skus[0]!.price).toBe('89.00');
     expect(edited.skus[0]!.sales).toBe(4);
+  });
+
+  it('#107 — 多规格改回单规格 keeps the first SKU by its code instead of refusing "规格编码已被使用"', async () => {
+    const product = await makeProduct(asAdmin(), {
+      specMode: true,
+      specs: [{ name: '颜色', values: [{ value: '红' }, { value: '蓝' }] }],
+      skus: [
+        {
+          specValues: { 颜色: '红' },
+          price: '99.00',
+          stock: 10,
+          isDefault: true,
+          isVisible: true,
+          sortOrder: 0,
+        },
+        {
+          specValues: { 颜色: '蓝' },
+          price: '99.00',
+          stock: 5,
+          isDefault: false,
+          isVisible: true,
+          sortOrder: 1,
+        },
+      ],
+    });
+    const [red] = product.skus;
+    await harness.ctx.db
+      .update(productSkus)
+      .set({ sales: 3 })
+      .where(eq(productSkus.id, Number(red!.id)));
+
+    // What the editor posts after 规格模式 is switched off: the first row, its
+    // spec values emptied, still carrying the code and stock it was loaded with.
+    const edited = await service.adminProductUpdate(
+      asAdmin(),
+      { id: product.id },
+      productForm({
+        name: product.name,
+        categoryIds: product.categoryIds,
+        specMode: false,
+        specs: [],
+        skus: [
+          {
+            specValues: {},
+            skuCode: red!.skuCode,
+            price: '88.00',
+            stock: 10,
+            expectedStock: 10,
+            isDefault: true,
+            isVisible: true,
+            sortOrder: 0,
+          },
+        ],
+      }),
+    );
+
+    expect(edited.skus).toHaveLength(1);
+    expect(edited.skus[0]!.id).toBe(red!.id);
+    expect(edited.skus[0]!.skuCode).toBe(red!.skuCode);
+    expect(edited.skus[0]!.specText).toBe('');
+    expect(edited.skus[0]!.price).toBe('88.00');
+    expect(edited.skus[0]!.sales).toBe(3);
   });
 
   it('rejects missing, soft-deleted or duplicate references instead of 500ing', async () => {
@@ -1694,6 +1757,46 @@ describe('reviews', () => {
         images: [],
       }),
     ).rejects.toMatchObject({ code: 'CATALOG_REVIEW_ALREADY_WRITTEN' });
+  });
+
+  it('#112 — 匿名评价 shows a masked nickname and no avatar; unticked, the buyer’s own', async () => {
+    const product = await makeProduct(asAdmin());
+    const skuId = await firstSkuId(harness, product.id);
+    const userId = await makeUser(harness);
+    await harness.ctx.db
+      .update(users)
+      .set({ nickname: 'abc', avatarUrl: '/storage/avatar/abc.png' })
+      .where(eq(users.id, userId));
+    const first = await makeOrderLine(harness, { userId, productId: Number(product.id), skuId });
+    const second = await makeOrderLine(harness, { userId, productId: Number(product.id), skuId });
+
+    const masked = await reviews.reviewSubmit(asUser(userId), {
+      orderItemId: String(first.orderItemId),
+      productScore: 5,
+      serviceScore: 5,
+      images: [],
+    });
+    expect(['a***', '***c']).toContain(masked.authorNickname);
+    expect(masked.authorAvatarUrl).toBeNull();
+
+    const signed = await reviews.reviewSubmit(asUser(userId), {
+      orderItemId: String(second.orderItemId),
+      productScore: 5,
+      serviceScore: 5,
+      images: [],
+      anonymous: false,
+    });
+    expect(signed.authorNickname).toBe('abc');
+    expect(signed.authorAvatarUrl).toBe('/storage/avatar/abc.png');
+
+    // A later rename does not rewrite what was signed.
+    await harness.ctx.db.update(users).set({ nickname: 'xyz' }).where(eq(users.id, userId));
+    const { items } = await reviews.productReviews(
+      harness.ctx,
+      { id: product.id },
+      { rating: 'all', page: 1, pageSize: 20 },
+    );
+    expect(items.map((r) => r.authorNickname)).toContain('abc');
   });
 
   it('refuses a line belonging to somebody else without saying why', async () => {

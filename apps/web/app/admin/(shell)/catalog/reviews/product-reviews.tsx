@@ -32,12 +32,15 @@ import { Can } from '@/admin/session/can';
 import { BOOL_OPTIONS, REVIEW_RATING_OPTIONS, REVIEW_STATUS, reviewFields } from '../catalog-enums';
 
 /**
- * Who wrote it, for staff. A shopper's review carries no copy of the profile (and an imported
- * one loses it on 注销), so it is named by the account; a 同步评价 by the name it was given.
+ * Who wrote it, for staff. A shopper's review shows the name it was signed with — masked
+ * (`a***`) when written 匿名 (#112) — so staff also see the account behind it; a 同步评价 has
+ * only the name it was given, and a review whose author 注销 has neither.
  */
 function reviewAuthor(row: AdminProductReview): string {
-  if (row.authorNickname) return row.authorNickname;
-  return row.userId === null ? '匿名用户' : `用户 #${row.userId}`;
+  if (row.userId === null) return row.authorNickname || '匿名用户';
+  return row.authorNickname
+    ? `${row.authorNickname}（用户 #${row.userId}）`
+    : `用户 #${row.userId}`;
 }
 
 /** Why 内容安全 held a review for a person to look at (C09). */

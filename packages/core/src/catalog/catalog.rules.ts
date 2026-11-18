@@ -282,6 +282,23 @@ export function normaliseKeyword(raw: string): string {
 export { containsPattern as likePattern } from '../kernel/like';
 
 // ---------------------------------------------------------------------------
+// 匿名评价
+// ---------------------------------------------------------------------------
+
+/**
+ * The name an anonymous review shows (#112): the first character and *** or
+ * *** and the last, the side chosen by `keepFirst` (the caller flips a coin, so
+ * the list is not a column of 「a***」). `abc` → `a***` or `***c`. By code
+ * point, so 「小明」 and an emoji keep a whole character. A blank nickname has
+ * nothing to show and reads as 匿名用户.
+ */
+export function maskedNickname(nickname: string | null, keepFirst: boolean): string {
+  const chars = Array.from((nickname ?? '').trim());
+  if (chars.length === 0) return '匿名用户';
+  return keepFirst ? `${chars[0]}***` : `***${chars[chars.length - 1]}`;
+}
+
+// ---------------------------------------------------------------------------
 // SKU codes
 // ---------------------------------------------------------------------------
 
