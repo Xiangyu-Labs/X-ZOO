@@ -333,7 +333,7 @@ function Detail({
       icon: 'cart',
       label: '购物车',
       badge: cartCount,
-      onClick: () => void navigate({ route: 'cart', params: {} }),
+      onClick: () => navigate({ route: 'cart', params: {} }),
     },
     {
       icon: isFavorite ? 'heart-fill' : 'heart',
@@ -726,7 +726,7 @@ function Reviews({ product }: { product: Product }) {
   const first = useRouteQuery('catalog.productReviews', firstReviewsInput(product.id), {
     enabled: summary.total > 0,
   });
-  const open = () => void navigate({ route: 'productReviews', params: { productId: product.id } });
+  const open = () => navigate({ route: 'productReviews', params: { productId: product.id } });
   return (
     <Card
       title={`评价 (${summary.total})`}

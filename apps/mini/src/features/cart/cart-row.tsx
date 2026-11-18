@@ -34,7 +34,7 @@ export interface CartRowProps {
  * one that is only short of stock offers 「改为 N 件」.
  */
 export function CartRow({ item, quantity, onSelect, onQuantity, onSpec }: CartRowProps) {
-  const open = () => void navigate({ route: 'product', params: { id: item.productId } });
+  const open = () => navigate({ route: 'product', params: { id: item.productId } });
   const rescue = item.available ? null : rescueQuantity(item);
   const specs = formatSpec(item.specText);
   // A live row's rule is a lifetime limit: said up front, not first at 结算.
