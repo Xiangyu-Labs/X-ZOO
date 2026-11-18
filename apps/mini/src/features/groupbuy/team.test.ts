@@ -34,7 +34,13 @@ function view(patch: Partial<TeamView> = {}): TeamView {
   };
 }
 
-const paidLeader = { role: 'leader', status: 'joined', orderId: '70', paid: true } as const;
+const paidLeader = {
+  role: 'leader',
+  status: 'joined',
+  orderId: '70',
+  paid: true,
+  orderVisible: true,
+} as const;
 
 describe('teamPhase', () => {
   it.each([
@@ -110,6 +116,12 @@ describe('teamActions', () => {
 
   it('points a visitor who cannot join to another team', () => {
     expect(teamActions(view({ canJoin: false }), 'open')).toEqual([{ kind: 'again' }]);
+  });
+
+  it('offers no order the shopper already deleted', () => {
+    const me = { ...paidLeader, orderVisible: false };
+    expect(teamActions(view({ me }), 'failed')).toEqual([{ kind: 'again' }]);
+    expect(teamActions(view({ me }), 'settling')).toEqual([{ kind: 'refresh' }]);
   });
 
   it.each(['full', 'failed', 'refunded'] as const)(

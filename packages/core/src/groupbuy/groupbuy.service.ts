@@ -40,7 +40,7 @@ import { resolveActivityStocks } from '../kernel/stock-edit';
 import { toId, toIdOrNull } from '../kernel/ids';
 import type { Ctx } from '../kernel/context';
 import { recordEffect } from '../effects/index';
-import { cancelOrder } from '../order';
+import { cancelOrder, deletableOrders } from '../order';
 import { assertLiveTemplate } from '../shipping';
 import type { AccountCancelledListener } from '../user';
 import { groupbuyConfig } from './groupbuy.config';
@@ -693,6 +693,10 @@ export async function myGroups(
     status: query.status,
     ...pageBounds(query),
   });
+  const deletable = await deletableOrders(
+    ctx.db,
+    rows.map((row) => ({ id: row.orderId, status: row.orderStatus })),
+  );
   return {
     items: rows.map((row) => ({
       groupId: toId(row.groupId),
@@ -703,6 +707,7 @@ export async function myGroups(
       role: row.role,
       memberStatus: row.status,
       orderId: toId(row.orderId),
+      orderDeletable: deletable.has(row.orderId),
       seatsTotal: row.seatsTotal,
       seatsTaken: row.seatsTaken,
       expiresAt: row.expiresAt.toISOString(),
@@ -760,6 +765,7 @@ async function buildGroupView(ctx: Ctx, groupId: number): Promise<GroupbuyGroupV
   const paid = await repo.listPaidMembers(ctx.db, groupId);
   const userId = ctx.actor.kind === 'user' ? ctx.actor.id : null;
   const mine = userId === null ? null : await repo.findMember(ctx.db, { groupId, userId });
+  const orderVisible = mine !== null && (await repo.isOrderVisibleToOwner(ctx.db, mine.orderId));
 
   return {
     groupId: toId(groupId),
@@ -793,6 +799,7 @@ async function buildGroupView(ctx: Ctx, groupId: number): Promise<GroupbuyGroupV
             status: mine.status,
             orderId: toId(mine.orderId),
             paid: paid.some((member) => member.id === mine.id),
+            orderVisible,
           },
     // The team's own clock, not the activity's 结束时间, decides (#109); a paused or
     // deleted activity still refuses, as the order does.

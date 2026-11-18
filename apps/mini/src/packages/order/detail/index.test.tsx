@@ -1,5 +1,6 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { routeQueryKey } from '@shop/api-client/react';
 import { useSession } from '@/session/session';
 import { serveApi } from '@/test/fake-api';
 import { orderDetail, orderItem, shipment } from '@/test/order-fixtures';
@@ -108,12 +109,16 @@ describe('订单详情', () => {
       'DELETE /api/v1/orders/9001': () => ({ body: { hidden: true } }),
       'GET /api/v1/orders': () => ({ body: { items: [], total: 0, page: 1, pageSize: 10 } }),
     });
-    await renderPage(<OrderDetailPage />);
+    const { client } = await renderPage(<OrderDetailPage />);
     await screen.findByText('超时未支付');
+    const teams = routeQueryKey('groupbuy.myGroups', { query: {} });
+    client.setQueryData(teams, { items: [], total: 0, page: 1, pageSize: 20 });
 
     fireEvent.click(screen.getByRole('button', { name: '删除订单' }));
     await waitFor(() => expect(taroFake.calls.some((c) => c.api === 'navigateBack')).toBe(true));
     expect(seen.map((r) => r.key)).toContain('DELETE /api/v1/orders/9001');
+    // 我的拼团 lists the same orders.
+    expect(client.getQueryState(teams)?.isInvalidated).toBe(true);
   });
 
   it('copies the order number', async () => {

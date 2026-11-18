@@ -333,7 +333,7 @@ function Detail({
       icon: 'cart',
       label: '购物车',
       badge: cartCount,
-      onClick: () => void navigate({ route: 'cart', params: {} }),
+      onClick: () => navigate({ route: 'cart', params: {} }),
     },
     {
       icon: isFavorite ? 'heart-fill' : 'heart',
@@ -515,11 +515,18 @@ function Detail({
 
       {display.productReviews ? <Reviews product={product} /> : null}
 
-      <Card title="商品详情" className="product__description" id="product-description">
+      <Card
+        title="商品详情"
+        padded={false}
+        className="product__description"
+        id="product-description"
+      >
         {hasDescription(product.descriptionBlocks, product.descriptionHtml) ? (
           <DescriptionBlocks blocks={product.descriptionBlocks} html={product.descriptionHtml} />
         ) : (
-          <Text className="product__muted">暂无图文详情</Text>
+          <View className="product__description-empty">
+            <Text className="product__muted">暂无图文详情</Text>
+          </View>
         )}
       </Card>
 
@@ -719,7 +726,7 @@ function Reviews({ product }: { product: Product }) {
   const first = useRouteQuery('catalog.productReviews', firstReviewsInput(product.id), {
     enabled: summary.total > 0,
   });
-  const open = () => void navigate({ route: 'productReviews', params: { productId: product.id } });
+  const open = () => navigate({ route: 'productReviews', params: { productId: product.id } });
   return (
     <Card
       title={`评价 (${summary.total})`}
@@ -727,8 +734,8 @@ function Reviews({ product }: { product: Product }) {
       id="product-reviews"
       extra={
         summary.total > 0 ? (
-          <Pressable label={`好评率 ${summary.goodRate}%，查看全部评价`} role="link" onClick={open}>
-            <Text className="product__good-rate">好评率 {summary.goodRate}%</Text>
+          <Pressable label="查看全部评价" role="link" onClick={open}>
+            <Text className="product__reviews-more">查看全部</Text>
             <Icon name="chevron-right" />
           </Pressable>
         ) : undefined

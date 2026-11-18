@@ -149,7 +149,10 @@ describe('拼团进度', () => {
 
   it('lets a paid member invite: WeChat share or a poster', async () => {
     const seen = serve(
-      view({ me: { role: 'leader', status: 'joined', orderId: '70', paid: true }, canJoin: false }),
+      view({
+        me: { role: 'leader', status: 'joined', orderId: '70', paid: true, orderVisible: true },
+        canJoin: false,
+      }),
     );
     await renderPage(<GroupbuyTeamPage />);
     fireEvent.click(await screen.findByRole('button', { name: '邀请好友参团' }));
@@ -172,7 +175,7 @@ describe('拼团进度', () => {
       seatsTaken: 0,
       seatsLeft: 2,
       members: [],
-      me: { role: 'leader', status: 'joined', orderId: '70', paid: false },
+      me: { role: 'leader', status: 'joined', orderId: '70', paid: false, orderVisible: true },
       canJoin: false,
     });
     const seen = serve(unpaid, { ...unpaid, status: 'cancelled', me: null });
@@ -196,7 +199,7 @@ describe('拼团进度', () => {
     useSession.setState({ session: { status: 'idle' } });
     const leader = view({
       members: [{ nickname: '小*', avatarUrl: 'leader.png', role: 'leader', isMe: true }],
-      me: { role: 'leader', status: 'joined', orderId: '70', paid: true },
+      me: { role: 'leader', status: 'joined', orderId: '70', paid: true, orderVisible: true },
       canJoin: false,
     });
     // The server says who `me` is only to a signed-in shopper.
@@ -230,7 +233,7 @@ describe('拼团进度', () => {
       view({
         status: 'failed',
         members: [],
-        me: { role: 'leader', status: 'refunded', orderId: '70', paid: false },
+        me: { role: 'leader', status: 'refunded', orderId: '70', paid: false, orderVisible: true },
         canJoin: false,
       }),
     );
@@ -251,7 +254,7 @@ describe('拼团进度', () => {
       view({
         status: 'failed',
         members: [],
-        me: { role: 'leader', status: 'refunded', orderId: '70', paid: false },
+        me: { role: 'leader', status: 'refunded', orderId: '70', paid: false, orderVisible: true },
         canJoin: false,
       }),
     );
@@ -291,7 +294,7 @@ describe('拼团进度', () => {
         status: 'succeeded',
         seatsTaken: 2,
         seatsLeft: 0,
-        me: { role: 'member', status: 'joined', orderId: '71', paid: true },
+        me: { role: 'member', status: 'joined', orderId: '71', paid: true, orderVisible: true },
         canJoin: false,
       }),
     );

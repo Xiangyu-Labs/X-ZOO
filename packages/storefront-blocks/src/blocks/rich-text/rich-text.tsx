@@ -34,6 +34,9 @@ const BASE_STYLE: Readonly<Record<string, string>> = {
   img: 'margin:0;',
 };
 
+/** The block's gutter (24 on a 28 font), for text beside edge-to-edge pictures. */
+const TEXT_INSET = 'margin:0 0.86em;';
+
 /** Below a picture that text follows; pictures in a row touch, as a sliced long poster must. */
 const PICTURE_GAP = 'margin-bottom:0.6em;';
 
@@ -101,18 +104,65 @@ function trimBlank(nodes: readonly RichTextNode[]): RichTextNode[] {
   return nodes.slice(start, end);
 }
 
+/** Nothing but pictures, however the editor wrapped them. */
+function onlyPictures(node: RichTextNode): boolean {
+  if ('type' in node) return false;
+  if (node.name === 'img') return true;
+  if (node.name !== 'p' && node.name !== 'div') return false;
+  const children = node.children ?? [];
+  return children.some(onlyPictures) && children.every((c) => blank(c) || onlyPictures(c));
+}
+
+/** The sanitiser's image style only caps the width: a narrow picture has to be stretched. */
+function fullWidth(node: RichTextNode): RichTextNode {
+  if ('type' in node) return node;
+  if (node.name === 'img') {
+    return { ...node, attrs: { ...node.attrs, style: `${node.attrs?.style ?? ''};width:100%` } };
+  }
+  return node.children ? { ...node, children: node.children.map(fullWidth) } : node;
+}
+
+/**
+ * For content drawn with no side padding: pictures reach both edges, and each run of anything
+ * else sits in one inset wrapper, so inline runs stay on their line. Blank runs between pictures
+ * go, so a sliced long poster stays in one piece.
+ */
+function bleedPictures(nodes: readonly RichTextNode[]): RichTextNode[] {
+  const out: RichTextNode[] = [];
+  let text: RichTextNode[] = [];
+  const flush = () => {
+    if (!text.every(blank)) out.push({ name: 'div', attrs: { style: TEXT_INSET }, children: text });
+    text = [];
+  };
+  for (const node of nodes) {
+    if (onlyPictures(node)) {
+      flush();
+      out.push(fullWidth(node));
+    } else {
+      text.push(node);
+    }
+  }
+  flush();
+  return out;
+}
+
+export type RichTextBlockComponentProps = BlockProps<RichTextBlockProps> & {
+  /** Pictures edge to edge, text keeping the gutter. The caller draws no side padding. */
+  bleed?: boolean | undefined;
+};
+
 /**
  * 富文本: the operator's text, from HTML that the server sanitised on save and
  * again on serve (DECOR-017). Parsing here goes through the same allow-list
  * a third time and yields the node list `<rich-text>` draws — no HTML string
  * ever reaches the renderer.
  */
-export function RichText({ props, host }: BlockProps<RichTextBlockProps>) {
+export function RichText({ props, host, bleed = false }: RichTextBlockComponentProps) {
   const resolve = host?.resolveImage;
-  const nodes = useMemo(
-    () => styled(trimBlank(parseRichText(props.html)), resolve),
-    [props.html, resolve],
-  );
+  const nodes = useMemo(() => {
+    const drawn = styled(trimBlank(parseRichText(props.html)), resolve);
+    return bleed ? bleedPictures(drawn) : drawn;
+  }, [props.html, resolve, bleed]);
   return (
     <BlockFrame type="richText" frame={props.style} className={styles.body}>
       <NativeRichText className={styles.content} nodes={nodes} />

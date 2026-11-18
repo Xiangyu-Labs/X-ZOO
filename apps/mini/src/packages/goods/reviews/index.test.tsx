@@ -7,7 +7,7 @@ import { taroFake } from '@/test/taro-fake/taro';
 import ProductReviews from './index';
 
 describe('商品评价', () => {
-  it('shows the score, a tab per rating with counts, and previews pictures', async () => {
+  it('shows the score, 全部 and 有图 with counts, and previews pictures', async () => {
     taroFake.routerParams = { productId: '12' };
     const seen = serveApi({
       'GET /api/v1/catalog/products/12/review-summary': () => ({
@@ -22,7 +22,11 @@ describe('商品评价', () => {
 
     expect(await screen.findByText('包装很严实，质感不错。')).toBeTruthy();
     expect(screen.getByText('4.5')).toBeTruthy();
-    expect(screen.getByText('100%')).toBeTruthy();
+    expect(screen.queryByText('好评率')).toBeNull();
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent?.replace(/\d+/, ''))).toEqual([
+      '全部',
+      '有图',
+    ]);
     expect(screen.getByText('规格：黑 / M')).toBeTruthy();
     expect(screen.getByRole('img', { name: '5 星' })).toBeTruthy();
 

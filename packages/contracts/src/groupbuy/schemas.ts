@@ -433,6 +433,8 @@ export const groupbuyGroupView = z.object({
       status: groupbuyMemberStatus,
       orderId: id,
       paid: z.boolean(),
+      /** `false` once the caller deleted the order: there is nothing left to open. */
+      orderVisible: z.boolean(),
     })
     .nullable(),
   /** Whether the caller may still join. `false` for a member, a full team, a dead team. */
@@ -454,6 +456,8 @@ export const myGroupbuyItem = z.object({
   role: groupbuyMemberRole,
   memberStatus: groupbuyMemberStatus,
   orderId: id,
+  /** 删除订单 (`order.hide`) would be accepted now: finished, no after-sales in progress. */
+  orderDeletable: z.boolean(),
   seatsTotal: z.number().int().min(2),
   seatsTaken: z.number().int().min(0),
   expiresAt: instant,
@@ -669,7 +673,7 @@ export const groupbuyGroupViewExample: GroupbuyGroupView = {
       isMe: true,
     },
   ],
-  me: { role: 'member', status: 'joined', orderId: '7002', paid: true },
+  me: { role: 'member', status: 'joined', orderId: '7002', paid: true, orderVisible: true },
   canJoin: false,
 };
 
@@ -682,6 +686,7 @@ export const myGroupbuyItemExample: MyGroupbuyItem = {
   role: 'member',
   memberStatus: 'joined',
   orderId: '7002',
+  orderDeletable: false,
   seatsTotal: 3,
   seatsTaken: 2,
   expiresAt: '2026-09-23T10:00:00+08:00',

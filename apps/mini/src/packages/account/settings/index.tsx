@@ -8,7 +8,7 @@ import { confirm, toast } from '@/ui/feedback';
 import { PageShell } from '@/ui/page-shell';
 import './index.scss';
 
-const go = (route: StorefrontRoute) => () => void navigate(route);
+const go = (route: StorefrontRoute) => () => navigate(route);
 
 /**
  * 设置 (`settings`, pages.md §2.6, C18): the account's pages, the agreements, 注销账号 and

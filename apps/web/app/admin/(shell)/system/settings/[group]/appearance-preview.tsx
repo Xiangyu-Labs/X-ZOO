@@ -446,7 +446,7 @@ function ProductView({
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ fontWeight: 600 }}>评价 (128)</span>
-                  <span style={{ color: theme.primaryText }}>好评率 98%</span>
+                  <span style={{ color: theme.primaryText }}>查看全部</span>
                 </div>
                 <div style={{ marginTop: 6, color: '#FAAD14', fontSize: 10 }}>
                   {[0, 1, 2, 3, 4].map((i) => (

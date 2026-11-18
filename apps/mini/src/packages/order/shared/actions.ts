@@ -139,7 +139,13 @@ export function useOrderActions(options: OrderActionsOptions = {}): OrderActions
               await client.call('order.hide', { params: { id: orderId } });
               toast.success('订单已删除');
               markStale(queryClient, ...DECOR_PAGE_READS);
-              await invalidate('order.list', 'order.counts');
+              // 我的拼团 lists the same orders, and the team page links to this one.
+              await invalidate(
+                'order.list',
+                'order.counts',
+                'groupbuy.myGroups',
+                'groupbuy.groupDetail',
+              );
               onDeleted.current?.(orderId);
             } catch (error) {
               toast.text(messageOf(error, '删除失败，请稍后重试'));

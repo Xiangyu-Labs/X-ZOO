@@ -87,7 +87,7 @@ export function OrderCard({ order, onAction, onClick, busy, onExpire, className 
   const expiry = order.status === 'pending_payment' ? order.payExpiresAt : null;
   const expired = expiry !== null && (endedAt === expiry || Date.parse(expiry) <= serverNow());
   const actions = orderActions(order).filter((action) => !(expired && action.key === 'pay'));
-  const open = onClick ?? (() => void navigate({ route: 'order', params: { id: order.id } }));
+  const open = onClick ?? (() => navigate({ route: 'order', params: { id: order.id } }));
   const shown = order.items.slice(0, MAX_ROWS);
   const { unitPrices } = orderPrices(order);
   const paid = order.paidAmount ?? order.payableAmount;
