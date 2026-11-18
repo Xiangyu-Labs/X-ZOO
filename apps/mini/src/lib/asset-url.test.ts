@@ -23,6 +23,19 @@ describe('assetUrl', () => {
     );
   });
 
+  it('sends a full address of our own upload to the image CDN too, thumbnails included', () => {
+    setAssetOrigin('https://img.example.com');
+    const stored = `${API}/uploads/attach/2026/09/20260915/${HASH}.jpg`;
+    expect(assetUrl(stored)).toBe(
+      `https://img.example.com/uploads/attach/2026/09/20260915/${HASH}.jpg`,
+    );
+    expect(imageUrl(stored, 'small')).toBe(
+      `https://img.example.com/uploads/attach/2026/09/20260915/${HASH}.w480.jpg`,
+    );
+    setAssetOrigin(null);
+    expect(assetUrl(stored)).toBe(stored);
+  });
+
   it('keeps everything but /uploads/ on the API origin: the CDN serves nothing else', () => {
     setAssetOrigin('https://img.example.com');
     expect(assetUrl('/api/v1/health')).toBe(`${API}/api/v1/health`);

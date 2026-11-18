@@ -18,16 +18,20 @@ export function setAssetOrigin(origin: string | null | undefined): void {
  * An uploaded file's URL as the page can load it. The server hands out paths relative to the
  * shop's origin (`/uploads/…`); the mini-program has no origin of its own, so it prefixes the
  * image CDN's when one is set, else the API origin. Only `/uploads/` goes to the CDN: it serves
- * nothing else. Absolute URLs and `null` pass through.
+ * nothing else. Some older records hold the full address of our own upload
+ * (`https://<shop>/uploads/…`): those count as `/uploads/…` too. Other absolute URLs and `null`
+ * pass through.
  */
 export function assetUrl(path: string | null | undefined): string | null {
   if (!path) return null;
-  if (/^(https?:)?\/\//.test(path) || path.startsWith('data:') || path.startsWith('blob:')) {
-    return path;
+  const api = platform.api.baseUrl.replace(/\/$/, '');
+  const own = path.startsWith(`${api}/uploads/`) ? path.slice(api.length) : path;
+  if (/^(https?:)?\/\//.test(own) || own.startsWith('data:') || own.startsWith('blob:')) {
+    return own;
   }
-  const relative = path.startsWith('/') ? path : `/${path}`;
+  const relative = own.startsWith('/') ? own : `/${own}`;
   if (uploadsOrigin !== null && relative.startsWith('/uploads/')) return uploadsOrigin + relative;
-  return platform.api.baseUrl.replace(/\/$/, '') + relative;
+  return api + relative;
 }
 
 /**
