@@ -10,11 +10,11 @@ import { Skeleton } from '@/ui/skeleton';
 import { Tabs } from '@/ui/tabs';
 import './index.scss';
 
-type Rating = 'all' | 'good' | 'medium' | 'bad' | 'images';
+type Rating = 'all' | 'images';
 
 /**
- * 商品评价 (`productReviews { productId }`, pages.md §2.2): the score and 好评率, a tab per
- * rating with its count, then the reviews; pictures open in `previewImage`.
+ * 商品评价 (`productReviews { productId }`, pages.md §2.2): the score, 全部 / 有图 with their
+ * counts, then the reviews; pictures open in `previewImage`.
  */
 export default function ProductReviews() {
   const { productId = '' } = useRouteParams('productReviews');
@@ -41,9 +41,6 @@ export default function ProductReviews() {
   const s = summary.data;
   const tabs: ReadonlyArray<{ key: Rating; label: string; count?: number }> = [
     { key: 'all', label: '全部', ...(s ? { count: s.total } : {}) },
-    { key: 'good', label: '好评', ...(s ? { count: s.goodCount } : {}) },
-    { key: 'medium', label: '中评', ...(s ? { count: s.mediumCount } : {}) },
-    { key: 'bad', label: '差评', ...(s ? { count: s.badCount } : {}) },
     { key: 'images', label: '有图', ...(s ? { count: s.withImagesCount } : {}) },
   ];
 
@@ -51,21 +48,15 @@ export default function ProductReviews() {
     <PageShell title="商品评价">
       <View className="goods-reviews__summary">
         {s ? (
-          <>
-            <View className="goods-reviews__score">
-              <Text className="goods-reviews__score-value">{s.averageScore.toFixed(1)}</Text>
-              <Text className="goods-reviews__score-label">综合评分</Text>
-            </View>
-            <View className="goods-reviews__score">
-              <Text className="goods-reviews__score-value">{s.goodRate}%</Text>
-              <Text className="goods-reviews__score-label">好评率</Text>
-            </View>
-          </>
+          <View className="goods-reviews__score">
+            <Text className="goods-reviews__score-value">{s.averageScore.toFixed(1)}</Text>
+            <Text className="goods-reviews__score-label">综合评分</Text>
+          </View>
         ) : (
           <Skeleton className="goods-reviews__summary-skeleton" />
         )}
       </View>
-      <Tabs sticky scrollable={false} items={tabs} value={rating} onChange={setRating} />
+      <Tabs sticky scrollable items={tabs} value={rating} onChange={setRating} />
       <View className="goods-reviews__list">
         <InfiniteList
           key={rating}

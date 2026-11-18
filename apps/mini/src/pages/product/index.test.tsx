@@ -182,7 +182,8 @@ describe('商品详情', () => {
       ),
     ).toBeNull();
 
-    fireEvent.click(screen.getByRole('link', { name: /好评率 100%/ }));
+    expect(screen.queryByText(/好评率/)).toBeNull();
+    fireEvent.click(screen.getByRole('link', { name: '查看全部评价' }));
     expect(taroFake.calls).toContainEqual({
       api: 'navigateTo',
       args: { url: '/packages/goods/reviews/index?productId=12' },

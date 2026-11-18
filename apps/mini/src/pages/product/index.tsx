@@ -734,8 +734,8 @@ function Reviews({ product }: { product: Product }) {
       id="product-reviews"
       extra={
         summary.total > 0 ? (
-          <Pressable label={`好评率 ${summary.goodRate}%，查看全部评价`} role="link" onClick={open}>
-            <Text className="product__good-rate">好评率 {summary.goodRate}%</Text>
+          <Pressable label="查看全部评价" role="link" onClick={open}>
+            <Text className="product__reviews-more">查看全部</Text>
             <Icon name="chevron-right" />
           </Pressable>
         ) : undefined
